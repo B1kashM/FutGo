@@ -1,0 +1,26 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+venv/
+futgo_env/
+.env
+.env.*
+!.env.example
+db.sqlite3
+
+# Django generated files
+staticfiles/
+
+# Next.js
+futgo_frontend/node_modules/
+futgo_frontend/.next/
+futgo_frontend/out/
+
+# Local environment files
+futgo_frontend/.env*
+!futgo_frontend/.env.example
+
+# Editors and operating systems
+.vscode/
+.DS_Store
+Thumbs.db
