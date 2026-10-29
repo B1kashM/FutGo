@@ -1,19 +1,20 @@
+
 from django.db import models
 
 
 class Player(models.Model):
     POSITION_CHOICES = [
-    ("GK", "Goalkeeper"),
-    ("RB", "Right Back"),
-    ("RCB", "Right Centre Back"),
-    ("LCB", "Left Centre Back"),
-    ("LB", "Left Back"),
-    ("DMF", "Defensive Midfielder"),
-    ("CMF", "Central Midfielder"),
-    ("AMF", "Attacking Midfielder"),
-    ("RWF", "Right Wing Forward"),
-    ("ST", "Striker"),
-    ("LWF", "Left Wing Forward"),
+        ("GK", "Goalkeeper"),
+        ("RB", "Right Back"),
+        ("RCB", "Right Centre Back"),
+        ("LCB", "Left Centre Back"),
+        ("LB", "Left Back"),
+        ("DMF", "Defensive Midfielder"),
+        ("CMF", "Central Midfielder"),
+        ("AMF", "Attacking Midfielder"),
+        ("RWF", "Right Wing Forward"),
+        ("ST", "Striker"),
+        ("LWF", "Left Wing Forward"),
     ]
 
     CATEGORY_CHOICES = [
@@ -21,7 +22,6 @@ class Player(models.Model):
         ("PREMIER_LEAGUE", "Premier League"),
         ("LA_LIGA", "La Liga"),
         ("YOUNG_TALENTS", "Young Talents"),
-        ("TOP_5_LEAGUES", "Top 5 Leagues"),
     ]
 
     name = models.CharField(max_length=150)

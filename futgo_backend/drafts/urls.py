@@ -8,6 +8,7 @@ from .views import (
     StartDraftAPIView,
     DraftStateAPIView,
     SubmitDraftPickAPIView,
+    SimulateMatchAPIView,
 )
 
 urlpatterns = [
@@ -29,5 +30,10 @@ urlpatterns = [
         "<int:draft_id>/pick/",
         SubmitDraftPickAPIView.as_view(),
         name="draft-pick",
+    ),
+    path(
+        "<int:draft_id>/match/",
+        SimulateMatchAPIView.as_view(),
+        name="draft-match",
     ),
 ]

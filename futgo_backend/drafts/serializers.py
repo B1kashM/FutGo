@@ -5,6 +5,10 @@ from .models import Draft
 
 class CreateDraftSerializer(serializers.Serializer):
     mode = serializers.ChoiceField(choices=["LOCAL", "ONLINE"])
+    category = serializers.ChoiceField(
+    choices=Draft.CATEGORY_CHOICES,
+    default="LEGENDS",
+    )
     player1_name = serializers.CharField(max_length=50, trim_whitespace=True)
 
     player2_name = serializers.CharField(
