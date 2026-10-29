@@ -1,12 +1,15 @@
+
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
   Check,
   ChevronRight,
+  ChevronDown,
   CircleAlert,
   Crown,
   LoaderCircle,
@@ -23,7 +26,6 @@ import {
   Activity,
   Target,
   Footprints,
-  ChartNoAxesCombined,
   RefreshCw,
   Medal,
   Timer,
@@ -65,6 +67,16 @@ const DRAFT_CATEGORIES = [
 
 type CategoryValue = (typeof DRAFT_CATEGORIES)[number]["value"];
 
+type Team = {
+  id: number;
+  name: string;
+  short_name?: string | null;
+  logo_url?: string | null;
+  primary_color?: string | null;
+  secondary_color?: string | null;
+  is_active?: boolean;
+};
+
 type Player = {
   id: number;
   name: string;
@@ -89,6 +101,8 @@ type DraftState = {
   status: string;
   player1_name: string;
   player2_name: string;
+  player1_team?: Team | null;
+  player2_team?: Team | null;
   active_player_number: number;
   squad_size: number;
   category?: string;
@@ -150,6 +164,8 @@ type MatchResult = {
   winner_number: number | null;
   winner_name?: string | null;
   is_draw: boolean;
+  player1_team?: Team | null;
+  player2_team?: Team | null;
   events: MatchEvent[];
   team_statistics?: TeamStatistics[];
   player_ratings?: PlayerRating[];
@@ -221,7 +237,6 @@ function safeNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-// Returns a formatted rating, or null when the value is missing / invalid.
 function formatRating(value: unknown): string | null {
   if (value === null || value === undefined || value === "") return null;
 
@@ -250,8 +265,6 @@ function cleanName(value: unknown): string {
   return name && lower !== "undefined" && lower !== "null" ? name : "";
 }
 
-// Winner is decided by the saved scores, so a missing or odd winner_name /
-// winner_number from the API can never produce "undefined".
 function getWinnerName(match: MatchResult): string {
   const score1 = safeNumber(match.player1_score);
   const score2 = safeNumber(match.player2_score);
@@ -269,9 +282,11 @@ function getWinnerName(match: MatchResult): string {
   return cleanName(match.winner_name);
 }
 
-/* ------------------------------------------------------------------ */
-/* Match duration helpers (90 minutes, or 120 with extra time)         */
-/* ------------------------------------------------------------------ */
+function getTeamName(team?: Team | null): string {
+  return cleanName(team?.name);
+}
+
+/* Match duration helpers */
 
 const REGULAR_TIME_END = 90;
 const EXTRA_TIME_END = 120;
@@ -284,7 +299,6 @@ function isExtraTimeStartType(type: string): boolean {
   return type.includes("EXTRA_TIME_START") || type.includes("EXTRATIMESTART");
 }
 
-// EXTRA_TIME_HALFTIME contains "HALFTIME", so it must be checked first.
 function isExtraTimeBreakType(type: string): boolean {
   return type.includes("EXTRA_TIME_HALF") || type.includes("EXTRATIMEHALF");
 }
@@ -300,7 +314,6 @@ function isFullTimeType(type: string): boolean {
   return type.includes("FULL_TIME") || type.includes("FULLTIME");
 }
 
-// Extra time is detected from the saved events, not from duration_minutes.
 function getMatchEndMinute(match: MatchResult | null | undefined): number {
   if (!match || !Array.isArray(match.events)) return REGULAR_TIME_END;
 
@@ -328,9 +341,7 @@ function getMatchStatusLabel(
   return `${minute}' · Extra time`;
 }
 
-/* ------------------------------------------------------------------ */
-/* Pitch formation                                                     */
-/* ------------------------------------------------------------------ */
+/* Pitch formation */
 
 type SlotCode =
   | "GK"
@@ -418,8 +429,7 @@ function assignToFormation(players: Player[]): (Player | null)[] {
 
       const code = normalizePosition(player.position);
       const slotIndex = FORMATION.findIndex(
-        (slot, index) =>
-          slots[index] === null && matches(slot, code),
+        (slot, index) => slots[index] === null && matches(slot, code),
       );
 
       if (slotIndex >= 0) {
@@ -436,15 +446,16 @@ function assignToFormation(players: Player[]): (Player | null)[] {
   return slots;
 }
 
-/* ------------------------------------------------------------------ */
-/* Main page                                                           */
-/* ------------------------------------------------------------------ */
-
 export default function LocalDraftPage() {
   const [player1Name, setPlayer1Name] = useState("");
   const [player2Name, setPlayer2Name] = useState("");
   const [selectedCategory, setSelectedCategory] =
     useState<CategoryValue | "">("");
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [player1TeamId, setPlayer1TeamId] = useState("");
+  const [player2TeamId, setPlayer2TeamId] = useState("");
+  const [teamsLoading, setTeamsLoading] = useState(false);
+
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -454,10 +465,49 @@ export default function LocalDraftPage() {
   const [matchMinute, setMatchMinute] = useState(0);
   const [matchFinished, setMatchFinished] = useState(false);
 
-  // Horizontal timeline auto-scroll helpers (frontend only).
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const stickToEndRef = useRef(true);
   const programmaticScrollRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadTeams = async () => {
+      setTeamsLoading(true);
+
+      try {
+        const response = await apiRequest<Team[] | { teams?: Team[] }>(
+          "/api/drafts/teams/",
+        );
+
+        const items = Array.isArray(response)
+          ? response
+          : Array.isArray(response.teams)
+            ? response.teams
+            : [];
+
+        if (!cancelled) {
+          setTeams(items.filter((team) => team.is_active !== false));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? `Unable to load football clubs: ${err.message}`
+              : "Unable to load football clubs.",
+          );
+        }
+      } finally {
+        if (!cancelled) setTeamsLoading(false);
+      }
+    };
+
+    void loadTeams();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const player1Squad = useMemo(
     () => squadPlayers(draft?.squads?.player1),
@@ -467,6 +517,16 @@ export default function LocalDraftPage() {
   const player2Squad = useMemo(
     () => squadPlayers(draft?.squads?.player2),
     [draft],
+  );
+
+  const selectedTeam1 = useMemo(
+    () => teams.find((team) => String(team.id) === player1TeamId) ?? null,
+    [teams, player1TeamId],
+  );
+
+  const selectedTeam2 = useMemo(
+    () => teams.find((team) => String(team.id) === player2TeamId) ?? null,
+    [teams, player2TeamId],
   );
 
   const activePlayer = draft?.current_event?.active_player_number ?? 1;
@@ -487,9 +547,6 @@ export default function LocalDraftPage() {
   const matchEndMinute = useMemo(() => getMatchEndMinute(matchData), [matchData]);
   const extraTimePlayed = matchEndMinute > REGULAR_TIME_END;
 
-  // While the match is in progress the viewer must not learn whether extra
-  // time is coming: the bar scale stays at 90 until the clock reaches 90 and
-  // only then widens to 120 (when extra time actually begins).
   const progressEndMinute = matchFinished
     ? matchEndMinute
     : extraTimePlayed && matchMinute >= REGULAR_TIME_END
@@ -510,9 +567,6 @@ export default function LocalDraftPage() {
     [matchEvents, matchMinute, matchFinished],
   );
 
-  // The simulator does not send running scores on each event, so the live
-  // score, per-event score and goal scorers are derived from the GOAL events
-  // that the match clock has already revealed.
   const liveBoard = useMemo(() => {
     let score1 = 0;
     let score2 = 0;
@@ -552,14 +606,12 @@ export default function LocalDraftPage() {
     : liveBoard.score2;
 
   const team1Stats = useMemo(
-    () =>
-      matchData?.team_statistics?.find((item) => item.team_number === 1),
+    () => matchData?.team_statistics?.find((item) => item.team_number === 1),
     [matchData],
   );
 
   const team2Stats = useMemo(
-    () =>
-      matchData?.team_statistics?.find((item) => item.team_number === 2),
+    () => matchData?.team_statistics?.find((item) => item.team_number === 2),
     [matchData],
   );
 
@@ -577,7 +629,7 @@ export default function LocalDraftPage() {
   const motm = matchData?.man_of_the_match ?? null;
   const motmName = getPlayerName(motm);
 
-  const startDraft = async (event: React.FormEvent<HTMLFormElement>) => {
+  const startDraft = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
 
@@ -599,6 +651,16 @@ export default function LocalDraftPage() {
       return;
     }
 
+    if (!player1TeamId || !player2TeamId) {
+      setError("Choose a football club for both players.");
+      return;
+    }
+
+    if (player1TeamId === player2TeamId) {
+      setError("Both players must choose different football clubs.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -611,6 +673,8 @@ export default function LocalDraftPage() {
             player1_name: name1,
             player2_name: name2,
             category: selectedCategory,
+            player1_team_id: Number(player1TeamId),
+            player2_team_id: Number(player2TeamId),
           }),
         },
       );
@@ -628,6 +692,8 @@ export default function LocalDraftPage() {
       setDraft({
         ...state,
         category: state.category || selectedCategory,
+        player1_team: state.player1_team || selectedTeam1,
+        player2_team: state.player2_team || selectedTeam2,
       });
       setMatchData(null);
       setMatchHistory([]);
@@ -666,6 +732,8 @@ export default function LocalDraftPage() {
       setDraft({
         ...updated,
         category: updated.category || draft.category,
+        player1_team: updated.player1_team || draft.player1_team,
+        player2_team: updated.player2_team || draft.player2_team,
       });
     } catch (err) {
       setError(
@@ -692,6 +760,8 @@ export default function LocalDraftPage() {
       setDraft({
         ...updated,
         category: updated.category || draft.category,
+        player1_team: updated.player1_team || draft.player1_team,
+        player2_team: updated.player2_team || draft.player2_team,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Refresh failed.");
@@ -714,7 +784,6 @@ export default function LocalDraftPage() {
     setError("");
 
     try {
-      // A new key requests a new saved match using the same completed draft.
       const result = await apiRequest<MatchResult>(
         `/api/drafts/${draft.draft_id}/match/`,
         {
@@ -727,6 +796,8 @@ export default function LocalDraftPage() {
 
       const normalized: MatchResult = {
         ...result,
+        player1_team: result.player1_team || draft.player1_team,
+        player2_team: result.player2_team || draft.player2_team,
         events: Array.isArray(result.events)
           ? [...result.events].sort(
               (a, b) =>
@@ -775,6 +846,8 @@ export default function LocalDraftPage() {
     setPlayer1Name("");
     setPlayer2Name("");
     setSelectedCategory("");
+    setPlayer1TeamId("");
+    setPlayer2TeamId("");
     setMatchData(null);
     setMatchHistory([]);
     setMatchMinute(0);
@@ -782,9 +855,6 @@ export default function LocalDraftPage() {
     setError("");
   };
 
-  // Advance the presentation clock to the match end (90, or 120 when the
-  // saved events contain extra time). One interval at a time; it is cleared
-  // whenever the match, its end minute or its finished state changes.
   useEffect(() => {
     if (!matchData || matchFinished) return undefined;
 
@@ -795,15 +865,12 @@ export default function LocalDraftPage() {
     return () => window.clearInterval(timer);
   }, [matchData, matchFinished, matchEndMinute]);
 
-  // Finish the match once the clock reaches the end minute.
   useEffect(() => {
     if (matchData && !matchFinished && matchMinute >= matchEndMinute) {
       setMatchFinished(true);
     }
   }, [matchData, matchFinished, matchMinute, matchEndMinute]);
 
-  // Track whether the user is reading near the newest event. If they have
-  // scrolled back to older events, new events will not pull them away.
   const handleTimelineScroll = useCallback(() => {
     if (programmaticScrollRef.current) return;
 
@@ -814,13 +881,11 @@ export default function LocalDraftPage() {
     stickToEndRef.current = distanceFromEnd < 48;
   }, []);
 
-  // Auto-scroll the horizontal timeline only when events are added.
   useEffect(() => {
     const el = timelineRef.current;
     if (!el) return undefined;
 
     if (visibleEvents.length === 0) {
-      // New match / watch again: start from the beginning.
       stickToEndRef.current = true;
       programmaticScrollRef.current = false;
       el.scrollLeft = 0;
@@ -854,9 +919,7 @@ export default function LocalDraftPage() {
             </div>
 
             <div>
-              <div className="text-lg font-black tracking-[0.16em]">
-                FUTGO
-              </div>
+              <div className="text-lg font-black tracking-[0.16em]">FUTGO</div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
                 Build your legacy
               </div>
@@ -874,214 +937,175 @@ export default function LocalDraftPage() {
         </header>
 
         {!draft ? (
-          <section className="mx-auto grid min-h-[78vh] max-w-5xl items-center gap-12 py-12 lg:grid-cols-[1fr_0.9fr]">
-            <div>
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#b9f36b]/20 bg-[#b9f36b]/[0.07] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-[#b9f36b]">
-                <Users size={14} />
-                Local multiplayer
-              </div>
-
-              <h1 className="max-w-xl text-5xl font-black leading-[0.98] tracking-tight sm:text-6xl lg:text-7xl">
-                TWO FRIENDS.
-                <br />
-                <span className="text-[#b9f36b]">ONE PITCH.</span>
-                <br />
-                YOUR LEGACY.
-              </h1>
-
-              <p className="mt-6 max-w-lg text-base leading-7 text-white/55 sm:text-lg">
-                Choose your football universe, take turns drafting football
-                stars, outsmart your rival, and build a squad worthy of the
-                throne.
-              </p>
-
-              <div className="mt-9 grid max-w-lg grid-cols-3 gap-3">
-                {[
-                  { value: "2", label: "Players" },
-                  { value: "11", label: "Rounds" },
-                  { value: "22", label: "Footballers" },
-                ].map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
-                  >
-                    <div className="text-2xl font-black text-[#b9f36b]">
-                      {stat.value}
-                    </div>
-                    <div className="mt-1 text-xs text-white/45">
-                      {stat.label}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-7 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-                <Trophy size={20} className="mt-0.5 shrink-0 text-[#b9f36b]" />
-                <div>
-                  <p className="text-sm font-bold">One category. One battle.</p>
-                  <p className="mt-1 text-xs leading-5 text-white/45">
-                    Both managers draft from the same selected player pool.
-                    Choose your category before the first round.
-                  </p>
+          <section className="mx-auto max-w-6xl py-8 sm:py-12">
+            <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#b9f36b]/20 bg-[#b9f36b]/[0.07] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-[#b9f36b]">
+                  <Users size={14} /> Local multiplayer
                 </div>
+                <h1 className="text-3xl font-black tracking-tight sm:text-5xl">CREATE YOUR DRAFT</h1>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-white/45 sm:text-base">
+                  Choose a player pool, name both managers, and assign a different club to each side.
+                </p>
+              </div>
+              <div className="flex gap-2 text-xs text-white/45">
+                <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2">2 managers</span>
+                <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2">11 rounds</span>
+                <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2">22 players</span>
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-[#10151d] p-6 shadow-2xl shadow-black/30 sm:p-8">
-              <div className="mb-7 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#b9f36b]">
-                    Set up your match
-                  </p>
-                  <h2 className="mt-2 text-2xl font-black">
-                    Who&apos;s playing?
-                  </h2>
+            <form onSubmit={startDraft} className="overflow-visible rounded-[28px] border border-white/10 bg-[#10151d] shadow-2xl shadow-black/20">
+              <div className="border-b border-white/10 px-5 py-5 sm:px-7">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#b9f36b]">Step 1</p>
+                    <h2 className="mt-1 text-lg font-black sm:text-xl">Choose your player pool</h2>
+                  </div>
+                  {selectedCategory && (
+                    <span className="hidden rounded-full border border-[#b9f36b]/20 bg-[#b9f36b]/[0.06] px-3 py-1.5 text-xs font-bold text-[#b9f36b] sm:inline-flex">
+                      {DRAFT_CATEGORIES.find((category) => category.value === selectedCategory)?.label}
+                    </span>
+                  )}
                 </div>
-
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#b9f36b]/10 text-[#b9f36b]">
-                  <Shield size={24} />
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  {DRAFT_CATEGORIES.map((category) => {
+                    const isSelected = selectedCategory === category.value;
+                    return (
+                      <button
+                        key={category.value}
+                        type="button"
+                        aria-pressed={isSelected}
+                        disabled={loading}
+                        onClick={() => { setSelectedCategory(category.value); setError(""); }}
+                        className={`relative flex min-h-[82px] items-center gap-3 rounded-2xl border p-3 text-left transition sm:p-4 ${
+                          isSelected
+                            ? "border-[#b9f36b]/80 bg-[#b9f36b]/[0.09] shadow-[0_0_22px_rgba(185,243,107,0.06)]"
+                            : "border-white/10 bg-[#080b10]/70 hover:border-white/25 hover:bg-white/[0.03]"
+                        } disabled:opacity-60`}
+                      >
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-2xl">{category.icon}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className={`block text-sm font-bold leading-tight ${isSelected ? "text-[#b9f36b]" : "text-white/85"}`}>{category.label}</span>
+                          <span className="mt-1 block text-[10px] leading-4 text-white/40 sm:text-xs">{category.description}</span>
+                        </span>
+                        {isSelected && <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#b9f36b] text-black"><Check size={12} strokeWidth={3} /></span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <form onSubmit={startDraft} className="space-y-5">
-                <fieldset>
-                  <legend className="mb-3 block text-sm font-semibold text-white/75">
-                    Choose player category
-                    <span className="ml-1 text-[#b9f36b]">*</span>
-                  </legend>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    {DRAFT_CATEGORIES.map((category) => {
-                      const isSelected = selectedCategory === category.value;
-
-                      return (
-                        <button
-                          key={category.value}
-                          type="button"
-                          aria-pressed={isSelected}
-                          disabled={loading}
-                          onClick={() => {
-                            setSelectedCategory(category.value);
-                            setError("");
-                          }}
-                          className={`relative min-h-[112px] rounded-2xl border p-3 text-left transition duration-200 sm:p-4 ${
-                            isSelected
-                              ? "border-[#b9f36b] bg-[#b9f36b]/[0.09] shadow-[0_0_22px_rgba(185,243,107,0.07)]"
-                              : "border-white/10 bg-[#080b10] hover:border-white/25 hover:bg-white/[0.03]"
-                          } disabled:cursor-not-allowed disabled:opacity-60`}
-                        >
-                          {isSelected && (
-                            <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-[#b9f36b] text-black">
-                              <Check size={12} strokeWidth={3} />
-                            </span>
-                          )}
-
-                          <span className="mb-3 block text-2xl">
-                            {category.icon}
-                          </span>
-
-                          <span
-                            className={`block pr-4 text-sm font-bold leading-tight ${
-                              isSelected ? "text-[#b9f36b]" : "text-white/85"
-                            }`}
-                          >
-                            {category.label}
-                          </span>
-
-                          <span className="mt-1 block text-[10px] leading-4 text-white/40 sm:text-xs">
-                            {category.description}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {!selectedCategory && (
-                    <p className="mt-2 text-xs text-white/35">
-                      Select one category to continue.
-                    </p>
-                  )}
-                </fieldset>
-
-                <div className="h-px bg-white/10" />
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-semibold text-white/75">
-                    Player 1
-                  </span>
-                  <input
-                    value={player1Name}
-                    onChange={(event) => setPlayer1Name(event.target.value)}
-                    placeholder="Enter first player's name"
-                    maxLength={40}
-                    required
-                    className="w-full rounded-xl border border-white/10 bg-[#080b10] px-4 py-4 text-white outline-none transition placeholder:text-white/25 focus:border-[#b9f36b]/70 focus:ring-2 focus:ring-[#b9f36b]/10"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-semibold text-white/75">
-                    Player 2
-                  </span>
-                  <input
-                    value={player2Name}
-                    onChange={(event) => setPlayer2Name(event.target.value)}
-                    placeholder="Enter second player's name"
-                    maxLength={40}
-                    required
-                    className="w-full rounded-xl border border-white/10 bg-[#080b10] px-4 py-4 text-white outline-none transition placeholder:text-white/25 focus:border-[#b9f36b]/70 focus:ring-2 focus:ring-[#b9f36b]/10"
-                  />
-                </label>
-
-                {selectedCategory && (
-                  <div className="flex items-center gap-3 rounded-xl border border-[#b9f36b]/20 bg-[#b9f36b]/[0.05] px-4 py-3">
-                    <Sparkles size={17} className="shrink-0 text-[#b9f36b]" />
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">
-                        Selected player pool
-                      </p>
-                      <p className="mt-0.5 truncate text-sm font-bold text-[#b9f36b]">
-                        {
-                          DRAFT_CATEGORIES.find(
-                            (category) => category.value === selectedCategory,
-                          )?.label
-                        }
-                      </p>
+              <div className="grid gap-0 lg:grid-cols-2">
+                <div className="border-b border-white/10 p-5 sm:p-7 lg:border-b-0 lg:border-r">
+                  <div className="mb-5 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#b9f36b]/10 font-black text-[#b9f36b]">01</div>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/40">Manager one</p>
+                      <h3 className="text-lg font-black">Home side</h3>
                     </div>
                   </div>
-                )}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block min-w-0">
+                      <span className="mb-2 block text-xs font-semibold text-white/60">Player name</span>
+                      <input
+                        value={player1Name}
+                        onChange={(event) => setPlayer1Name(event.target.value)}
+                        placeholder="Enter first player's name"
+                        maxLength={40}
+                        required
+                        disabled={loading}
+                        className="w-full rounded-xl border border-white/10 bg-[#080b10] px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#b9f36b]/70 focus:ring-2 focus:ring-[#b9f36b]/10 disabled:opacity-60"
+                      />
+                    </label>
+                    <label className="block min-w-0">
+                      <span className="mb-2 block text-xs font-semibold text-white/60">Football club</span>
+                      <TeamDropdown
+                        teams={teams}
+                        value={player1TeamId}
+                        placeholder={teamsLoading ? "Loading clubs..." : "Select a team"}
+                        disabled={teamsLoading || loading}
+                        onChange={(value) => { setPlayer1TeamId(value); setError(""); }}
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-4 min-h-[72px]">
+                    {selectedTeam1 ? <TeamBadge team={selectedTeam1} /> : (
+                      <div className="flex h-[72px] items-center gap-3 rounded-xl border border-dashed border-white/10 px-4 text-sm text-white/30">
+                        <Shield size={20} /> Your selected club will appear here
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-                {error && <ErrorMessage message={error} />}
+                <div className="p-5 sm:p-7">
+                  <div className="mb-5 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-400/10 font-black text-sky-300">02</div>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/40">Manager two</p>
+                      <h3 className="text-lg font-black">Away side</h3>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block min-w-0">
+                      <span className="mb-2 block text-xs font-semibold text-white/60">Player name</span>
+                      <input
+                        value={player2Name}
+                        onChange={(event) => setPlayer2Name(event.target.value)}
+                        placeholder="Enter second player's name"
+                        maxLength={40}
+                        required
+                        disabled={loading}
+                        className="w-full rounded-xl border border-white/10 bg-[#080b10] px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#b9f36b]/70 focus:ring-2 focus:ring-[#b9f36b]/10 disabled:opacity-60"
+                      />
+                    </label>
+                    <label className="block min-w-0">
+                      <span className="mb-2 block text-xs font-semibold text-white/60">Football club</span>
+                      <TeamDropdown
+                        teams={teams}
+                        value={player2TeamId}
+                        placeholder={teamsLoading ? "Loading clubs..." : "Select a different team"}
+                        disabled={teamsLoading || loading}
+                        excludedId={player1TeamId}
+                        onChange={(value) => { setPlayer2TeamId(value); setError(""); }}
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-4 min-h-[72px]">
+                    {selectedTeam2 ? <TeamBadge team={selectedTeam2} /> : (
+                      <div className="flex h-[72px] items-center gap-3 rounded-xl border border-dashed border-white/10 px-4 text-sm text-white/30">
+                        <Shield size={20} /> Choose a different club for the away side
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
+              <div className="flex flex-col gap-4 border-t border-white/10 bg-[#0b0f15] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+                <div className="min-w-0">
+                  {selectedCategory && player1TeamId && player2TeamId && player1TeamId !== player2TeamId ? (
+                    <div className="flex items-center gap-2 text-sm font-semibold text-white/75">
+                      <Check size={17} className="shrink-0 text-[#b9f36b]" />
+                      <span className="truncate">{selectedTeam1?.name} <span className="text-white/30">vs</span> {selectedTeam2?.name}</span>
+                    </div>
+                  ) : (
+                    <p className="text-xs leading-5 text-white/40">Select a category, enter both names, and choose two different clubs.</p>
+                  )}
+                  {teams.length === 0 && !teamsLoading && <p className="mt-1 text-xs text-amber-300">No clubs found. Add clubs to the backend first.</p>}
+                </div>
                 <button
                   type="submit"
-                  disabled={loading || !selectedCategory}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#b9f36b] px-5 py-4 font-black text-[#080b10] transition hover:bg-[#c9ff83] disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={loading || teamsLoading || !selectedCategory || !player1Name.trim() || !player2Name.trim() || !player1TeamId || !player2TeamId || player1TeamId === player2TeamId || player1Name.trim().toLowerCase() === player2Name.trim().toLowerCase()}
+                  className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#b9f36b] px-7 py-4 font-black text-[#080b10] transition hover:bg-[#c9ff83] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56"
                 >
-                  {loading ? (
-                    <>
-                      <LoaderCircle size={19} className="animate-spin" />
-                      Setting up draft...
-                    </>
-                  ) : (
-                    <>
-                      Start drafting
-                      <ArrowRight size={19} />
-                    </>
-                  )}
+                  {loading ? <><LoaderCircle size={19} className="animate-spin" /> Setting up draft...</> : <>Start drafting <ArrowRight size={19} /></>}
                 </button>
-              </form>
-
-              <p className="mt-5 text-center text-xs leading-5 text-white/35">
-                One device, two managers. Hand the screen over when it&apos;s
-                your opponent&apos;s turn.
-              </p>
-            </div>
+              </div>
+              {error && <div className="p-5 sm:px-7"><ErrorMessage message={error} /></div>}
+            </form>
           </section>
         ) : matchData ? (
-          /* ---------------------------------------------------------- */
-          /* MATCH CENTRE                                               */
-          /* ---------------------------------------------------------- */
+          /* MATCH CENTRE */
           <section className="mx-auto max-w-7xl py-8 sm:py-12">
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
               <div>
@@ -1089,11 +1113,9 @@ export default function LocalDraftPage() {
                   <Activity size={15} />
                   FutGo match centre
                 </div>
-
                 <h1 className="text-3xl font-black sm:text-5xl">
                   {matchFinished ? "FULL TIME." : "THE SHOWDOWN."}
                 </h1>
-
                 <p className="mt-3 text-sm text-white/45">
                   {matchFinished
                     ? "The final whistle has blown. Explore the match report below."
@@ -1113,7 +1135,6 @@ export default function LocalDraftPage() {
                   <RotateCcw size={16} />
                   Watch again
                 </button>
-
                 <button
                   onClick={startMatch}
                   disabled={loading || !matchFinished}
@@ -1135,22 +1156,17 @@ export default function LocalDraftPage() {
               </div>
             )}
 
-            {/* Scoreboard */}
             <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[#10151d] p-5 sm:p-10">
               <div className="absolute left-1/2 top-0 h-40 w-72 -translate-x-1/2 rounded-full bg-[#b9f36b]/[0.07] blur-3xl" />
 
               <div className="relative grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-8">
                 <div className="min-w-0 text-center">
-                  <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#b9f36b]/25 bg-[#b9f36b]/10 text-xl font-black text-[#b9f36b] sm:h-20 sm:w-20 sm:text-3xl">
-                    {(matchData.player1_name || draft.player1_name || "P")
-                      .slice(0, 1)
-                      .toUpperCase()}
-                  </div>
-                  <h2 className="break-words text-sm font-black sm:text-2xl">
+                  <TeamBadge team={matchData.player1_team || draft.player1_team} compact />
+                  <h2 className="mt-3 break-words text-sm font-black sm:text-2xl">
                     {matchData.player1_name || draft.player1_name || "Player 1"}
                   </h2>
                   <p className="mt-1 text-[10px] uppercase tracking-wider text-white/35 sm:text-xs">
-                    Home team
+                    {getTeamName(matchData.player1_team || draft.player1_team) || "Home team"}
                   </p>
                 </div>
 
@@ -1159,14 +1175,11 @@ export default function LocalDraftPage() {
                     <span className="text-4xl font-black tabular-nums sm:text-7xl">
                       {liveScore1}
                     </span>
-                    <span className="text-xl font-bold text-white/25 sm:text-4xl">
-                      –
-                    </span>
+                    <span className="text-xl font-bold text-white/25 sm:text-4xl">–</span>
                     <span className="text-4xl font-black tabular-nums sm:text-7xl">
                       {liveScore2}
                     </span>
                   </div>
-
                   <div
                     className={`mx-auto mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider sm:text-xs ${
                       matchFinished
@@ -1177,62 +1190,37 @@ export default function LocalDraftPage() {
                     {!matchFinished && (
                       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#b9f36b]" />
                     )}
-                    {getMatchStatusLabel(
-                      matchMinute,
-                      matchFinished,
-                      extraTimePlayed,
-                    )}
+                    {getMatchStatusLabel(matchMinute, matchFinished, extraTimePlayed)}
                   </div>
                 </div>
 
                 <div className="min-w-0 text-center">
-                  <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-xl font-black text-white/75 sm:h-20 sm:w-20 sm:text-3xl">
-                    {(matchData.player2_name || draft.player2_name || "P")
-                      .slice(0, 1)
-                      .toUpperCase()}
-                  </div>
-                  <h2 className="break-words text-sm font-black sm:text-2xl">
+                  <TeamBadge team={matchData.player2_team || draft.player2_team} compact />
+                  <h2 className="mt-3 break-words text-sm font-black sm:text-2xl">
                     {matchData.player2_name || draft.player2_name || "Player 2"}
                   </h2>
                   <p className="mt-1 text-[10px] uppercase tracking-wider text-white/35 sm:text-xs">
-                    Away team
+                    {getTeamName(matchData.player2_team || draft.player2_team) || "Away team"}
                   </p>
                 </div>
               </div>
 
-              {(liveBoard.scorers1.length > 0 ||
-                liveBoard.scorers2.length > 0) && (
+              {(liveBoard.scorers1.length > 0 || liveBoard.scorers2.length > 0) && (
                 <div className="relative mt-6 grid grid-cols-[1fr_auto_1fr] items-start gap-3 border-t border-white/5 pt-4 sm:gap-8">
                   <ul className="space-y-1 text-right">
                     {liveBoard.scorers1.map((goal, index) => (
-                      <li
-                        key={`home-goal-${index}`}
-                        className="text-xs text-white/70 sm:text-sm"
-                      >
-                        <span className="font-bold text-white/85">
-                          {goal.name}
-                        </span>{" "}
-                        <span className="font-black tabular-nums text-[#b9f36b]">
-                          {goal.minute}&apos;
-                        </span>
+                      <li key={`home-goal-${index}`} className="text-xs text-white/70 sm:text-sm">
+                        <span className="font-bold text-white/85">{goal.name}</span>{" "}
+                        <span className="font-black tabular-nums text-[#b9f36b]">{goal.minute}&apos;</span>
                       </li>
                     ))}
                   </ul>
-
                   <Goal size={16} className="mt-0.5 text-[#b9f36b]" />
-
                   <ul className="space-y-1 text-left">
                     {liveBoard.scorers2.map((goal, index) => (
-                      <li
-                        key={`away-goal-${index}`}
-                        className="text-xs text-white/70 sm:text-sm"
-                      >
-                        <span className="font-black tabular-nums text-[#b9f36b]">
-                          {goal.minute}&apos;
-                        </span>{" "}
-                        <span className="font-bold text-white/85">
-                          {goal.name}
-                        </span>
+                      <li key={`away-goal-${index}`} className="text-xs text-white/70 sm:text-sm">
+                        <span className="font-black tabular-nums text-[#b9f36b]">{goal.minute}&apos;</span>{" "}
+                        <span className="font-bold text-white/85">{goal.name}</span>
                       </li>
                     ))}
                   </ul>
@@ -1246,12 +1234,9 @@ export default function LocalDraftPage() {
                     {matchFinished ? "Match completed" : "Match clock"}
                   </span>
                   <span className="font-bold tabular-nums text-[#b9f36b]">
-                    {matchFinished
-                      ? `${matchMinute}' / ${matchEndMinute}'`
-                      : `${matchMinute}'`}
+                    {matchFinished ? `${matchMinute}' / ${matchEndMinute}'` : `${matchMinute}'`}
                   </span>
                 </div>
-
                 <div className="relative h-2 overflow-hidden rounded-full bg-white/10">
                   <div
                     className="h-full rounded-full bg-[#b9f36b] transition-all duration-300"
@@ -1260,26 +1245,18 @@ export default function LocalDraftPage() {
                     }}
                   />
                 </div>
-
                 {!matchFinished ? null : extraTimePlayed ? (
                   <div className="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-[10px] text-white/25">
-                    <span>Kick-off</span>
-                    <span>45&apos; HT</span>
-                    <span>90&apos; ET starts</span>
-                    <span>105&apos; ET break</span>
-                    <span>120&apos; FT</span>
+                    <span>Kick-off</span><span>45&apos; HT</span><span>90&apos; ET starts</span><span>105&apos; ET break</span><span>120&apos; FT</span>
                   </div>
                 ) : (
                   <div className="mt-2 flex justify-between text-[10px] text-white/25">
-                    <span>Kick-off</span>
-                    <span>45&apos; HT</span>
-                    <span>90&apos; FT</span>
+                    <span>Kick-off</span><span>45&apos; HT</span><span>90&apos; FT</span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Match report cards */}
             {matchFinished && (
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="rounded-2xl border border-white/10 bg-[#10151d] p-5">
@@ -1290,16 +1267,14 @@ export default function LocalDraftPage() {
                     <div>
                       <p className="text-xs text-white/40">Final result</p>
                       <p className="mt-1 font-black">
-                        {matchData.is_draw ||
-                        matchData.player1_score === matchData.player2_score
+                        {matchData.is_draw || matchData.player1_score === matchData.player2_score
                           ? "It's a draw"
                           : `${getWinnerName(matchData)} wins`}
                       </p>
                     </div>
                   </div>
                   <p className="mt-4 text-sm text-white/45">
-                    {matchData.player1_name} {matchData.player1_score} –{" "}
-                    {matchData.player2_score} {matchData.player2_name}
+                    {matchData.player1_name} {matchData.player1_score} – {matchData.player2_score} {matchData.player2_name}
                   </p>
                 </div>
 
@@ -1310,15 +1285,12 @@ export default function LocalDraftPage() {
                     </div>
                     <div>
                       <p className="text-xs text-white/40">Man of the Match</p>
-                      <p className="mt-1 font-black">
-                        {motmName || "Not provided"}
-                      </p>
+                      <p className="mt-1 font-black">{motmName || "Not provided"}</p>
                     </div>
                   </div>
                   {motm && typeof motm === "object" && "rating" in motm && (
                     <p className="mt-3 text-sm text-[#b9f36b]">
-                      Rating: {safeNumber((motm as Player & { rating?: number }).rating).toFixed(1)}
-                      /10
+                      Rating: {safeNumber((motm as Player & { rating?: number }).rating).toFixed(1)}/10
                     </p>
                   )}
                 </div>
@@ -1342,13 +1314,10 @@ export default function LocalDraftPage() {
               </div>
             )}
 
-            {/* Commentary: horizontal, auto-scrolling timeline */}
             <div className="mt-6 rounded-[24px] border border-white/10 bg-[#10151d] p-5 sm:p-7">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#b9f36b]">
-                    Live commentary
-                  </p>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#b9f36b]">Live commentary</p>
                   <h2 className="mt-2 text-xl font-black">Match timeline</h2>
                 </div>
                 <Goal className="text-[#b9f36b]" size={22} />
@@ -1368,15 +1337,13 @@ export default function LocalDraftPage() {
                 {visibleEvents.map((event, eventIndex) => {
                   const type = (event.event_type || "").toUpperCase();
                   const isGoal = type === "GOAL";
-                  const isCard =
-                    type.includes("CARD") || type.includes("BOOKING");
+                  const isCard = type.includes("CARD") || type.includes("BOOKING");
                   const isExtraTimeStart = isExtraTimeStartType(type);
                   const isExtraTimeBreak = isExtraTimeBreakType(type);
                   const isHalfTime = isHalfTimeType(type);
                   const isFullTime = isFullTimeType(type);
                   const playerName = getPlayerName(event.player);
                   const secondaryName = getPlayerName(event.secondary_player);
-
                   const title = isGoal
                     ? "GOAL!"
                     : isExtraTimeStart
@@ -1391,9 +1358,9 @@ export default function LocalDraftPage() {
 
                   const teamName =
                     event.team_number === 1
-                      ? matchData.player1_name
+                      ? `${matchData.player1_name}${getTeamName(matchData.player1_team || draft.player1_team) ? ` · ${getTeamName(matchData.player1_team || draft.player1_team)}` : ""}`
                       : event.team_number === 2
-                        ? matchData.player2_name
+                        ? `${matchData.player2_name}${getTeamName(matchData.player2_team || draft.player2_team) ? ` · ${getTeamName(matchData.player2_team || draft.player2_team)}` : ""}`
                         : "";
 
                   return (
@@ -1403,12 +1370,7 @@ export default function LocalDraftPage() {
                       eventType={type}
                       title={title}
                       description={event.commentary || title}
-                      highlight={
-                        isGoal ||
-                        isFullTime ||
-                        isExtraTimeStart ||
-                        isExtraTimeBreak
-                      }
+                      highlight={isGoal || isFullTime || isExtraTimeStart || isExtraTimeBreak}
                       warning={isCard}
                       teamName={teamName}
                       playerName={playerName}
@@ -1427,17 +1389,12 @@ export default function LocalDraftPage() {
               )}
             </div>
 
-            {/* Match statistics: full width, shown only after full time */}
             {matchFinished && (
               <div className="mt-5 rounded-[24px] border border-white/10 bg-[#10151d] p-5 sm:p-7">
                 <div className="mb-5 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/40">
-                      Match statistics
-                    </p>
-                    <h2 className="mt-2 text-xl font-black">
-                      Team comparison
-                    </h2>
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/40">Match statistics</p>
+                    <h2 className="mt-2 text-xl font-black">Team comparison</h2>
                   </div>
                   <BarChart3 size={22} className="text-[#b9f36b]" />
                 </div>
@@ -1445,62 +1402,25 @@ export default function LocalDraftPage() {
                 <div className="mb-5 grid grid-cols-3 items-center gap-2 rounded-xl bg-white/[0.03] p-3 text-center">
                   <div>
                     <p className="text-[10px] text-white/35">HOME</p>
-                    <p className="mt-1 truncate text-sm font-bold">
-                      {matchData.player1_name}
-                    </p>
+                    <p className="mt-1 truncate text-sm font-bold">{getTeamName(matchData.player1_team || draft.player1_team) || matchData.player1_name}</p>
                   </div>
                   <div className="text-xs font-bold text-white/25">VS</div>
                   <div>
                     <p className="text-[10px] text-white/35">AWAY</p>
-                    <p className="mt-1 truncate text-sm font-bold">
-                      {matchData.player2_name}
-                    </p>
+                    <p className="mt-1 truncate text-sm font-bold">{getTeamName(matchData.player2_team || draft.player2_team) || matchData.player2_name}</p>
                   </div>
                 </div>
 
                 {team1Stats && team2Stats ? (
-                  <div className="grid gap-x-12 gap-y-5 grid-cols-1">
-                    <StatRow
-                      label="Possession"
-                      left={safeNumber(team1Stats.possession)}
-                      right={safeNumber(team2Stats.possession)}
-                      suffix="%"
-                    />
-                    <StatRow
-                      label="Shots"
-                      left={safeNumber(team1Stats.shots)}
-                      right={safeNumber(team2Stats.shots)}
-                    />
-                    <StatRow
-                      label="Shots on target"
-                      left={safeNumber(team1Stats.shots_on_target)}
-                      right={safeNumber(team2Stats.shots_on_target)}
-                    />
-                    <StatRow
-                      label="Goals"
-                      left={safeNumber(team1Stats.goals)}
-                      right={safeNumber(team2Stats.goals)}
-                    />
-                    <StatRow
-                      label="Fouls"
-                      left={safeNumber(team1Stats.fouls)}
-                      right={safeNumber(team2Stats.fouls)}
-                    />
-                    <StatRow
-                      label="Corners"
-                      left={safeNumber(team1Stats.corners)}
-                      right={safeNumber(team2Stats.corners)}
-                    />
-                    <StatRow
-                      label="Yellow cards"
-                      left={safeNumber(team1Stats.yellow_cards)}
-                      right={safeNumber(team2Stats.yellow_cards)}
-                    />
-                    <StatRow
-                      label="Red cards"
-                      left={safeNumber(team1Stats.red_cards)}
-                      right={safeNumber(team2Stats.red_cards)}
-                    />
+                  <div className="grid grid-cols-1 gap-x-12 gap-y-5">
+                    <StatRow label="Possession" left={safeNumber(team1Stats.possession)} right={safeNumber(team2Stats.possession)} suffix="%" />
+                    <StatRow label="Shots" left={safeNumber(team1Stats.shots)} right={safeNumber(team2Stats.shots)} />
+                    <StatRow label="Shots on target" left={safeNumber(team1Stats.shots_on_target)} right={safeNumber(team2Stats.shots_on_target)} />
+                    <StatRow label="Goals" left={safeNumber(team1Stats.goals)} right={safeNumber(team2Stats.goals)} />
+                    <StatRow label="Fouls" left={safeNumber(team1Stats.fouls)} right={safeNumber(team2Stats.fouls)} />
+                    <StatRow label="Corners" left={safeNumber(team1Stats.corners)} right={safeNumber(team2Stats.corners)} />
+                    <StatRow label="Yellow cards" left={safeNumber(team1Stats.yellow_cards)} right={safeNumber(team2Stats.yellow_cards)} />
+                    <StatRow label="Red cards" left={safeNumber(team1Stats.red_cards)} right={safeNumber(team2Stats.red_cards)} />
                   </div>
                 ) : (
                   <EmptyData message="Team statistics were not returned by the backend. Check the match API response." />
@@ -1512,7 +1432,6 @@ export default function LocalDraftPage() {
               </div>
             )}
 
-            {/* Team lineups (ratings appear on the cards after full time) */}
             <div className="mt-8">
               <SectionHeading
                 eyebrow="Starting elevens"
@@ -1520,19 +1439,19 @@ export default function LocalDraftPage() {
                 icon={<Users size={21} />}
                 description="Your original drafted squads remain unchanged for every rematch. Player ratings appear on each card at full time."
               />
-
               <div className="mt-5 grid gap-5 xl:grid-cols-2">
                 <SquadPitch
                   name={matchData.player1_name}
+                  team={matchData.player1_team || draft.player1_team}
                   number={1}
                   players={player1Squad}
                   complete
                   ratings={team1Ratings}
                   showRatings={matchFinished}
                 />
-
                 <SquadPitch
                   name={matchData.player2_name}
+                  team={matchData.player2_team || draft.player2_team}
                   number={2}
                   players={player2Squad}
                   complete
@@ -1542,7 +1461,6 @@ export default function LocalDraftPage() {
               </div>
             </div>
 
-            {/* Match history and rematches */}
             {matchHistory.length > 1 && (
               <div className="mt-8 rounded-[24px] border border-white/10 bg-[#10151d] p-5 sm:p-7">
                 <SectionHeading
@@ -1551,7 +1469,6 @@ export default function LocalDraftPage() {
                   icon={<Clock3 size={21} />}
                   description="Switch between results from this page session."
                 />
-
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {matchHistory.map((item, index) => (
                     <button
@@ -1568,27 +1485,16 @@ export default function LocalDraftPage() {
                           Match {matchHistory.length - index}
                         </span>
                         {item.match_id === matchData.match_id && (
-                          <span className="rounded-full bg-[#b9f36b]/10 px-2 py-1 text-[10px] font-bold text-[#b9f36b]">
-                            Viewing
-                          </span>
+                          <span className="rounded-full bg-[#b9f36b]/10 px-2 py-1 text-[10px] font-bold text-[#b9f36b]">Viewing</span>
                         )}
                       </div>
                       <div className="mt-3 flex items-center justify-between gap-3">
-                        <span className="min-w-0 truncate text-sm font-bold">
-                          {item.player1_name}
-                        </span>
-                        <span className="shrink-0 text-xl font-black tabular-nums">
-                          {item.player1_score} – {item.player2_score}
-                        </span>
-                        <span className="min-w-0 truncate text-right text-sm font-bold">
-                          {item.player2_name}
-                        </span>
+                        <span className="min-w-0 truncate text-sm font-bold">{item.player1_name}</span>
+                        <span className="shrink-0 text-xl font-black tabular-nums">{item.player1_score} – {item.player2_score}</span>
+                        <span className="min-w-0 truncate text-right text-sm font-bold">{item.player2_name}</span>
                       </div>
                       <p className="mt-3 text-xs text-white/35">
-                        {item.is_draw ||
-                        item.player1_score === item.player2_score
-                          ? "Draw"
-                          : `${getWinnerName(item)} won`}
+                        {item.is_draw || item.player1_score === item.player2_score ? "Draw" : `${getWinnerName(item)} won`}
                       </p>
                     </button>
                   ))}
@@ -1603,14 +1509,9 @@ export default function LocalDraftPage() {
                   disabled={loading}
                   className="flex items-center gap-2 rounded-xl bg-[#b9f36b] px-6 py-4 font-black text-black transition hover:bg-[#c9ff83] disabled:opacity-50"
                 >
-                  {loading ? (
-                    <LoaderCircle size={18} className="animate-spin" />
-                  ) : (
-                    <RefreshCw size={17} />
-                  )}
+                  {loading ? <LoaderCircle size={18} className="animate-spin" /> : <RefreshCw size={17} />}
                   Play rematch · Same squads
                 </button>
-
                 <button
                   onClick={resetDraft}
                   disabled={loading}
@@ -1619,11 +1520,7 @@ export default function LocalDraftPage() {
                   <RotateCcw size={17} />
                   Draft new teams
                 </button>
-
-                <Link
-                  href="/"
-                  className="rounded-xl border border-white/15 px-6 py-4 font-semibold text-white/75 transition hover:bg-white/5"
-                >
+                <Link href="/" className="rounded-xl border border-white/15 px-6 py-4 font-semibold text-white/75 transition hover:bg-white/5">
                   Back home
                 </Link>
               </div>
@@ -1636,28 +1533,17 @@ export default function LocalDraftPage() {
             )}
           </section>
         ) : completed ? (
-          /* ---------------------------------------------------------- */
-          /* DRAFT COMPLETE                                             */
-          /* ---------------------------------------------------------- */
+          /* DRAFT COMPLETE */
           <section className="mx-auto max-w-6xl py-12 sm:py-16">
             <div className="mx-auto mb-10 max-w-2xl text-center">
               <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#b9f36b]/10 text-[#b9f36b]">
                 <Crown size={32} />
               </div>
-
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#b9f36b]">
-                Draft complete
-              </p>
-
-              <h1 className="mt-3 text-4xl font-black sm:text-6xl">
-                SQUADS LOCKED.
-              </h1>
-
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#b9f36b]">Draft complete</p>
+              <h1 className="mt-3 text-4xl font-black sm:text-6xl">SQUADS LOCKED.</h1>
               <p className="mt-4 text-white/50">
-                {draft.player1_name} and {draft.player2_name} have drafted
-                their teams. Ready to see who wins on the pitch?
+                {draft.player1_name} and {draft.player2_name} have drafted their teams. Ready to see who wins on the pitch?
               </p>
-
               <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#b9f36b]/20 bg-[#b9f36b]/[0.06] px-4 py-2 text-sm font-semibold text-[#b9f36b]">
                 <Trophy size={15} />
                 {categoryLabel}
@@ -1665,18 +1551,8 @@ export default function LocalDraftPage() {
             </div>
 
             <div className="grid gap-5 lg:grid-cols-2">
-              <SquadPitch
-                name={draft.player1_name}
-                number={1}
-                players={player1Squad}
-                complete
-              />
-              <SquadPitch
-                name={draft.player2_name}
-                number={2}
-                players={player2Squad}
-                complete
-              />
+              <SquadPitch name={draft.player1_name} team={draft.player1_team} number={1} players={player1Squad} complete />
+              <SquadPitch name={draft.player2_name} team={draft.player2_team} number={2} players={player2Squad} complete />
             </div>
 
             {error && (
@@ -1688,27 +1564,15 @@ export default function LocalDraftPage() {
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <button
                 onClick={startMatch}
-                disabled={
-                  loading ||
-                  player1Squad.length !== 11 ||
-                  player2Squad.length !== 11
-                }
+                disabled={loading || player1Squad.length !== 11 || player2Squad.length !== 11}
                 className="flex min-w-48 items-center justify-center gap-2 rounded-xl bg-[#b9f36b] px-7 py-4 font-black text-black transition hover:bg-[#c9ff83] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? (
-                  <>
-                    <LoaderCircle size={19} className="animate-spin" />
-                    Preparing match...
-                  </>
+                  <><LoaderCircle size={19} className="animate-spin" />Preparing match...</>
                 ) : (
-                  <>
-                    <Play size={18} fill="currentColor" />
-                    Start Match
-                    <ArrowRight size={18} />
-                  </>
+                  <><Play size={18} fill="currentColor" />Start Match<ArrowRight size={18} /></>
                 )}
               </button>
-
               <button
                 onClick={resetDraft}
                 disabled={loading}
@@ -1717,11 +1581,7 @@ export default function LocalDraftPage() {
                 <RotateCcw size={17} />
                 Play another draft
               </button>
-
-              <Link
-                href="/"
-                className="rounded-xl border border-white/15 px-6 py-3 font-semibold text-white/75 transition hover:bg-white/5"
-              >
+              <Link href="/" className="rounded-xl border border-white/15 px-6 py-3 font-semibold text-white/75 transition hover:bg-white/5">
                 Back home
               </Link>
             </div>
@@ -1733,9 +1593,7 @@ export default function LocalDraftPage() {
             )}
           </section>
         ) : (
-          /* ---------------------------------------------------------- */
-          /* DRAFTING                                                    */
-          /* ---------------------------------------------------------- */
+          /* DRAFTING */
           <section className="py-8 sm:py-10">
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
               <div>
@@ -1743,15 +1601,10 @@ export default function LocalDraftPage() {
                   <Zap size={15} />
                   Local draft · Round {round} of 11
                 </div>
-
-                <h1 className="text-3xl font-black sm:text-5xl">
-                  MAKE YOUR PICK.
-                </h1>
-
+                <h1 className="text-3xl font-black sm:text-5xl">MAKE YOUR PICK.</h1>
                 <p className="mt-3 text-sm text-white/45 sm:text-base">
                   Choose one player. The other joins your rival&apos;s squad.
                 </p>
-
                 <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/55">
                   <Trophy size={13} className="text-[#b9f36b]" />
                   {categoryLabel}
@@ -1760,17 +1613,11 @@ export default function LocalDraftPage() {
 
               <div className="flex items-center gap-3">
                 <div className="hidden h-2 w-32 overflow-hidden rounded-full bg-white/10 sm:block">
-                  <div
-                    className="h-full rounded-full bg-[#b9f36b] transition-all duration-500"
-                    style={{ width: `${(round / 11) * 100}%` }}
-                  />
+                  <div className="h-full rounded-full bg-[#b9f36b] transition-all duration-500" style={{ width: `${(round / 11) * 100}%` }} />
                 </div>
-
                 <div className="rounded-xl border border-[#b9f36b]/30 bg-[#b9f36b]/[0.06] px-4 py-3">
                   <div className="text-xs text-white/40">Current manager</div>
-                  <div className="mt-1 font-bold text-[#b9f36b]">
-                    {currentName}
-                  </div>
+                  <div className="mt-1 font-bold text-[#b9f36b]">{currentName}</div>
                 </div>
               </div>
             </div>
@@ -1794,48 +1641,27 @@ export default function LocalDraftPage() {
                   className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#10151d] p-3 text-left transition hover:-translate-y-1 hover:border-[#b9f36b]/60 hover:bg-[#141c23] disabled:cursor-wait disabled:opacity-60 sm:rounded-3xl sm:p-7"
                 >
                   <div className="absolute right-0 top-0 h-36 w-36 rounded-full bg-[#b9f36b]/[0.04] blur-3xl transition group-hover:bg-[#b9f36b]/10" />
-
                   <div className="relative flex items-start justify-between gap-2 sm:gap-4">
                     <span className="rounded-full border border-white/10 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-white/50 sm:px-3 sm:py-1.5 sm:text-[10px] sm:tracking-[0.16em]">
-                      <span className="hidden sm:inline">Option </span>
-                      {index + 1}
+                      <span className="hidden sm:inline">Option </span>{index + 1}
                     </span>
-
-                    <span className="rounded-full bg-[#b9f36b]/10 px-2 py-1 text-[10px] font-bold text-[#b9f36b] sm:px-3 sm:py-1.5 sm:text-xs">
-                      {player.position}
-                    </span>
+                    <span className="rounded-full bg-[#b9f36b]/10 px-2 py-1 text-[10px] font-bold text-[#b9f36b] sm:px-3 sm:py-1.5 sm:text-xs">{player.position}</span>
                   </div>
-
                   <div className="relative mt-4 flex flex-col items-start gap-3 sm:mt-7 sm:min-h-28 sm:flex-row sm:items-center sm:gap-5">
-                    <PlayerAvatar
-                      player={player}
-                      className="h-16 w-16 rounded-xl text-xl sm:h-24 sm:w-24 sm:rounded-2xl sm:text-3xl"
-                    />
-
+                    <PlayerAvatar player={player} className="h-16 w-16 rounded-xl text-xl sm:h-24 sm:w-24 sm:rounded-2xl sm:text-3xl" />
                     <div className="min-w-0">
-                      <h2 className="break-words text-base font-black leading-tight sm:text-3xl">
-                        {player.name}
-                      </h2>
-
+                      <h2 className="break-words text-base font-black leading-tight sm:text-3xl">{player.name}</h2>
                       <p className="mt-1 text-[11px] leading-4 text-white/45 sm:mt-2 sm:text-sm">
-                        {[player.club, player.country]
-                          .filter(Boolean)
-                          .join(" · ") || "Football star"}
+                        {[player.club, player.country].filter(Boolean).join(" · ") || "Football star"}
                       </p>
                     </div>
                   </div>
-
                   <div className="relative mt-4 flex items-center justify-between border-t border-white/10 pt-3 sm:mt-7 sm:pt-4">
                     <span className="text-xs font-bold text-white/65 transition group-hover:text-[#b9f36b] sm:text-sm">
-                      Draft
-                      <span className="hidden sm:inline"> this player</span>
+                      Draft<span className="hidden sm:inline"> this player</span>
                     </span>
-
                     {loading ? (
-                      <LoaderCircle
-                        size={19}
-                        className="animate-spin text-[#b9f36b]"
-                      />
+                      <LoaderCircle size={19} className="animate-spin text-[#b9f36b]" />
                     ) : (
                       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 transition group-hover:bg-[#b9f36b] group-hover:text-black sm:h-9 sm:w-9">
                         <ChevronRight size={17} />
@@ -1848,15 +1674,8 @@ export default function LocalDraftPage() {
 
             {offered.length === 0 && (
               <div className="rounded-2xl border border-white/10 bg-[#10151d] p-8 text-center">
-                <p className="text-white/60">
-                  No player options were returned for this round.
-                </p>
-
-                <button
-                  onClick={refreshDraft}
-                  disabled={loading}
-                  className="mt-4 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold hover:bg-white/5 disabled:opacity-60"
-                >
+                <p className="text-white/60">No player options were returned for this round.</p>
+                <button onClick={refreshDraft} disabled={loading} className="mt-4 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold hover:bg-white/5 disabled:opacity-60">
                   Refresh draft
                 </button>
               </div>
@@ -1870,34 +1689,17 @@ export default function LocalDraftPage() {
 
             <div className="mb-5 mt-10 flex items-center gap-3">
               <div className="h-px flex-1 bg-white/10" />
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-white/45">
-                Squads
-              </span>
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-white/45">Squads</span>
               <div className="h-px flex-1 bg-white/10" />
             </div>
 
             <div className="grid gap-5 lg:grid-cols-2">
-              <SquadPitch
-                name={draft.player1_name}
-                number={1}
-                players={player1Squad}
-                active={activePlayer === 1}
-              />
-
-              <SquadPitch
-                name={draft.player2_name}
-                number={2}
-                players={player2Squad}
-                active={activePlayer === 2}
-              />
+              <SquadPitch name={draft.player1_name} team={draft.player1_team} number={1} players={player1Squad} active={activePlayer === 1} />
+              <SquadPitch name={draft.player2_name} team={draft.player2_team} number={2} players={player2Squad} active={activePlayer === 2} />
             </div>
 
             <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-5 text-xs text-white/35">
-              <span>
-                {player1Squad.length + player2Squad.length} / 22 players
-                drafted
-              </span>
-
+              <span>{player1Squad.length + player2Squad.length} / 22 players drafted</span>
               <span className="flex items-center gap-2">
                 <Check size={14} className="text-[#b9f36b]" />
                 Picks saved to your draft
@@ -1910,9 +1712,166 @@ export default function LocalDraftPage() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Shared components                                                   */
-/* ------------------------------------------------------------------ */
+
+function TeamDropdown({
+  teams,
+  value,
+  placeholder,
+  onChange,
+  disabled = false,
+  excludedId = "",
+}: {
+  teams: Team[];
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  excludedId?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = teams.find((team) => String(team.id) === value) ?? null;
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative z-30 w-full">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen((current) => !current)}
+        className={`flex min-h-[50px] w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left text-sm outline-none transition focus:border-[#b9f36b]/70 focus:ring-2 focus:ring-[#b9f36b]/10 disabled:cursor-not-allowed disabled:opacity-60 ${open ? "border-[#b9f36b]/60 bg-[#101820]" : "border-white/10 bg-[#080b10] hover:border-white/25"}`}
+      >
+        {selected ? (
+          <>
+            {selected.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={selected.logo_url} alt="" className="h-7 w-7 shrink-0 object-contain" />
+            ) : (
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[9px] font-black text-black" style={{ backgroundColor: selected.primary_color || "#b9f36b" }}>
+                {(selected.short_name || selected.name).slice(0, 3).toUpperCase()}
+              </span>
+            )}
+            <span className="min-w-0 flex-1 truncate font-semibold text-white">{selected.name}</span>
+          </>
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-white/40">{placeholder}</span>
+        )}
+        <ChevronDown size={17} className={`shrink-0 text-white/45 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && !disabled && (
+        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-[100] overflow-hidden rounded-2xl border border-white/10 bg-[#111821] shadow-[0_22px_60px_rgba(0,0,0,0.7)]">
+          <div className="border-b border-white/10 px-3.5 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">
+            {excludedId ? "Choose a different club" : "Available clubs"}
+          </div>
+          <div role="listbox" className="max-h-64 overflow-y-auto p-1.5">
+            {teams.length === 0 ? (
+              <p className="px-3 py-4 text-sm text-white/40">No clubs available. Add teams in the backend first.</p>
+            ) : teams.map((team) => {
+              const id = String(team.id);
+              const excluded = id === excludedId;
+              const isSelected = id === value;
+              return (
+                <button
+                  key={team.id}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  disabled={excluded}
+                  onClick={() => {
+                    onChange(id);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-35 ${isSelected ? "bg-[#b9f36b]/10" : "hover:bg-white/[0.06]"}`}
+                >
+                  {team.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={team.logo_url} alt="" className="h-8 w-8 shrink-0 object-contain" />
+                  ) : (
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[9px] font-black text-black" style={{ backgroundColor: team.primary_color || "#b9f36b" }}>
+                      {(team.short_name || team.name).slice(0, 3).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate text-sm font-bold ${isSelected ? "text-[#b9f36b]" : "text-white/85"}`}>{team.name}</span>
+                    {excluded && <span className="block text-[10px] text-white/35">Already selected by manager one</span>}
+                  </span>
+                  {isSelected && <Check size={16} className="shrink-0 text-[#b9f36b]" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Shared components */
+
+function TeamBadge({
+  team,
+  compact = false,
+}: {
+  team?: Team | null;
+  compact?: boolean;
+}) {
+  if (!team) return null;
+
+  const primary = team.primary_color || "#b9f36b";
+  const secondary = team.secondary_color || "#080b10";
+
+  return (
+    <div
+      className={`flex min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] ${
+        compact ? "mx-auto w-fit max-w-full flex-col justify-center border-0 bg-transparent p-0" : "p-3"
+      }`}
+    >
+      {team.logo_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={team.logo_url}
+          alt={`${team.name} logo`}
+          className={`${compact ? "h-12 w-12 sm:h-16 sm:w-16" : "h-10 w-10"} shrink-0 object-contain`}
+        />
+      ) : (
+        <div
+          className={`${compact ? "h-12 w-12 sm:h-16 sm:w-16" : "h-10 w-10"} flex shrink-0 items-center justify-center rounded-xl text-xs font-black`}
+          style={{ backgroundColor: primary, color: secondary }}
+        >
+          {(team.short_name || team.name).slice(0, 3).toUpperCase()}
+        </div>
+      )}
+      {!compact && (
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold">{team.name}</p>
+          <p className="mt-0.5 text-[10px] uppercase tracking-wider text-white/35">Selected club</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SectionHeading({
   eyebrow,
@@ -1922,7 +1881,7 @@ function SectionHeading({
 }: {
   eyebrow: string;
   title: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   description?: string;
 }) {
   return (
@@ -1931,15 +1890,9 @@ function SectionHeading({
         {icon}
       </div>
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#b9f36b]">
-          {eyebrow}
-        </p>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#b9f36b]">{eyebrow}</p>
         <h2 className="mt-1 text-2xl font-black">{title}</h2>
-        {description && (
-          <p className="mt-2 text-sm leading-6 text-white/40">
-            {description}
-          </p>
-        )}
+        {description && <p className="mt-2 text-sm leading-6 text-white/40">{description}</p>}
       </div>
     </div>
   );
@@ -1955,10 +1908,7 @@ function EmptyData({ message }: { message: string }) {
 
 function ErrorMessage({ message }: { message: string }) {
   return (
-    <div
-      role="alert"
-      className="flex items-start gap-2 rounded-xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-300"
-    >
+    <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-300">
       <CircleAlert size={18} className="mt-0.5 shrink-0" />
       <span>{message}</span>
     </div>
@@ -1969,21 +1919,11 @@ function EventIcon({ type }: { type: string }) {
   const size = 14;
 
   if (type === "GOAL") return <Goal size={size} />;
-  if (type.includes("RED_CARD")) {
-    return <span className="inline-block h-3.5 w-2.5 rounded-[2px] bg-red-500" />;
-  }
-  if (type.includes("CARD") || type.includes("BOOKING")) {
-    return (
-      <span className="inline-block h-3.5 w-2.5 rounded-[2px] bg-amber-300" />
-    );
-  }
+  if (type.includes("RED_CARD")) return <span className="inline-block h-3.5 w-2.5 rounded-[2px] bg-red-500" />;
+  if (type.includes("CARD") || type.includes("BOOKING")) return <span className="inline-block h-3.5 w-2.5 rounded-[2px] bg-amber-300" />;
   if (type.includes("KICKOFF")) return <Play size={size} />;
-  if (type.includes("CORNER") || type.includes("OFFSIDE")) {
-    return <Flag size={size} />;
-  }
-  if (type.includes("TACKLE") || type.includes("INTERCEPTION")) {
-    return <Zap size={size} />;
-  }
+  if (type.includes("CORNER") || type.includes("OFFSIDE")) return <Flag size={size} />;
+  if (type.includes("TACKLE") || type.includes("INTERCEPTION")) return <Zap size={size} />;
   if (type.includes("SAVE")) return <Shield size={size} />;
   if (type.includes("SHOT")) return <Target size={size} />;
   if (type.includes("FOUL")) return <Footprints size={size} />;
@@ -2035,70 +1975,35 @@ function TimelineItem({
       title={description}
     >
       <div className="flex items-center gap-2">
-        <div
-          className={`flex h-8 min-w-11 items-center justify-center rounded-lg text-xs font-black tabular-nums ${
-            highlight
-              ? "bg-[#b9f36b]/10 text-[#b9f36b]"
-              : warning
-                ? "bg-amber-400/10 text-amber-300"
-                : "bg-white/[0.04] text-white/50"
-          }`}
-        >
+        <div className={`flex h-8 min-w-11 items-center justify-center rounded-lg text-xs font-black tabular-nums ${
+          highlight ? "bg-[#b9f36b]/10 text-[#b9f36b]" : warning ? "bg-amber-400/10 text-amber-300" : "bg-white/[0.04] text-white/50"
+        }`}>
           {minute}&apos;
         </div>
-
-        <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-            highlight
-              ? "bg-[#b9f36b]/10 text-[#b9f36b]"
-              : warning
-                ? "bg-amber-400/10 text-amber-300"
-                : "bg-white/[0.04] text-white/50"
-          }`}
-        >
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+          highlight ? "bg-[#b9f36b]/10 text-[#b9f36b]" : warning ? "bg-amber-400/10 text-amber-300" : "bg-white/[0.04] text-white/50"
+        }`}>
           <EventIcon type={eventType} />
         </span>
-
-        <p
-          className={`min-w-0 flex-1 truncate text-sm font-black ${
-            highlight
-              ? "text-[#b9f36b]"
-              : warning
-                ? "text-amber-200"
-                : "text-white/85"
-          }`}
-        >
+        <p className={`min-w-0 flex-1 truncate text-sm font-black ${
+          highlight ? "text-[#b9f36b]" : warning ? "text-amber-200" : "text-white/85"
+        }`}>
           {title}
         </p>
-
         {score && (
-          <span className="shrink-0 rounded-md bg-white/[0.05] px-2 py-1 text-[10px] font-black tabular-nums text-white/70">
-            {score}
-          </span>
+          <span className="shrink-0 rounded-md bg-white/[0.05] px-2 py-1 text-[10px] font-black tabular-nums text-white/70">{score}</span>
         )}
       </div>
-
       {teamName && (
-        <span className="w-fit max-w-full truncate rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/45">
-          {teamName}
-        </span>
+        <span className="w-fit max-w-full truncate rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/45">{teamName}</span>
       )}
-
       {playerName && (
         <p className="truncate text-xs font-bold text-white/75">
           {playerName}
-          {secondaryName && (
-            <span className="font-medium text-white/40">
-              {" "}
-              · Assist: {secondaryName}
-            </span>
-          )}
+          {secondaryName && <span className="font-medium text-white/40"> · Assist: {secondaryName}</span>}
         </p>
       )}
-
-      <p className="line-clamp-3 text-xs leading-5 text-white/45">
-        {description}
-      </p>
+      <p className="line-clamp-3 text-xs leading-5 text-white/45">{description}</p>
     </div>
   );
 }
@@ -2121,32 +2026,17 @@ function StatRow({
   return (
     <div>
       <div className="mb-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
-        <span className="font-bold tabular-nums text-white/80">
-          {left}{suffix}
-        </span>
+        <span className="font-bold tabular-nums text-white/80">{left}{suffix}</span>
         <span className="text-center text-xs text-white/40">{label}</span>
-        <span className="text-right font-bold tabular-nums text-white/80">
-          {right}{suffix}
-        </span>
+        <span className="text-right font-bold tabular-nums text-white/80">{right}{suffix}</span>
       </div>
-
       <div className="flex h-1.5 overflow-hidden rounded-full bg-white/10">
-        <div
-          className="h-full rounded-l-full bg-[#b9f36b] transition-all duration-300"
-          style={{ width: `${leftWidth}%` }}
-        />
-        <div
-          className="h-full rounded-r-full bg-white/20"
-          style={{ width: `${rightWidth}%` }}
-        />
+        <div className="h-full rounded-l-full bg-[#b9f36b] transition-all duration-300" style={{ width: `${leftWidth}%` }} />
+        <div className="h-full rounded-r-full bg-white/20" style={{ width: `${rightWidth}%` }} />
       </div>
     </div>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/* Player and squad components                                         */
-/* ------------------------------------------------------------------ */
 
 function PlayerAvatar({
   player,
@@ -2156,31 +2046,20 @@ function PlayerAvatar({
   className?: string;
 }) {
   if (player.image_url) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={player.image_url}
-        alt={player.name}
-        className={`shrink-0 border border-white/10 bg-[#080b10] object-cover ${className}`}
-      />
-    );
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={player.image_url} alt={player.name} className={`shrink-0 border border-white/10 bg-[#080b10] object-cover ${className}`} />;
   }
 
   return (
-    <div
-      className={`flex shrink-0 items-center justify-center border border-white/10 bg-[#080b10] font-black text-[#b9f36b] ${className}`}
-    >
-      {player.name
-        .split(" ")
-        .map((part) => part[0])
-        .slice(0, 2)
-        .join("")}
+    <div className={`flex shrink-0 items-center justify-center border border-white/10 bg-[#080b10] font-black text-[#b9f36b] ${className}`}>
+      {player.name.split(" ").map((part) => part[0]).slice(0, 2).join("")}
     </div>
   );
 }
 
 function SquadPitch({
   name,
+  team,
   number,
   players,
   active = false,
@@ -2189,6 +2068,7 @@ function SquadPitch({
   showRatings = false,
 }: {
   name: string;
+  team?: Team | null;
   number: number;
   players: Player[];
   active?: boolean;
@@ -2198,9 +2078,6 @@ function SquadPitch({
 }) {
   const slots = useMemo(() => assignToFormation(players), [players]);
 
-  // Ratings are matched to squad players by unique player id (compared as
-  // strings so 12 and "12" still match). Only if no id match exists do we
-  // fall back to an exact, case-insensitive name match within the same team.
   const { ratingById, ratingByName } = useMemo(() => {
     const byId = new Map<string, PlayerRating>();
     const byName = new Map<string, PlayerRating>();
@@ -2221,42 +2098,35 @@ function SquadPitch({
     ratingByName.get((player.name ?? "").trim().toLowerCase());
 
   return (
-    <div
-      className={`rounded-[28px] border p-4 transition sm:p-6 ${
-        active
-          ? "border-[#b9f36b]/50 bg-[#b9f36b]/[0.05]"
-          : "border-white/10 bg-[#10151d]"
-      }`}
-    >
+    <div className={`rounded-[28px] border p-4 transition sm:p-6 ${
+      active ? "border-[#b9f36b]/50 bg-[#b9f36b]/[0.05]" : "border-white/10 bg-[#10151d]"
+    }`}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-black ${
-              active ? "bg-[#b9f36b] text-black" : "bg-white/5 text-white/65"
-            }`}
-          >
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-black ${
+            active ? "bg-[#b9f36b] text-black" : "bg-white/5 text-white/65"
+          }`}>
             {number}
           </div>
-
           <div className="min-w-0">
             <h3 className="truncate font-bold">{name}</h3>
-            <p className="mt-0.5 text-xs text-white/40">
-              {players.length} / 11 players · 4–3–3
-            </p>
+            <p className="mt-0.5 text-xs text-white/40">{players.length} / 11 players · 4–3–3</p>
+            {team && <p className="mt-1 truncate text-xs font-semibold text-[#b9f36b]">{team.name}</p>}
           </div>
         </div>
-
-        {complete ? (
-          <span className="flex items-center gap-1 text-xs font-bold text-[#b9f36b]">
-            <Check size={14} /> Complete
-          </span>
-        ) : active ? (
-          <span className="rounded-full bg-[#b9f36b]/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#b9f36b]">
-            Picking
-          </span>
-        ) : (
-          <span className="text-xs text-white/30">Waiting</span>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {team?.logo_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={team.logo_url} alt={`${team.name} logo`} className="h-8 w-8 object-contain" />
+          )}
+          {complete ? (
+            <span className="flex items-center gap-1 text-xs font-bold text-[#b9f36b]"><Check size={14} /> Complete</span>
+          ) : active ? (
+            <span className="rounded-full bg-[#b9f36b]/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#b9f36b]">Picking</span>
+          ) : (
+            <span className="text-xs text-white/30">Waiting</span>
+          )}
+        </div>
       </div>
 
       <div className="pitch relative overflow-hidden rounded-2xl border border-white/15">
@@ -2275,53 +2145,36 @@ function SquadPitch({
               key={`${slot.code}-${index}`}
               className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
               style={{ left: slot.x, top: slot.y }}
-              title={
-                player ? `${player.name} (${player.position})` : slot.code
-              }
+              title={player ? `${player.name} (${player.position})` : slot.code}
             >
               {player ? (
                 <>
                   <div className="relative">
-                    <PlayerAvatar
-                      player={player}
-                      className="h-9 w-9 rounded-full border-[#b9f36b]/80 text-[11px] shadow-[0_0_16px_rgba(185,243,107,0.25)] sm:h-12 sm:w-12 sm:text-sm"
-                    />
+                    <PlayerAvatar player={player} className="h-9 w-9 rounded-full border-[#b9f36b]/80 text-[11px] shadow-[0_0_16px_rgba(185,243,107,0.25)] sm:h-12 sm:w-12 sm:text-sm" />
                     {showRatings && (
                       <span
                         className={`absolute -right-4 -top-2 z-20 min-w-[26px] rounded-md border border-black/40 px-1.5 py-0.5 text-center text-[10px] font-black leading-none tabular-nums shadow-lg sm:text-xs ${
-                          ratingText
-                            ? "bg-[#b9f36b] text-black"
-                            : "bg-white/25 text-white/80"
+                          ratingText ? "bg-[#b9f36b] text-black" : "bg-white/25 text-white/80"
                         }`}
-                        aria-label={
-                          ratingText
-                            ? `Match rating ${ratingText}`
-                            : "No match rating"
-                        }
+                        aria-label={ratingText ? `Match rating ${ratingText}` : "No match rating"}
                       >
                         {ratingText ?? "—"}
                       </span>
                     )}
                   </div>
-
                   <span className="max-w-[68px] truncate rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-bold text-white sm:max-w-[84px] sm:text-[10px]">
                     {player.name.split(" ").slice(-1)[0]}
                   </span>
                 </>
               ) : (
                 <>
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full border border-dashed border-white/30 bg-black/20 text-[10px] font-black text-white/40 sm:h-12 sm:w-12 sm:text-xs">
-                    {slot.code}
-                  </div>
-                  <span className="rounded bg-black/30 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-white/40 sm:text-[10px]">
-                    {slot.code}
-                  </span>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full border border-dashed border-white/30 bg-black/20 text-[10px] font-black text-white/40 sm:h-12 sm:w-12 sm:text-xs">{slot.code}</div>
+                  <span className="rounded bg-black/30 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-white/40 sm:text-[10px]">{slot.code}</span>
                 </>
               )}
             </div>
           );
         })}
-
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#08110b]/20" />
       </div>
 
@@ -2330,23 +2183,14 @@ function SquadPitch({
           <span>
             Average rating:{" "}
             <strong className="text-[#b9f36b]">
-              {(
-                ratings.reduce((sum, item) => sum + safeNumber(item.rating), 0) /
-                ratings.length
-              ).toFixed(1)}
+              {(ratings.reduce((sum, item) => sum + safeNumber(item.rating), 0) / ratings.length).toFixed(1)}
             </strong>
           </span>
           <span>
-            Goals:{" "}
-            <strong className="text-white/75">
-              {ratings.reduce((sum, item) => sum + safeNumber(item.goals), 0)}
-            </strong>
+            Goals: <strong className="text-white/75">{ratings.reduce((sum, item) => sum + safeNumber(item.goals), 0)}</strong>
           </span>
           <span>
-            Assists:{" "}
-            <strong className="text-white/75">
-              {ratings.reduce((sum, item) => sum + safeNumber(item.assists), 0)}
-            </strong>
+            Assists: <strong className="text-white/75">{ratings.reduce((sum, item) => sum + safeNumber(item.assists), 0)}</strong>
           </span>
         </div>
       )}

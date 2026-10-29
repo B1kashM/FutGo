@@ -3,6 +3,7 @@ import string
 from decimal import Decimal
 
 import django
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F, Q
 
@@ -15,12 +16,29 @@ def generate_room_code():
 def _check_constraint(condition, name):
     """
     Django 5.1 renamed CheckConstraint(check=...) to
-    CheckConstraint(condition=...). This helper works on both,
-    so it does not matter which Django version is installed.
+    CheckConstraint(condition=...). Support both versions.
     """
     if django.VERSION >= (5, 1):
         return models.CheckConstraint(condition=condition, name=name)
     return models.CheckConstraint(check=condition, name=name)
+
+
+class Team(models.Model):
+    """A selectable football club representing a draft squad."""
+
+    name = models.CharField(max_length=100, unique=True)
+    short_name = models.CharField(max_length=10, unique=True)
+    logo_url = models.URLField(max_length=500, blank=True, default="")
+    primary_color = models.CharField(max_length=7, default="#1F6CFF")
+    secondary_color = models.CharField(max_length=7, default="#FFFFFF")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
 
 
 class Draft(models.Model):
@@ -42,10 +60,7 @@ class Draft(models.Model):
         ("YOUNG_TALENTS", "Young Talents"),
     ]
 
-    mode = models.CharField(
-        max_length=10,
-        choices=MODE_CHOICES,
-    )
+    mode = models.CharField(max_length=10, choices=MODE_CHOICES)
 
     category = models.CharField(
         max_length=20,
@@ -63,10 +78,22 @@ class Draft(models.Model):
 
     player1_name = models.CharField(max_length=50)
 
-    player2_name = models.CharField(
-        max_length=50,
+    player2_name = models.CharField(max_length=50, blank=True, default="")
+
+    player1_team = models.ForeignKey(
+        Team,
+        on_delete=models.PROTECT,
+        null=True,
         blank=True,
-        default="",
+        related_name="player1_drafts",
+    )
+
+    player2_team = models.ForeignKey(
+        Team,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="player2_drafts",
     )
 
     active_player_number = models.PositiveSmallIntegerField(default=1)
@@ -79,10 +106,41 @@ class Draft(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
-    completed_at = models.DateTimeField(
-        null=True,
-        blank=True,
-    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            _check_constraint(
+                Q(player1_team__isnull=True)
+                | Q(player2_team__isnull=True)
+                | ~Q(player1_team=F("player2_team")),
+                "draft_teams_must_be_different",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+
+        if (
+            self.player1_team_id is not None
+            and self.player1_team_id == self.player2_team_id
+        ):
+            raise ValidationError({
+                "player2_team": (
+                    "Each player must choose a different football club."
+                )
+            })
+
+    def save(self, *args, **kwargs):
+        if (
+            self.player1_team_id is not None
+            and self.player1_team_id == self.player2_team_id
+        ):
+            raise ValidationError(
+                "Each player must choose a different football club."
+            )
+
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return (
@@ -99,7 +157,6 @@ class DraftEvent(models.Model):
     )
 
     event_number = models.PositiveIntegerField()
-
     active_player_number = models.PositiveSmallIntegerField()
 
     offered_player1 = models.ForeignKey(
@@ -157,9 +214,7 @@ class DraftPick(models.Model):
     )
 
     assigned_to_number = models.PositiveSmallIntegerField()
-
     was_selected = models.BooleanField(default=False)
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -184,16 +239,9 @@ class DraftParticipant(models.Model):
         related_name="participants",
     )
 
-    seat_number = models.PositiveSmallIntegerField(
-        null=True,
-        blank=True,
-    )
+    seat_number = models.PositiveSmallIntegerField(null=True, blank=True)
 
-    display_name = models.CharField(
-        max_length=50,
-        blank=True,
-        default="",
-    )
+    display_name = models.CharField(max_length=50, blank=True, default="")
 
     token_hash = models.CharField(
         max_length=64,
@@ -223,12 +271,10 @@ class DraftParticipant(models.Model):
 
 class MatchResult(models.Model):
     """
-    One simulated match. A single completed Draft can have many
-    MatchResult rows (the original match plus any rematches), and
-    every match uses the same DraftPick squads.
+    A simulated match. Rematches reuse the squads and club identities
+    belonging to the related Draft.
     """
 
-    # CHANGED: was OneToOneField(related_name="match_result").
     draft = models.ForeignKey(
         Draft,
         on_delete=models.CASCADE,
@@ -236,7 +282,6 @@ class MatchResult(models.Model):
     )
 
     player1_score = models.PositiveSmallIntegerField(default=0)
-
     player2_score = models.PositiveSmallIntegerField(default=0)
 
     # 1 = Player 1 wins, 2 = Player 2 wins, 0 = draw.
@@ -247,8 +292,6 @@ class MatchResult(models.Model):
 
     duration_minutes = models.PositiveSmallIntegerField(default=90)
 
-    # NEW: chosen from this match's simulated performances.
-    # Null for matches played before this upgrade.
     man_of_the_match = models.ForeignKey(
         "players.Player",
         on_delete=models.PROTECT,
@@ -257,9 +300,6 @@ class MatchResult(models.Model):
         related_name="man_of_the_match_awards",
     )
 
-    # NEW: sent by the frontend (Idempotency-Key header) so a retry
-    # or double-click returns the same match instead of creating a
-    # duplicate. Null for matches created without a key.
     idempotency_key = models.CharField(
         max_length=64,
         null=True,
@@ -270,11 +310,8 @@ class MatchResult(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # "-id" is a tie-breaker so "latest match" is never ambiguous.
         ordering = ["-created_at", "-id"]
         constraints = [
-            # NULL keys are treated as distinct by PostgreSQL and
-            # SQLite, so matches without a key never conflict.
             models.UniqueConstraint(
                 fields=["draft", "idempotency_key"],
                 name="unique_match_idempotency_key_per_draft",
@@ -285,6 +322,14 @@ class MatchResult(models.Model):
                 "match_winner_number_valid",
             ),
         ]
+
+    @property
+    def player1_team(self):
+        return self.draft.player1_team
+
+    @property
+    def player2_team(self):
+        return self.draft.player2_team
 
     def __str__(self):
         return (
@@ -301,14 +346,11 @@ class MatchEvent(models.Model):
     )
 
     event_number = models.PositiveSmallIntegerField()
-
     minute = models.PositiveSmallIntegerField()
 
-    # 1 or 2 for a team. 0 means a neutral event
-    # (kick-off, half-time, full-time).
+    # 1 or 2 for a team. 0 means a neutral event.
     team_number = models.PositiveSmallIntegerField()
 
-    # CHANGED: now nullable, for team-level events such as corners.
     player = models.ForeignKey(
         "players.Player",
         on_delete=models.PROTECT,
@@ -317,8 +359,6 @@ class MatchEvent(models.Model):
         related_name="match_events",
     )
 
-    # NEW: the second player involved, e.g. the assist provider on
-    # a goal or the fouled player on a foul.
     secondary_player = models.ForeignKey(
         "players.Player",
         on_delete=models.PROTECT,
@@ -327,11 +367,7 @@ class MatchEvent(models.Model):
         related_name="secondary_match_events",
     )
 
-    event_type = models.CharField(
-        max_length=20,
-        default="GOAL",
-    )
-
+    event_type = models.CharField(max_length=20, default="GOAL")
     commentary = models.CharField(max_length=255)
 
     class Meta:
@@ -356,7 +392,7 @@ class MatchEvent(models.Model):
 
 
 class TeamMatchStatistics(models.Model):
-    """Two rows per new match: one for Team 1 and one for Team 2."""
+    """Two rows per match: one for each team."""
 
     match = models.ForeignKey(
         MatchResult,
@@ -365,24 +401,13 @@ class TeamMatchStatistics(models.Model):
     )
 
     team_number = models.PositiveSmallIntegerField()
-
-    # Both teams' possession values must add up to 100. A single-row
-    # database constraint cannot check that, so the simulation
-    # guarantees it when it builds the statistics.
     possession = models.PositiveSmallIntegerField(default=50)
-
     shots = models.PositiveSmallIntegerField(default=0)
-
     shots_on_target = models.PositiveSmallIntegerField(default=0)
-
     goals = models.PositiveSmallIntegerField(default=0)
-
     fouls = models.PositiveSmallIntegerField(default=0)
-
     corners = models.PositiveSmallIntegerField(default=0)
-
     yellow_cards = models.PositiveSmallIntegerField(default=0)
-
     red_cards = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -416,8 +441,8 @@ class TeamMatchStatistics(models.Model):
 
 class PlayerMatchRating(models.Model):
     """
-    One row per player per match (22 rows for each new match).
-    These are match-specific, so nothing is stored on players.Player.
+    One row per player per match. Ratings remain match-specific and are
+    not written to the players.Player model.
     """
 
     match = models.ForeignKey(
@@ -433,26 +458,16 @@ class PlayerMatchRating(models.Model):
     )
 
     team_number = models.PositiveSmallIntegerField()
-
-    # 1.0 to 10.0, one decimal place.
     rating = models.DecimalField(max_digits=3, decimal_places=1)
 
     goals = models.PositiveSmallIntegerField(default=0)
-
     assists = models.PositiveSmallIntegerField(default=0)
-
     shots = models.PositiveSmallIntegerField(default=0)
-
     shots_on_target = models.PositiveSmallIntegerField(default=0)
-
     saves = models.PositiveSmallIntegerField(default=0)
-
     tackles = models.PositiveSmallIntegerField(default=0)
-
     interceptions = models.PositiveSmallIntegerField(default=0)
-
     yellow_cards = models.PositiveSmallIntegerField(default=0)
-
     red_cards = models.PositiveSmallIntegerField(default=0)
 
     class Meta:

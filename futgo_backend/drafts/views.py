@@ -19,10 +19,11 @@ from .models import (
     DraftPick,
     MatchResult,
     MatchEvent,
+    Team,
     TeamMatchStatistics,
     PlayerMatchRating,
 )
-from .serializers import CreateDraftSerializer
+from .serializers import CreateDraftSerializer, TeamSerializer
 from .simulation import simulate_match
 
 
@@ -64,6 +65,32 @@ def create_secret_token():
     return secrets.token_urlsafe(32)
 
 
+def serialize_team(team):
+    if team is None:
+        return None
+
+    return {
+        "id": team.id,
+        "name": team.name,
+        "short_name": team.short_name,
+        "logo_url": team.logo_url,
+        "primary_color": team.primary_color,
+        "secondary_color": team.secondary_color,
+        "is_active": team.is_active,
+    }
+
+
+def serialize_draft_teams(draft):
+    return {
+        "player1_team": serialize_team(draft.player1_team),
+        "player2_team": serialize_team(draft.player2_team),
+        "teams_selected": (
+            draft.player1_team_id is not None
+            and draft.player2_team_id is not None
+        ),
+    }
+
+
 def participant_response(draft, participant, token=None):
     data = {
         "draft_id": draft.id,
@@ -74,6 +101,7 @@ def participant_response(draft, participant, token=None):
             "seat_number": participant.seat_number,
             "display_name": participant.display_name,
         },
+        **serialize_draft_teams(draft),
     }
 
     if token is not None:
@@ -92,6 +120,42 @@ def get_token_participant(request, draft):
         draft=draft,
         token_hash=hash_token(token),
     ).first()
+
+
+def team_selection_error(draft, team, seat_number):
+    """Return a validation message when a club cannot be assigned."""
+
+    if not team.is_active:
+        return "This football club is not available for selection."
+
+    other_team_id = (
+        draft.player2_team_id
+        if seat_number == 1
+        else draft.player1_team_id
+    )
+
+    if other_team_id == team.id:
+        return "Each player must choose a different football club."
+
+    return None
+
+
+# ============================================================
+# TEAM CATALOG
+# ============================================================
+
+class TeamListAPIView(APIView):
+    """
+    Return the active football clubs available for draft selection.
+    """
+
+    def get(self, request):
+        teams = Team.objects.filter(is_active=True).order_by("name")
+
+        return Response(
+            TeamSerializer(teams, many=True).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 # ============================================================
@@ -157,9 +221,10 @@ def serialize_event(event):
 
 def serialize_draft_state(draft):
     """
-    Return the current draft state and the first event that has not
-    yet been completed. Do not assume the first event is still pending.
+    Return the current draft state, selected club identities, and the
+    first event that has not yet been completed.
     """
+
     draft_events = (
         DraftEvent.objects
         .filter(draft=draft)
@@ -208,10 +273,12 @@ def serialize_draft_state(draft):
     return {
         "draft_id": draft.id,
         "mode": draft.mode,
+        "category": draft.category,
         "room_code": draft.room_code,
         "status": draft.status,
         "player1_name": draft.player1_name,
         "player2_name": draft.player2_name,
+        **serialize_draft_teams(draft),
         "active_player_number": draft.active_player_number,
         "squad_size": SQUAD_SIZE,
         "position_sequence": POSITION_SEQUENCE,
@@ -240,52 +307,19 @@ class CreateDraftAPIView(APIView):
         data = serializer.validated_data
         mode = data.get("mode", "LOCAL")
 
-        if mode not in ("LOCAL", "ONLINE"):
-            return Response(
-                {"detail": "Invalid draft mode."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        player1_name = data["player1_name"]
+        player2_name = data.get("player2_name", "")
 
-        player1_name = data.get("player1_name", "").strip()
-        player2_name = data.get("player2_name", "").strip()
-
-        if not player1_name:
-            return Response(
-                {"detail": "Player 1 name is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if mode == "LOCAL" and not player2_name:
-            return Response(
-                {"detail": "Player 2 name is required for local play."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if mode == "ONLINE" and player2_name:
-            return Response(
-                {
-                    "detail": (
-                        "Player 2 joins the online draft using "
-                        "the room code."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if (
-            mode == "LOCAL"
-            and player1_name.casefold() == player2_name.casefold()
-        ):
-            return Response(
-                {"detail": "Player names must be different."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        player1_team = data["player1_team"]
+        player2_team = data.get("player2_team")
 
         draft_data = {
             "mode": mode,
             "category": data["category"],
             "player1_name": player1_name,
             "player2_name": player2_name if mode == "LOCAL" else "",
+            "player1_team": player1_team,
+            "player2_team": player2_team if mode == "LOCAL" else None,
             "active_player_number": 1,
             "status": "WAITING",
         }
@@ -318,12 +352,146 @@ class CreateDraftAPIView(APIView):
                     "status": draft.status,
                     "player1_name": draft.player1_name,
                     "player2_name": draft.player2_name,
+                    **serialize_draft_teams(draft),
                 }
 
         return Response(
             response_data,
             status=status.HTTP_201_CREATED,
         )
+
+
+# ============================================================
+# SELECT TEAM
+# ============================================================
+
+class SelectDraftTeamAPIView(APIView):
+    """
+    Select a club for a draft seat.
+
+    Online mode:
+        The participant token determines which seat can be updated.
+        The request must contain team_id.
+
+    Local mode:
+        The request must contain player_number (1 or 2) and team_id.
+
+    Club selection is only allowed while the draft is waiting.
+    """
+
+    def post(self, request, draft_id):
+        team_id = request.data.get("team_id")
+
+        if team_id is None:
+            return Response(
+                {"detail": "team_id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            team_id = int(team_id)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "team_id must be a valid integer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            draft = get_object_or_404(
+                Draft.objects.select_for_update(),
+                pk=draft_id,
+            )
+
+            if draft.status != "WAITING":
+                return Response(
+                    {
+                        "detail": (
+                            "Club selection is locked after the draft starts."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if draft.mode == "ONLINE":
+                participant = get_token_participant(request, draft)
+
+                if participant is None:
+                    return Response(
+                        {"detail": "A valid participant token is required."},
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+
+                seat_number = participant.seat_number
+
+            else:
+                try:
+                    seat_number = int(request.data.get("player_number"))
+                except (TypeError, ValueError):
+                    return Response(
+                        {
+                            "detail": (
+                                "player_number must be 1 or 2 for local play."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                if seat_number not in (1, 2):
+                    return Response(
+                        {"detail": "player_number must be 1 or 2."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            team = Team.objects.filter(
+                pk=team_id,
+                is_active=True,
+            ).first()
+
+            if team is None:
+                return Response(
+                    {"detail": "The selected club does not exist or is unavailable."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            error = team_selection_error(draft, team, seat_number)
+
+            if error:
+                return Response(
+                    {"detail": error},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if seat_number == 1:
+                draft.player1_team = team
+                update_fields = ["player1_team"]
+            else:
+                if draft.mode == "ONLINE" and not DraftParticipant.objects.filter(
+                    draft=draft,
+                    seat_number=1,
+                ).exists():
+                    return Response(
+                        {"detail": "The host has not joined this draft."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                draft.player2_team = team
+                update_fields = ["player2_team"]
+
+            draft.save(update_fields=update_fields)
+            draft.refresh_from_db()
+
+            response_data = {
+                "draft_id": draft.id,
+                **serialize_draft_teams(draft),
+            }
+
+            if draft.mode == "ONLINE":
+                response_data["participant"] = {
+                    "seat_number": participant.seat_number,
+                    "display_name": participant.display_name,
+                }
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 # ============================================================
@@ -431,7 +599,7 @@ class ReconnectDraftAPIView(APIView):
 
         participant = (
             DraftParticipant.objects
-            .select_related("draft")
+            .select_related("draft", "draft__player1_team", "draft__player2_team")
             .filter(token_hash=hash_token(token))
             .first()
         )
@@ -465,6 +633,40 @@ class StartDraftAPIView(APIView):
             if draft.status != "WAITING":
                 return Response(
                     {"detail": "This draft cannot be started."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if draft.player1_team_id is None or draft.player2_team_id is None:
+                return Response(
+                    {
+                        "detail": (
+                            "Both players must select a football club "
+                            "before the draft can start."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if draft.player1_team_id == draft.player2_team_id:
+                return Response(
+                    {
+                        "detail": (
+                            "Each player must choose a different football club."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if (
+                not draft.player1_team.is_active
+                or not draft.player2_team.is_active
+            ):
+                return Response(
+                    {
+                        "detail": (
+                            "Both selected clubs must be available."
+                        )
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -537,7 +739,13 @@ class StartDraftAPIView(APIView):
 
 class DraftStateAPIView(APIView):
     def get(self, request, draft_id):
-        draft = get_object_or_404(Draft, pk=draft_id)
+        draft = get_object_or_404(
+            Draft.objects.select_related(
+                "player1_team",
+                "player2_team",
+            ),
+            pk=draft_id,
+        )
 
         if draft.mode == "ONLINE":
             participant = get_token_participant(request, draft)
@@ -610,8 +818,6 @@ class SubmitDraftPickAPIView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-            # Find the newest event, which is the current event because
-            # every completed pick creates the next event immediately.
             event = (
                 DraftEvent.objects
                 .select_for_update()
@@ -711,9 +917,6 @@ class SubmitDraftPickAPIView(APIView):
                 try:
                     create_next_event(draft, event.event_number + 1)
                 except ValueError as exc:
-                    # Raising an exception is important here: returning
-                    # a Response from inside atomic() would commit the
-                    # picks even if the next event could not be created.
                     raise ValueError(str(exc))
 
                 draft.save(update_fields=["active_player_number"])
@@ -743,6 +946,8 @@ def _serialize_match_player(player):
 
 
 def _match_payload(match):
+    draft = match.draft
+
     events = (
         match.events
         .select_related("player", "secondary_player")
@@ -814,6 +1019,9 @@ def _match_payload(match):
     return {
         "id": match.id,
         "draft_id": match.draft_id,
+        "player1_name": draft.player1_name,
+        "player2_name": draft.player2_name,
+        **serialize_draft_teams(draft),
         "player1_score": match.player1_score,
         "player2_score": match.player2_score,
         "winner_number": match.winner_number,
@@ -834,7 +1042,13 @@ def _match_payload(match):
 
 class SimulateMatchAPIView(APIView):
     def get(self, request, draft_id):
-        draft = get_object_or_404(Draft, pk=draft_id)
+        draft = get_object_or_404(
+            Draft.objects.select_related(
+                "player1_team",
+                "player2_team",
+            ),
+            pk=draft_id,
+        )
 
         if draft.mode == "ONLINE":
             participant = get_token_participant(request, draft)
@@ -848,7 +1062,12 @@ class SimulateMatchAPIView(APIView):
         match = (
             MatchResult.objects
             .filter(draft=draft)
-            .select_related("man_of_the_match")
+            .select_related(
+                "man_of_the_match",
+                "draft",
+                "draft__player1_team",
+                "draft__player2_team",
+            )
             .order_by("-created_at", "-id")
             .first()
         )
@@ -877,7 +1096,10 @@ class SimulateMatchAPIView(APIView):
 
         with transaction.atomic():
             draft = get_object_or_404(
-                Draft.objects.select_for_update(),
+                Draft.objects.select_for_update(of=("self",)).select_related(
+                    "player1_team",
+                    "player2_team",
+                ),
                 pk=draft_id,
             )
 
@@ -900,6 +1122,21 @@ class SimulateMatchAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            if (
+                draft.player1_team_id is None
+                or draft.player2_team_id is None
+                or draft.player1_team_id == draft.player2_team_id
+            ):
+                return Response(
+                    {
+                        "detail": (
+                            "This draft must have two different selected "
+                            "clubs before a match can be simulated."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             if idempotency_key:
                 existing_match = (
                     MatchResult.objects
@@ -907,7 +1144,12 @@ class SimulateMatchAPIView(APIView):
                         draft=draft,
                         idempotency_key=idempotency_key,
                     )
-                    .select_related("man_of_the_match")
+                    .select_related(
+                        "man_of_the_match",
+                        "draft",
+                        "draft__player1_team",
+                        "draft__player2_team",
+                    )
                     .first()
                 )
 
@@ -921,7 +1163,12 @@ class SimulateMatchAPIView(APIView):
                 existing_match = (
                     MatchResult.objects
                     .filter(draft=draft)
-                    .select_related("man_of_the_match")
+                    .select_related(
+                        "man_of_the_match",
+                        "draft",
+                        "draft__player1_team",
+                        "draft__player2_team",
+                    )
                     .order_by("-created_at", "-id")
                     .first()
                 )
@@ -1031,7 +1278,12 @@ class SimulateMatchAPIView(APIView):
 
             match = (
                 MatchResult.objects
-                .select_related("man_of_the_match")
+                .select_related(
+                    "man_of_the_match",
+                    "draft",
+                    "draft__player1_team",
+                    "draft__player2_team",
+                )
                 .get(pk=match.pk)
             )
 
@@ -1040,4 +1292,45 @@ class SimulateMatchAPIView(APIView):
         return Response(
             response_data,
             status=status.HTTP_201_CREATED,
+        )
+
+
+
+    from rest_framework import status
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import Team
+from .serializers import TeamSerializer
+
+
+class CreateTeamAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        is_bulk = isinstance(request.data, list)
+
+        serializer = TeamSerializer(
+            data=request.data,
+            many=is_bulk,
+        )
+
+        if serializer.is_valid():
+            teams = serializer.save()
+
+            if is_bulk:
+                return Response(
+                    TeamSerializer(teams, many=True).data,
+                    status=status.HTTP_201_CREATED,
+                )
+
+            return Response(
+                TeamSerializer(teams).data,
+                status=status.HTTP_201_CREATED,
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST,
         )
