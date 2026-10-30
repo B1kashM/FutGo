@@ -23,7 +23,7 @@ DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
 
 ALLOWED_HOSTS = [
     host.strip()
-    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1","futgo.onrender.com").split(",")
     if host.strip()
 ]
 
@@ -139,7 +139,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://futgo.onrender.com",
-    "https://fut-go-chi.vercel.app"
+    "https://fut-go-chi.vercel.app",
 ]
 
 # Allow the custom header used for match idempotency.
