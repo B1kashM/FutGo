@@ -1,12 +1,67 @@
-
 @import "tailwindcss";
 
+/* Make Tailwind's `dark:` utilities follow the data-theme attribute */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ---------- Theme tokens ---------- */
+
+/* Dark (default) */
 :root {
   color-scheme: dark;
   --background: #080b10;
   --foreground: #ffffff;
-  --accent: #b9f36b;
+  --surface: #0d1219;
+  --surface-2: #141b23;
+  --border: rgba(255, 255, 255, 0.1);
+  --muted: rgba(255, 255, 255, 0.6);
+  --accent: #b9f36b;        /* fills, buttons, highlights */
+  --accent-text: #b9f36b;   /* accent used as text/icon colour */
+  --accent-ink: #080b10;    /* text placed on top of --accent */
 }
+
+/* Light */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background: #f5f7fa;
+  --foreground: #0b1018;
+  --surface: #ffffff;
+  --surface-2: #eef2f6;
+  --border: rgba(11, 16, 24, 0.12);
+  --muted: rgba(11, 16, 24, 0.62);
+  --accent: #b9f36b;
+  --accent-text: #3f6212;   /* darker lime so text stays readable on light */
+  --accent-ink: #080b10;
+}
+
+/* No-JS fallback: follow the OS until the theme script sets data-theme */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --background: #f5f7fa;
+    --foreground: #0b1018;
+    --surface: #ffffff;
+    --surface-2: #eef2f6;
+    --border: rgba(11, 16, 24, 0.12);
+    --muted: rgba(11, 16, 24, 0.62);
+    --accent-text: #3f6212;
+  }
+}
+
+/* Expose tokens as Tailwind utilities: bg-background, text-foreground, bg-surface,
+   border-border, text-muted, bg-accent, text-accent-text, text-accent-ink */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-accent-ink: var(--accent-ink);
+}
+
+/* ---------- Base ---------- */
 
 * {
   box-sizing: border-box;
@@ -23,6 +78,7 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 a {
@@ -34,13 +90,16 @@ button {
 }
 
 ::selection {
-  color: #080b10;
-  background: #b9f36b;
+  color: var(--accent-ink);
+  background: var(--accent);
 }
 
+/* Pitch stays green in both themes; slightly softer stripes in light mode */
 .pitch {
+  --pitch-a: #173d2a;
+  --pitch-b: #1b462f;
   aspect-ratio: 4 / 4.5;
-  background-color: #173d2a;
+  background-color: var(--pitch-a);
   background-image:
     linear-gradient(
       90deg,
@@ -51,11 +110,16 @@ button {
     ),
     repeating-linear-gradient(
       0deg,
-      #173d2a 0,
-      #173d2a 36px,
-      #1b462f 36px,
-      #1b462f 72px
+      var(--pitch-a) 0,
+      var(--pitch-a) 36px,
+      var(--pitch-b) 36px,
+      var(--pitch-b) 72px
     );
+}
+
+:root[data-theme="light"] .pitch {
+  --pitch-a: #2f7a4d;
+  --pitch-b: #348355;
 }
 
 @media (prefers-reduced-motion: reduce) {

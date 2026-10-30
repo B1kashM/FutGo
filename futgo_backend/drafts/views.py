@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -37,6 +38,8 @@ POSITION_SEQUENCE = [
     "GK", "RB", "RCB", "LCB", "LB",
     "DMF", "CMF", "AMF", "RWF", "ST", "LWF",
 ]
+
+MAX_NAME_LENGTH = 50
 
 
 # ============================================================
@@ -158,6 +161,37 @@ class TeamListAPIView(APIView):
         )
 
 
+class CreateTeamAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        is_bulk = isinstance(request.data, list)
+
+        serializer = TeamSerializer(
+            data=request.data,
+            many=is_bulk,
+        )
+
+        if serializer.is_valid():
+            teams = serializer.save()
+
+            if is_bulk:
+                return Response(
+                    TeamSerializer(teams, many=True).data,
+                    status=status.HTTP_201_CREATED,
+                )
+
+            return Response(
+                TeamSerializer(teams).data,
+                status=status.HTTP_201_CREATED,
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+
 # ============================================================
 # DRAFT EVENT HELPERS
 # ============================================================
@@ -223,32 +257,33 @@ def serialize_draft_state(draft):
     """
     Return the current draft state, selected club identities, and the
     first event that has not yet been completed.
+
+    This endpoint is polled by online clients, so it uses a fixed number
+    of queries (events + picks) instead of one query per event.
     """
 
-    draft_events = (
+    draft_events = list(
         DraftEvent.objects
         .filter(draft=draft)
         .select_related("offered_player1", "offered_player2")
         .order_by("event_number")
     )
 
-    pending_event = None
-
-    for event in draft_events:
-        event_completed = DraftPick.objects.filter(
-            draft=draft,
-            event=event,
-        ).exists()
-
-        if not event_completed:
-            pending_event = event
-            break
-
-    picks = (
+    picks = list(
         DraftPick.objects
         .filter(draft=draft)
         .select_related("player", "event")
-        .order_by("event__event_number")
+        .order_by("event__event_number", "id")
+    )
+
+    completed_event_ids = {pick.event_id for pick in picks}
+
+    pending_event = next(
+        (
+            event for event in draft_events
+            if event.id not in completed_event_ids
+        ),
+        None,
     )
 
     squads = {1: [], 2: []}
@@ -412,6 +447,8 @@ class SelectDraftTeamAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            participant = None
+
             if draft.mode == "ONLINE":
                 participant = get_token_participant(request, draft)
 
@@ -485,7 +522,7 @@ class SelectDraftTeamAPIView(APIView):
                 **serialize_draft_teams(draft),
             }
 
-            if draft.mode == "ONLINE":
+            if participant is not None:
                 response_data["participant"] = {
                     "seat_number": participant.seat_number,
                     "display_name": participant.display_name,
@@ -500,14 +537,25 @@ class SelectDraftTeamAPIView(APIView):
 
 class JoinDraftAPIView(APIView):
     def post(self, request):
-        room_code = request.data.get("room_code", "").strip().upper()
-        display_name = request.data.get("display_name", "").strip()
+        room_code = str(request.data.get("room_code", "") or "").strip().upper()
+        display_name = str(request.data.get("display_name", "") or "").strip()
 
         if not room_code or not display_name:
             return Response(
                 {
                     "detail": (
                         "Both room_code and display_name are required."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(display_name) > MAX_NAME_LENGTH:
+            return Response(
+                {
+                    "detail": (
+                        f"Display name cannot exceed {MAX_NAME_LENGTH} "
+                        "characters."
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -589,7 +637,7 @@ class JoinDraftAPIView(APIView):
 
 class ReconnectDraftAPIView(APIView):
     def post(self, request):
-        token = request.data.get("participant_token", "").strip()
+        token = str(request.data.get("participant_token", "") or "").strip()
 
         if not token:
             return Response(
@@ -636,6 +684,30 @@ class StartDraftAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            if draft.mode == "ONLINE":
+                participant = get_token_participant(request, draft)
+
+                if participant is None:
+                    return Response(
+                        {"detail": "A valid participant token is required."},
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+
+                if participant.seat_number != 1:
+                    return Response(
+                        {"detail": "Only the host can start the draft."},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
+                if not DraftParticipant.objects.filter(
+                    draft=draft,
+                    seat_number=2,
+                ).exists():
+                    return Response(
+                        {"detail": "Waiting for the second player to join."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
             if draft.player1_team_id is None or draft.player2_team_id is None:
                 return Response(
                     {
@@ -669,30 +741,6 @@ class StartDraftAPIView(APIView):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
-            if draft.mode == "ONLINE":
-                participant = get_token_participant(request, draft)
-
-                if participant is None:
-                    return Response(
-                        {"detail": "A valid participant token is required."},
-                        status=status.HTTP_401_UNAUTHORIZED,
-                    )
-
-                if participant.seat_number != 1:
-                    return Response(
-                        {"detail": "Only the host can start the draft."},
-                        status=status.HTTP_403_FORBIDDEN,
-                    )
-
-                if not DraftParticipant.objects.filter(
-                    draft=draft,
-                    seat_number=2,
-                ).exists():
-                    return Response(
-                        {"detail": "Waiting for the second player to join."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
 
             for position in POSITION_SEQUENCE:
                 available_count = Player.objects.filter(
@@ -917,7 +965,12 @@ class SubmitDraftPickAPIView(APIView):
                 try:
                     create_next_event(draft, event.event_number + 1)
                 except ValueError as exc:
-                    raise ValueError(str(exc))
+                    # Undo both picks so the draft is not left half-advanced.
+                    transaction.set_rollback(True)
+                    return Response(
+                        {"detail": str(exc)},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
                 draft.save(update_fields=["active_player_number"])
 
@@ -1016,15 +1069,30 @@ def _match_payload(match):
             "red_cards": rating.red_cards,
         })
 
+    if match.winner_number == 1:
+        winner_name = draft.player1_name
+    elif match.winner_number == 2:
+        winner_name = draft.player2_name
+    else:
+        winner_name = None
+
     return {
         "id": match.id,
+        # The frontend reads match_id; "id" is kept for compatibility.
+        "match_id": match.id,
         "draft_id": match.draft_id,
+        "status": "COMPLETED",
         "player1_name": draft.player1_name,
         "player2_name": draft.player2_name,
         **serialize_draft_teams(draft),
         "player1_score": match.player1_score,
         "player2_score": match.player2_score,
         "winner_number": match.winner_number,
+        "winner_name": winner_name,
+        "is_draw": (
+            match.winner_number == 0
+            or match.player1_score == match.player2_score
+        ),
         "duration_minutes": match.duration_minutes,
         "man_of_the_match": _serialize_match_player(
             match.man_of_the_match
@@ -1110,6 +1178,14 @@ class SimulateMatchAPIView(APIView):
                     return Response(
                         {"detail": "A valid participant token is required."},
                         status=status.HTTP_401_UNAUTHORIZED,
+                    )
+
+                # Only the host creates matches. The guest reads the same
+                # match through GET, so both players always see one result.
+                if participant.seat_number != 1:
+                    return Response(
+                        {"detail": "Only the host can start the match."},
+                        status=status.HTTP_403_FORBIDDEN,
                     )
 
             if draft.status != "COMPLETED":
@@ -1222,7 +1298,14 @@ class SimulateMatchAPIView(APIView):
                 player1_score=result["player1_score"],
                 player2_score=result["player2_score"],
                 winner_number=result["winner_number"],
-                duration_minutes=90,
+                duration_minutes=(
+                    120
+                    if any(
+                        event["event_type"] == "EXTRA_TIME_START"
+                        for event in result["events"]
+                    )
+                    else 90
+                ),
                 man_of_the_match=result["man_of_the_match"],
                 idempotency_key=idempotency_key or None,
             )
@@ -1292,45 +1375,4 @@ class SimulateMatchAPIView(APIView):
         return Response(
             response_data,
             status=status.HTTP_201_CREATED,
-        )
-
-
-
-    from rest_framework import status
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-from rest_framework.views import APIView
-
-from .models import Team
-from .serializers import TeamSerializer
-
-
-class CreateTeamAPIView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        is_bulk = isinstance(request.data, list)
-
-        serializer = TeamSerializer(
-            data=request.data,
-            many=is_bulk,
-        )
-
-        if serializer.is_valid():
-            teams = serializer.save()
-
-            if is_bulk:
-                return Response(
-                    TeamSerializer(teams, many=True).data,
-                    status=status.HTTP_201_CREATED,
-                )
-
-            return Response(
-                TeamSerializer(teams).data,
-                status=status.HTTP_201_CREATED,
-            )
-
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST,
         )

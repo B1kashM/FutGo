@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from corsheaders.defaults import default_headers
 
 
+
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -140,7 +141,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 # Allow the custom header used for match idempotency.
-CORS_ALLOW_HEADERS = (
-    *default_headers,
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "x-participant-token",
     "idempotency-key",
-)
+]

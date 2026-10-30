@@ -21,6 +21,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useState } from "react";
+import ThemeToggle from "./components/ThemeToggle";
 
 const features = [
   {
@@ -50,19 +51,19 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#080b10] text-white">
+    <main className="min-h-screen overflow-hidden bg-background text-foreground">
       {/* Navigation */}
-      <header className="relative z-20 border-b border-white/[0.08]">
+      <header className="relative z-20 border-b border-border">
         <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-12">
           <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#b9f36b] text-black">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-ink">
               <Goal size={24} strokeWidth={2.5} />
             </div>
             <div>
               <div className="text-xl font-black tracking-[0.18em]">
-                FUT<span className="text-[#b9f36b]">GO</span>
+                FUT<span className="text-accent-text">GO</span>
               </div>
-              <div className="text-[9px] font-semibold tracking-[0.28em] text-white/40">
+              <div className="text-[9px] font-semibold tracking-[0.28em] text-muted">
                 THE FOOTBALL DRAFT
               </div>
             </div>
@@ -71,42 +72,46 @@ export default function Home() {
           <nav className="hidden items-center gap-8 md:flex">
             <a
               href="#how-it-works"
-              className="text-sm text-white/65 transition hover:text-white"
+              className="text-sm text-muted transition hover:text-foreground"
             >
               How to play
             </a>
             <a
               href="#game-modes"
-              className="text-sm text-white/65 transition hover:text-white"
+              className="text-sm text-muted transition hover:text-foreground"
             >
               Game modes
             </a>
             <a
               href="#about"
-              className="text-sm text-white/65 transition hover:text-white"
+              className="text-sm text-muted transition hover:text-foreground"
             >
               About FutGo
             </a>
           </nav>
 
-          <a
-            href="#game-modes"
-            className="hidden items-center gap-2 rounded-full bg-[#b9f36b] px-5 py-2.5 text-sm font-bold text-[#10140b] transition hover:bg-[#ceff8b] sm:flex"
-          >
-            Play now <ArrowUpRight size={16} />
-          </a>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
 
-          <button
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="rounded-lg border border-white/10 p-2 md:hidden"
-          >
-            {menuOpen ? <X size={22} /> : <Menu size={22} />}
-          </button>
+            <a
+              href="#game-modes"
+              className="hidden items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-accent-ink transition hover:brightness-110 sm:flex"
+            >
+              Play now <ArrowUpRight size={16} />
+            </a>
+
+            <button
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="rounded-lg border border-border p-2 md:hidden"
+            >
+              {menuOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
+          </div>
         </div>
 
         {menuOpen && (
-          <nav className="absolute left-0 right-0 top-full flex flex-col gap-4 border-b border-white/10 bg-[#0d1118] p-6 md:hidden">
+          <nav className="absolute left-0 right-0 top-full flex flex-col gap-4 border-b border-border bg-surface p-6 md:hidden">
             <a href="#how-it-works" onClick={() => setMenuOpen(false)}>
               How to play
             </a>
@@ -122,11 +127,11 @@ export default function Home() {
 
       {/* Hero */}
       <section className="relative">
-        <div className="pointer-events-none absolute left-1/2 top-0 h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-[#b9f36b]/[0.055] blur-[120px]" />
+        <div className="pointer-events-none absolute left-1/2 top-0 h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-accent/[0.055] blur-[120px]" />
 
         <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-5 pb-20 pt-16 sm:px-8 sm:pt-24 lg:grid-cols-[1.05fr_0.95fr] lg:px-12 lg:pb-28 lg:pt-28">
           <div>
-            <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#b9f36b]/20 bg-[#b9f36b]/[0.07] px-4 py-2 text-xs font-semibold text-[#b9f36b]">
+            <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-4 py-2 text-xs font-semibold text-accent-text">
               <Sparkles size={14} />
               YOUR FOOTBALL. YOUR PICKS. YOUR LEGACY.
             </div>
@@ -137,19 +142,18 @@ export default function Home() {
               des
               <br />
               tres...
-              <br />              
-              <span className="text-[#b9f36b]">Vamoss</span>
+              <br />
+              <span className="text-accent-text">Vamoss</span>
             </h1>
 
-            <p className="mt-7 max-w-lg text-base leading-7 text-white/55 sm:text-lg sm:leading-8">
-              Build your ultimate football XI. Battle your friends in a
-              player-by-player draft and prove who really knows football.
+            <p className="mt-7 max-w-lg text-base leading-7 text-muted sm:text-lg sm:leading-8">
+              Build your ultimate football XI. Prove who really knows football.
             </p>
 
             <div className="mt-9 flex flex-wrap gap-3">
               <a
                 href="#game-modes"
-                className="group inline-flex items-center gap-3 rounded-xl bg-[#b9f36b] px-6 py-4 font-bold text-[#10140b] transition hover:-translate-y-0.5 hover:bg-[#ceff8b]"
+                className="group inline-flex items-center gap-3 rounded-xl bg-accent px-6 py-4 font-bold text-accent-ink transition hover:-translate-y-0.5 hover:brightness-110"
               >
                 Start drafting
                 <ArrowRight
@@ -159,20 +163,20 @@ export default function Home() {
               </a>
               <a
                 href="#how-it-works"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-6 py-4 font-semibold text-white/80 transition hover:border-white/25 hover:bg-white/[0.04]"
+                className="inline-flex items-center gap-2 rounded-xl border border-border px-6 py-4 font-semibold text-foreground/80 transition hover:border-foreground/25 hover:bg-foreground/[0.04]"
               >
                 <CircleHelp size={18} />
                 How to play
               </a>
             </div>
 
-            <div className="mt-11 flex flex-wrap gap-x-7 gap-y-3 text-xs font-medium text-white/45 sm:text-sm">
+            <div className="mt-11 flex flex-wrap gap-x-7 gap-y-3 text-xs font-medium text-muted sm:text-sm">
               <span className="flex items-center gap-2">
-                <Check size={15} className="text-[#b9f36b]" />
+                <Check size={15} className="text-accent-text" />
                 11 players per squad
               </span>
               <span className="flex items-center gap-2">
-                <Check size={15} className="text-[#b9f36b]" />
+                <Check size={15} className="text-accent-text" />
                 Position-by-position picks
               </span>
             </div>
@@ -180,22 +184,23 @@ export default function Home() {
 
           {/* Football pitch visual */}
           <div className="relative mx-auto w-full max-w-[510px]">
-            <div className="absolute inset-8 rounded-full bg-[#b9f36b]/10 blur-3xl" />
+            <div className="absolute inset-8 rounded-full bg-accent/10 blur-3xl" />
 
-            <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[#111821] p-4 shadow-2xl sm:p-6">
+            <div className="relative overflow-hidden rounded-[28px] border border-border bg-surface-2 p-4 shadow-2xl sm:p-6">
               <div className="mb-5 flex items-center justify-between">
                 <div>
-                  <div className="text-[10px] font-bold tracking-[0.24em] text-white/35">
+                  <div className="text-[10px] font-bold tracking-[0.24em] text-muted">
                     YOUR NEXT MASTERPIECE
                   </div>
                   <div className="mt-1 text-lg font-bold">Dream XI</div>
                 </div>
-                <div className="rounded-lg border border-[#b9f36b]/20 bg-[#b9f36b]/10 px-3 py-2 text-xs font-bold text-[#b9f36b]">
+                <div className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-bold text-accent-text">
                   4–3–3 FORMATION
                 </div>
               </div>
 
-              <div className="pitch relative overflow-hidden rounded-2xl border border-white/15">
+              {/* The pitch is green in both themes, so its inner colours stay fixed */}
+              <div className="pitch relative overflow-hidden rounded-2xl border border-border">
                 <div className="absolute left-0 right-0 top-1/2 border-t border-white/20" />
                 <div className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 sm:h-28 sm:w-28" />
                 <div className="absolute left-1/2 top-0 h-9 w-28 -translate-x-1/2 rounded-b-xl border-b border-x border-white/20 sm:h-12 sm:w-36" />
@@ -232,25 +237,14 @@ export default function Home() {
               </div>
 
               <div className="mt-5 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs text-white/45">
+                <div className="flex items-center gap-2 text-xs text-muted">
                   <Users size={15} />
                   <span>2 players · 1 winner</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#b9f36b]">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-accent-text">
                   <Zap size={14} />
                   YOUR XI, YOUR RULES
                 </div>
-              </div>
-            </div>
-
-            <div className="absolute -right-2 top-20 hidden rounded-2xl border border-white/10 bg-[#171f28] p-4 shadow-xl sm:-right-6 sm:block">
-              <div className="flex items-center gap-2 text-[10px] font-bold tracking-wider text-white/45">
-                <Clock3 size={13} />
-                EVERY PICK COUNTS
-              </div>
-              <div className="mt-2 text-sm font-bold">Choose wisely.</div>
-              <div className="mt-1 text-xs text-white/45">
-                Build your legacy.
               </div>
             </div>
           </div>
@@ -258,18 +252,18 @@ export default function Home() {
       </section>
 
       {/* Game modes */}
-      <section id="game-modes" className="border-y border-white/[0.07] bg-[#0d1219]">
+      <section id="game-modes" className="border-y border-border bg-surface">
         <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-12 lg:py-24">
           <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
-              <div className="text-xs font-bold tracking-[0.22em] text-[#b9f36b]">
+              <div className="text-xs font-bold tracking-[0.22em] text-accent-text">
                 CHOOSE YOUR BATTLE
               </div>
               <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">
                 HOW DO YOU WANT TO PLAY?
               </h2>
             </div>
-            <p className="max-w-sm text-sm leading-6 text-white/45">
+            <p className="max-w-sm text-sm leading-6 text-muted">
               Same beautiful game. Two ways to build your dream team.
             </p>
           </div>
@@ -277,28 +271,28 @@ export default function Home() {
           <div className="grid gap-5 md:grid-cols-2">
             <Link
               href="/local-draft"
-              className="group relative overflow-hidden rounded-3xl border border-white/10 bg-[#141b23] p-7 transition duration-300 hover:-translate-y-1 hover:border-[#b9f36b]/50 sm:p-9"
+              className="group relative overflow-hidden rounded-3xl border border-border bg-surface-2 p-7 transition duration-300 hover:-translate-y-1 hover:border-accent/50 sm:p-9"
             >
-              <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-[#b9f36b]/[0.07] blur-2xl transition group-hover:bg-[#b9f36b]/[0.12]" />
+              <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-accent/[0.07] blur-2xl transition group-hover:bg-accent/[0.12]" />
               <div className="relative">
                 <div className="flex items-start justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#b9f36b]/10 text-[#b9f36b]">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 text-accent-text">
                     <Gamepad2 size={28} />
                   </div>
-                  <span className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] font-bold tracking-wider text-white/45">
+                  <span className="rounded-full border border-border px-3 py-1.5 text-[10px] font-bold tracking-wider text-muted">
                     SAME DEVICE
                   </span>
                 </div>
                 <h3 className="mt-7 text-2xl font-black">Local Draft</h3>
-                <p className="mt-3 max-w-sm text-sm leading-6 text-white/50">
+                <p className="mt-3 max-w-sm text-sm leading-6 text-muted">
                   Face off against a friend on the same screen. Take turns
                   choosing players and build two legendary squads.
                 </p>
                 <div className="mt-7 flex items-center justify-between">
-                  <span className="text-sm font-bold text-[#b9f36b]">
+                  <span className="text-sm font-bold text-accent-text">
                     Play locally
                   </span>
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#b9f36b] text-black transition group-hover:translate-x-1">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-accent-ink transition group-hover:translate-x-1">
                     <ArrowRight size={19} />
                   </span>
                 </div>
@@ -307,25 +301,25 @@ export default function Home() {
 
             <Link
               href="/online-draft"
-              className="group relative overflow-hidden rounded-3xl border border-white/10 bg-[#141b23] p-7 transition duration-300 hover:-translate-y-1 hover:border-sky-400/50 sm:p-9"
+              className="group relative overflow-hidden rounded-3xl border border-border bg-surface-2 p-7 transition duration-300 hover:-translate-y-1 hover:border-sky-400/50 sm:p-9"
             >
               <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-sky-400/[0.06] blur-2xl transition group-hover:bg-sky-400/[0.11]" />
               <div className="relative">
                 <div className="flex items-start justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-400/10 text-sky-300">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-400/10 text-sky-600 dark:text-sky-300">
                     <Globe2 size={28} />
                   </div>
-                  <span className="rounded-full border border-sky-300/20 bg-sky-300/[0.06] px-3 py-1.5 text-[10px] font-bold tracking-wider text-sky-300">
+                  <span className="rounded-full border border-sky-500/25 bg-sky-400/[0.08] px-3 py-1.5 text-[10px] font-bold tracking-wider text-sky-600 dark:text-sky-300">
                     ONLINE
                   </span>
                 </div>
                 <h3 className="mt-7 text-2xl font-black">Online Draft</h3>
-                <p className="mt-3 max-w-sm text-sm leading-6 text-white/50">
+                <p className="mt-3 max-w-sm text-sm leading-6 text-muted">
                   Challenge a friend from anywhere. Create a private room,
                   share your code, and compete pick by pick.
                 </p>
                 <div className="mt-7 flex items-center justify-between">
-                  <span className="text-sm font-bold text-sky-300">
+                  <span className="text-sm font-bold text-sky-600 dark:text-sky-300">
                     Challenge a friend
                   </span>
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-300 text-black transition group-hover:translate-x-1">
@@ -341,7 +335,7 @@ export default function Home() {
       {/* How it works */}
       <section id="how-it-works" className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-12 lg:py-24">
         <div className="max-w-2xl">
-          <div className="text-xs font-bold tracking-[0.22em] text-[#b9f36b]">
+          <div className="text-xs font-bold tracking-[0.22em] text-accent-text">
             SIMPLE TO LEARN. HARD TO MASTER.
           </div>
           <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">
@@ -356,19 +350,19 @@ export default function Home() {
             return (
               <div
                 key={feature.number}
-                className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 transition hover:border-white/15 hover:bg-white/[0.035] sm:p-7"
+                className="rounded-2xl border border-border bg-foreground/[0.03] p-6 transition hover:border-foreground/20 hover:bg-foreground/[0.05] sm:p-7"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-[#b9f36b]">
+                  <span className="text-sm font-bold text-accent-text">
                     {feature.number}
                   </span>
-                  <Icon size={23} className="text-white/40" />
+                  <Icon size={23} className="text-muted" />
                 </div>
                 <h3 className="mt-8 text-xl font-bold">{feature.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-white/45">
+                <p className="mt-3 text-sm leading-6 text-muted">
                   {feature.description}
                 </p>
-                <div className="mt-6 h-1 w-12 rounded-full bg-[#b9f36b]/70" />
+                <div className="mt-6 h-1 w-12 rounded-full bg-accent/70" />
               </div>
             );
           })}
@@ -376,24 +370,24 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer id="about" className="border-t border-white/[0.08]">
+      <footer id="about" className="border-t border-border">
         <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-8 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-12">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#b9f36b] text-black">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-ink">
               <Goal size={19} />
             </div>
             <span className="font-black tracking-[0.15em]">
-              FUT<span className="text-[#b9f36b]">GO</span>
+              FUT<span className="text-accent-text">GO</span>
             </span>
           </Link>
 
-          <p className="text-xs text-white/35">
+          <p className="text-xs text-muted">
             Built by Bikash. The PesGoalPoacher.
           </p>
 
           <a
             href="#game-modes"
-            className="flex items-center gap-2 text-sm font-semibold text-white/60 transition hover:text-[#b9f36b]"
+            className="flex items-center gap-2 text-sm font-semibold text-muted transition hover:text-accent-text"
           >
             Ready to draft? <ChevronRight size={16} />
           </a>
