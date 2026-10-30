@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -133,11 +132,13 @@ export default function Home() {
             </div>
 
             <h1 className="max-w-2xl text-5xl font-black leading-[1.05] tracking-[-0.055em] sm:text-6xl lg:text-[76px]">
-              GREAT TEAMS
+              ¡Uno
               <br />
-              AREN&apos;T GIVEN.
+              des
               <br />
-              <span className="text-[#b9f36b]">THEY&apos;RE DRAFTED.</span>
+              tres...
+              <br />              
+              <span className="text-[#b9f36b]">Vamoss</span>
             </h1>
 
             <p className="mt-7 max-w-lg text-base leading-7 text-white/55 sm:text-lg sm:leading-8">
@@ -387,7 +388,7 @@ export default function Home() {
           </Link>
 
           <p className="text-xs text-white/35">
-            Built for football fans. Powered by your picks.
+            Built by Bikash. The PesGoalPoacher.
           </p>
 
           <a

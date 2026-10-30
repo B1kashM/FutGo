@@ -58,6 +58,8 @@ class Draft(models.Model):
         ("PREMIER_LEAGUE", "Premier League"),
         ("LA_LIGA", "La Liga"),
         ("YOUNG_TALENTS", "Young Talents"),
+        ('TOP_5_LEAGUES', 'Top 5 Leagues'),
+        ('ISL', 'ISL'),        
     ]
 
     mode = models.CharField(max_length=10, choices=MODE_CHOICES)

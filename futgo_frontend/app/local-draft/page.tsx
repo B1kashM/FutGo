@@ -63,6 +63,18 @@ const DRAFT_CATEGORIES = [
     description: "The next generation",
     icon: "⚡",
   },
+    {
+    value: "TOP_5_LEAGUES",
+    label: "Top 5 Leagues",
+    description: "All stars",
+    icon: "★",
+  },
+    {
+    value: "ISL",
+    label: "ISL",
+    description: "Indian Super league",
+    icon: "🇮🇳",
+  },
 ] as const;
 
 type CategoryValue = (typeof DRAFT_CATEGORIES)[number]["value"];
@@ -968,7 +980,7 @@ export default function LocalDraftPage() {
                     </span>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                   {DRAFT_CATEGORIES.map((category) => {
                     const isSelected = selectedCategory === category.value;
                     return (
