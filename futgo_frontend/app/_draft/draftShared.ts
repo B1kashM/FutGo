@@ -80,6 +80,7 @@ export type Player = {
   position: string;
   category?: string;
   image_url?: string | null;
+  ovr_rating?: number | null;
 };
 
 export type DraftEvent = {

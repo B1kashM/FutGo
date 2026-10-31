@@ -9,6 +9,12 @@ class BulkPlayerCreateListSerializer(serializers.ListSerializer):
 
 
 class PlayerSerializer(serializers.ModelSerializer):
+    ovr_rating = serializers.IntegerField(
+        min_value=0,
+        max_value=99,
+        default=0
+    )
+
     class Meta:
         model = Player
         fields = "__all__"

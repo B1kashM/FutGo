@@ -239,6 +239,7 @@ def serialize_event(event):
             "position": getattr(player, "position", None),
             "category": getattr(player, "category", None),
             "image_url": getattr(player, "image_url", None),
+            "ovr_rating": getattr(player, "ovr_rating", None),
         }
 
     return {

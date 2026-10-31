@@ -33,6 +33,7 @@ class Player(models.Model):
         max_length=3,
         choices=POSITION_CHOICES,
     )
+    ovr_rating = models.PositiveSmallIntegerField(default=0)
     category = models.CharField(
         max_length=30,
         choices=CATEGORY_CHOICES,

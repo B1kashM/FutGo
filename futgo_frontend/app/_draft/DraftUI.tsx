@@ -261,15 +261,22 @@ export function DraftingView({
             }`}
           >
             <div className="absolute right-0 top-0 h-36 w-36 rounded-full bg-accent/[0.04] blur-3xl transition group-hover:bg-accent/10" />
-            <div className="relative flex items-start justify-between gap-2 sm:gap-4">
-              <span className="rounded-full border border-border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-muted sm:px-3 sm:py-1.5 sm:text-[10px] sm:tracking-[0.16em]">
-                <span className="hidden sm:inline">Option </span>
-                {index + 1}
-              </span>
-              <span className="rounded-full bg-accent/10 px-2 py-1 text-[10px] font-bold text-accent-text sm:px-3 sm:py-1.5 sm:text-xs">
-                {player.position}
-              </span>
-            </div>
+              <div className="relative flex items-start justify-between gap-2 sm:gap-4">
+                <span className="rounded-full border border-border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-muted sm:px-3 sm:py-1.5 sm:text-[10px] sm:tracking-[0.16em]">
+                  <span className="hidden sm:inline">Option </span>
+                  {index + 1}
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <span className="rounded-lg border border-[#b9f36b]/40 bg-[#b9f36b]/15 px-2.5 py-1 text-xs font-black text-[#b9f36b] sm:px-3 sm:py-1.5 sm:text-sm">
+                    {player.ovr_rating ?? 0} OVR
+                  </span>
+
+                  <span className="rounded-full bg-accent/10 px-2 py-1 text-[10px] font-bold text-accent-text sm:px-3 sm:py-1.5 sm:text-xs">
+                    {player.position}
+                  </span>
+                </div>
+              </div>
             <div className="relative mt-4 flex flex-col items-start gap-3 sm:mt-7 sm:min-h-28 sm:flex-row sm:items-center sm:gap-5">
               <PlayerAvatar
                 player={player}
