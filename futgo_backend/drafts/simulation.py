@@ -737,8 +737,8 @@ def simulate_match(team1, team2):
         "The referee blows the whistle. We are underway!",
     )
 
-    # incident_count = random.randint(*settings["incidents"])
-    incident_count = 0
+    incident_count = random.randint(*settings["incidents"])
+    # incident_count = 0
 
     incident_minutes = sorted(
         random.sample(range(2, 90), incident_count)
@@ -770,8 +770,8 @@ def simulate_match(team1, team2):
         )
 
         # First extra-time half: minutes 91-105.
-        # first_extra_count = random.randint(8, 11)
-        first_extra_count = 0
+        first_extra_count = random.randint(8, 11)
+        # first_extra_count = 0
 
         first_extra_minutes = sorted(
             random.sample(range(91, 106), first_extra_count)
@@ -788,8 +788,8 @@ def simulate_match(team1, team2):
         )
 
         # Second extra-time half: minutes 106-120.
-        # second_extra_count = random.randint(8, 11)
-        second_extra_count = 0
+        second_extra_count = random.randint(8, 11)
+        # second_extra_count = 0
 
         second_extra_minutes = sorted(
             random.sample(range(106, 121), second_extra_count)
