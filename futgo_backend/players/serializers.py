@@ -11,7 +11,7 @@ class BulkPlayerCreateListSerializer(serializers.ListSerializer):
 class PlayerSerializer(serializers.ModelSerializer):
     ovr_rating = serializers.IntegerField(
         min_value=0,
-        max_value=99,
+        max_value=100,
         default=0
     )
 
