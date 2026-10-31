@@ -8,6 +8,26 @@ export const API_BASE = (
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000"
 ).replace(/\/+$/, "");
 
+/* ------------------------------------------------------------------ */
+/* Playback speed (all values in milliseconds)                         */
+/* ------------------------------------------------------------------ */
+
+// How long one simulated match minute lasts on screen.
+// Was 500 (a 90 minute match took ~45 seconds).
+// 1000 doubles it: a 90 minute match now takes ~90 seconds,
+// and 120 minutes (extra time) takes ~2 minutes.
+export const MATCH_TICK_MS = 1000;
+
+// Pause between pressing "Start Penalties" and the first shootout event.
+export const PENALTY_FIRST_REVEAL_DELAY_MS = 900;
+
+// Delay after a "steps up to take the penalty" event before the result
+// (goal / save / miss) is revealed. This is the suspense moment.
+export const PENALTY_RESULT_DELAY_MS = 2600;
+
+// Delay after any other shootout event before the next one is revealed.
+export const PENALTY_STEP_DELAY_MS = 1800;
+
 export const DRAFT_CATEGORIES = [
   {
     value: "LEGENDS",
@@ -72,7 +92,6 @@ export type Team = {
 
 export type Player = {
   id: number;
-  /** Squad items from the backend use player_id instead of id. */
   player_id?: number;
   name: string;
   club?: string | null;
@@ -121,6 +140,50 @@ export type MatchEvent = {
   commentary: string;
   player?: Player | null;
   secondary_player?: Player | null;
+
+  // Penalty shootout events include PENALTY_KICK (setup) and outcome events.
+  // The setup event stores the shooter in player and goalkeeper in secondary_player.
+  // Penalty shootout metadata
+  penalty_round?: number | null;
+
+  // 1-based kick number for the kicking team (1 = first penalty of that team).
+  // Sent by the backend on PENALTY_KICK and PENALTY_GOAL/SAVE/MISS events.
+  penalty_kick_number?: number | null;
+
+  is_sudden_death?: boolean;
+
+  // Optional score snapshot returned by the backend
+  score_after?: {
+    player1?: number;
+    player2?: number;
+    penalties?: {
+      player1?: number;
+      player2?: number;
+    };
+  } | null;
+};
+
+export type PenaltyAttempt = {
+  round: number;
+  team_number: number;
+  kick_number?: number | null;
+  shooter: Player | null;
+  goalkeeper: Player | null;
+  outcome: "GOAL" | "SAVE" | "MISS" | string;
+  score: {
+    1: number;
+    2: number;
+  };
+  sudden_death: boolean;
+};
+
+export type PenaltyShootout = {
+  team1_score: number;
+  team2_score: number;
+  winner_number: number;
+  total_rounds: number;
+  sudden_death: boolean;
+  attempts: PenaltyAttempt[];
 };
 
 export type TeamStatistics = {
@@ -133,6 +196,8 @@ export type TeamStatistics = {
   corners: number;
   yellow_cards: number;
   red_cards: number;
+  penalty_goals?: number;
+  penalty_misses?: number;
 };
 
 export type PlayerRating = {
@@ -148,10 +213,11 @@ export type PlayerRating = {
   interceptions: number;
   yellow_cards: number;
   red_cards: number;
+  penalty_goals?: number;
+  penalty_misses?: number;
 };
 
 export type MatchResult = {
-  /** The backend sends both `id` and `match_id`; normalizeMatch fills gaps. */
   match_id: number;
   id?: number;
   draft_id: number;
@@ -164,6 +230,14 @@ export type MatchResult = {
   winner_number: number | null;
   winner_name?: string | null;
   is_draw: boolean;
+
+  // Penalty shootout result
+  penalties_played?: boolean;
+  player1_penalty_score?: number | null;
+  player2_penalty_score?: number | null;
+  extra_time_played?: boolean;
+  penalty_shootout?: PenaltyShootout | null;
+
   player1_team?: Team | null;
   player2_team?: Team | null;
   events: MatchEvent[];
@@ -203,7 +277,6 @@ export async function apiRequest<T>(
       cache: "no-store",
     });
   } catch {
-    // status 0 = the request never reached the server
     throw new ApiError(
       "Unable to reach the server. Check your connection and try again.",
       0,
@@ -298,11 +371,19 @@ export function cleanName(value: unknown): string {
   return name && lower !== "undefined" && lower !== "null" ? name : "";
 }
 
+/**
+ * Prefer the backend's winner_number because regular-time scores can be
+ * tied while a penalty shootout determines the actual winner.
+ */
 export function getWinnerName(match: MatchResult): string {
-  const score1 = safeNumber(match.player1_score);
-  const score2 = safeNumber(match.player2_score);
   const winner =
-    score1 > score2 ? 1 : score2 > score1 ? 2 : safeNumber(match.winner_number);
+    match.winner_number !== null && match.winner_number !== undefined
+      ? safeNumber(match.winner_number)
+      : safeNumber(match.player1_score) > safeNumber(match.player2_score)
+        ? 1
+        : safeNumber(match.player2_score) > safeNumber(match.player1_score)
+          ? 2
+          : 0;
 
   if (winner === 1) {
     return (
@@ -325,6 +406,53 @@ export function getWinnerName(match: MatchResult): string {
 
 export function getTeamName(team?: Team | null): string {
   return cleanName(team?.name);
+}
+
+export function hasPenaltyShootout(
+  match: MatchResult | null | undefined,
+): boolean {
+  if (!match) return false;
+
+  return (
+    match.penalties_played === true ||
+    (match.player1_penalty_score !== null &&
+      match.player1_penalty_score !== undefined &&
+      match.player2_penalty_score !== null &&
+      match.player2_penalty_score !== undefined) ||
+    !!match.penalty_shootout
+  );
+}
+
+export function getPenaltyScore(
+  match: MatchResult,
+  teamNumber: 1 | 2,
+): number {
+  const directScore =
+    teamNumber === 1
+      ? match.player1_penalty_score
+      : match.player2_penalty_score;
+
+  if (directScore !== null && directScore !== undefined) {
+    return safeNumber(directScore);
+  }
+
+  return safeNumber(
+    teamNumber === 1
+      ? match.penalty_shootout?.team1_score
+      : match.penalty_shootout?.team2_score,
+  );
+}
+
+export function getPenaltyAttempts(
+  match: MatchResult | null | undefined,
+): PenaltyAttempt[] {
+  if (!match) return [];
+
+  if (Array.isArray(match.penalty_shootout?.attempts)) {
+    return match.penalty_shootout.attempts;
+  }
+
+  return [];
 }
 
 /* ------------------------------------------------------------------ */
@@ -357,6 +485,43 @@ export function isFullTimeType(type: string): boolean {
   return type.includes("FULL_TIME") || type.includes("FULLTIME");
 }
 
+export function isPenaltyEventType(type: string): boolean {
+  return type.startsWith("PENALTY_");
+}
+
+export function isPenaltyKickType(type: string): boolean {
+  return type === "PENALTY_KICK";
+}
+
+export function isPenaltyGoalType(type: string): boolean {
+  return type === "PENALTY_GOAL";
+}
+
+export function isPenaltySaveType(type: string): boolean {
+  return type === "PENALTY_SAVE";
+}
+
+export function isPenaltyMissType(type: string): boolean {
+  return type === "PENALTY_MISS";
+}
+
+/** True for the event that carries the result of one kick. */
+export function isPenaltyResultType(type: string): boolean {
+  return (
+    isPenaltyGoalType(type) ||
+    isPenaltySaveType(type) ||
+    isPenaltyMissType(type)
+  );
+}
+
+export function isPenaltyShootoutStartType(type: string): boolean {
+  return type === "PENALTY_SHOOTOUT_START";
+}
+
+export function isPenaltyShootoutEndType(type: string): boolean {
+  return type === "PENALTY_SHOOTOUT_END";
+}
+
 export function getMatchEndMinute(
   match: MatchResult | null | undefined,
 ): number {
@@ -369,22 +534,141 @@ export function getMatchEndMinute(
     : REGULAR_TIME_END;
 }
 
+/**
+ * "none"     - no shootout, or not relevant right now
+ * "awaiting" - extra time is over, waiting for the user to press Start Penalties
+ * "live"     - the shootout is being revealed
+ */
+export type PenaltyStage = "none" | "awaiting" | "live";
+
 export function getMatchStatusLabel(
   minute: number,
   finished: boolean,
   extraTime: boolean,
+  penaltyStage: PenaltyStage = "none",
 ): string {
   if (finished) return "Full time";
+  if (penaltyStage === "awaiting") return "Level after extra time";
+  if (penaltyStage === "live") return "Penalty shootout";
   if (minute < 45) return `${minute}' · First half`;
   if (minute === 45) return "Half-time";
+
   if (!extraTime || minute < REGULAR_TIME_END) {
     return `${minute}' · Second half`;
   }
+
   if (minute === REGULAR_TIME_END) return "Extra time begins";
   if (minute < 105) return `${minute}' · Extra time`;
   if (minute === 105) return "Extra-time break";
+
   return `${minute}' · Extra time`;
 }
+
+/* ------------------------------------------------------------------ */
+/* Penalty tracker                                                     */
+/* ------------------------------------------------------------------ */
+
+export type PenaltySlotState =
+  | "empty" // kick not taken yet
+  | "pending" // shooter is stepping up, result not revealed
+  | "goal"
+  | "save"
+  | "miss";
+
+export type PenaltyTrackerData = {
+  slotCount: number;
+  team1: PenaltySlotState[];
+  team2: PenaltySlotState[];
+  // Team whose kick is currently waiting for a result (or null).
+  activeTeam: 1 | 2 | null;
+};
+
+/**
+ * Builds the two rows of penalty circles from the shootout events that
+ * have been revealed so far.
+ *
+ * Every team starts with `minSlots` (5) empty circles. Each revealed kick
+ * fills its circle: green for a goal, red for a save or miss. If the
+ * shootout goes to sudden death, extra circles are added to both rows.
+ */
+export function buildPenaltyTracker(
+  revealedEvents: MatchEvent[],
+  minSlots = 5,
+): PenaltyTrackerData {
+  const rows: Record<1 | 2, PenaltySlotState[]> = { 1: [], 2: [] };
+  const setupCount: Record<1 | 2, number> = { 1: 0, 2: 0 };
+  const resultCount: Record<1 | 2, number> = { 1: 0, 2: 0 };
+
+  let lastPenaltyType = "";
+  let lastPenaltyTeam: 1 | 2 | null = null;
+
+  const setSlot = (team: 1 | 2, index: number, state: PenaltySlotState) => {
+    const row = rows[team];
+    while (row.length <= index) row.push("empty");
+    row[index] = state;
+  };
+
+  revealedEvents.forEach((event) => {
+    const type = eventTypeKey(event);
+    const team = safeNumber(event.team_number);
+
+    if (team !== 1 && team !== 2) return;
+
+    if (isPenaltyKickType(type)) {
+      const index =
+        event.penalty_kick_number != null
+          ? safeNumber(event.penalty_kick_number) - 1
+          : setupCount[team];
+
+      setupCount[team] += 1;
+      setSlot(team, Math.max(0, index), "pending");
+      lastPenaltyType = type;
+      lastPenaltyTeam = team;
+      return;
+    }
+
+    if (isPenaltyResultType(type)) {
+      const index =
+        event.penalty_kick_number != null
+          ? safeNumber(event.penalty_kick_number) - 1
+          : resultCount[team];
+
+      resultCount[team] += 1;
+
+      setSlot(
+        team,
+        Math.max(0, index),
+        isPenaltyGoalType(type)
+          ? "goal"
+          : isPenaltySaveType(type)
+            ? "save"
+            : "miss",
+      );
+
+      lastPenaltyType = type;
+      lastPenaltyTeam = team;
+    }
+  });
+
+  const slotCount = Math.max(minSlots, rows[1].length, rows[2].length);
+
+  const pad = (row: PenaltySlotState[]) => {
+    const padded = [...row];
+    while (padded.length < slotCount) padded.push("empty");
+    return padded;
+  };
+
+  return {
+    slotCount,
+    team1: pad(rows[1]),
+    team2: pad(rows[2]),
+    activeTeam: isPenaltyKickType(lastPenaltyType) ? lastPenaltyTeam : null,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Match normalization                                                 */
+/* ------------------------------------------------------------------ */
 
 type TeamFallback = {
   player1_team?: Team | null;
@@ -413,11 +697,19 @@ export function normalizeMatch(
     player_ratings: Array.isArray(result.player_ratings)
       ? result.player_ratings
       : [],
+    penalty_shootout: result.penalty_shootout
+      ? {
+          ...result.penalty_shootout,
+          attempts: Array.isArray(result.penalty_shootout.attempts)
+            ? result.penalty_shootout.attempts
+            : [],
+        }
+      : null,
   };
 }
 
 /* ------------------------------------------------------------------ */
-/* Match playback hook (clock, history, replay)                        */
+/* Match playback hook                                                 */
 /* ------------------------------------------------------------------ */
 
 export function useMatchPlayback() {
@@ -426,7 +718,10 @@ export function useMatchPlayback() {
   const [matchMinute, setMatchMinute] = useState(0);
   const [matchFinished, setMatchFinished] = useState(false);
 
-  const matchEndMinute = useMemo(() => getMatchEndMinute(matchData), [matchData]);
+  const matchEndMinute = useMemo(
+    () => getMatchEndMinute(matchData),
+    [matchData],
+  );
 
   const pushHistory = (match: MatchResult) => {
     setMatchHistory((history) => [
@@ -435,7 +730,6 @@ export function useMatchPlayback() {
     ]);
   };
 
-  /** Show a new match and animate it from minute 0. */
   const playMatch = useCallback(
     (result: MatchResult, fallback?: TeamFallback): MatchResult => {
       const normalized = normalizeMatch(result, fallback);
@@ -448,7 +742,6 @@ export function useMatchPlayback() {
     [],
   );
 
-  /** Show an existing match straight at full time (e.g. after a refresh). */
   const loadFinishedMatch = useCallback(
     (result: MatchResult, fallback?: TeamFallback): MatchResult => {
       const normalized = normalizeMatch(result, fallback);
@@ -482,9 +775,10 @@ export function useMatchPlayback() {
   useEffect(() => {
     if (!matchData || matchFinished) return undefined;
 
+    // One match minute per MATCH_TICK_MS (slowed down from 500ms).
     const timer = window.setInterval(() => {
       setMatchMinute((minute) => Math.min(minute + 1, matchEndMinute));
-    }, 500);
+    }, MATCH_TICK_MS);
 
     return () => window.clearInterval(timer);
   }, [matchData, matchFinished, matchEndMinute]);

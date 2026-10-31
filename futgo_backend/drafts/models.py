@@ -1,3 +1,4 @@
+
 import secrets
 import string
 from decimal import Decimal
@@ -58,8 +59,8 @@ class Draft(models.Model):
         ("PREMIER_LEAGUE", "Premier League"),
         ("LA_LIGA", "La Liga"),
         ("YOUNG_TALENTS", "Young Talents"),
-        ('TOP_5_LEAGUES', 'Top 5 Leagues'),
-        ('ISL', 'ISL'),        
+        ("TOP_5_LEAGUES", "Top 5 Leagues"),
+        ("ISL", "ISL"),
     ]
 
     mode = models.CharField(max_length=10, choices=MODE_CHOICES)
@@ -79,7 +80,6 @@ class Draft(models.Model):
     )
 
     player1_name = models.CharField(max_length=50)
-
     player2_name = models.CharField(max_length=50, blank=True, default="")
 
     player1_team = models.ForeignKey(
@@ -107,7 +107,6 @@ class Draft(models.Model):
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
-
     completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -273,8 +272,10 @@ class DraftParticipant(models.Model):
 
 class MatchResult(models.Model):
     """
-    A simulated match. Rematches reuse the squads and club identities
-    belonging to the related Draft.
+    A simulated match.
+
+    Regular-time and extra-time scores are stored separately from
+    penalty shootout scores.
     """
 
     draft = models.ForeignKey(
@@ -285,6 +286,17 @@ class MatchResult(models.Model):
 
     player1_score = models.PositiveSmallIntegerField(default=0)
     player2_score = models.PositiveSmallIntegerField(default=0)
+
+    # Nullable values indicate that no penalty shootout was played.
+    player1_penalty_score = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+    )
+
+    player2_penalty_score = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+    )
 
     # 1 = Player 1 wins, 2 = Player 2 wins, 0 = draw.
     winner_number = models.PositiveSmallIntegerField(
@@ -323,6 +335,29 @@ class MatchResult(models.Model):
                 | Q(winner_number__in=[0, 1, 2]),
                 "match_winner_number_valid",
             ),
+            _check_constraint(
+                (
+                    Q(
+                        player1_penalty_score__isnull=True,
+                        player2_penalty_score__isnull=True,
+                    )
+                    | Q(
+                        player1_penalty_score__isnull=False,
+                        player2_penalty_score__isnull=False,
+                        player1_penalty_score__gt=F(
+                            "player2_penalty_score"
+                        ),
+                    )
+                    | Q(
+                        player1_penalty_score__isnull=False,
+                        player2_penalty_score__isnull=False,
+                        player2_penalty_score__gt=F(
+                            "player1_penalty_score"
+                        ),
+                    )
+                ),
+                "match_penalty_scores_valid",
+            ),
         ]
 
     @property
@@ -333,6 +368,17 @@ class MatchResult(models.Model):
     def player2_team(self):
         return self.draft.player2_team
 
+    @property
+    def extra_time_played(self):
+        return self.duration_minutes == 120
+
+    @property
+    def penalties_played(self):
+        return (
+            self.player1_penalty_score is not None
+            and self.player2_penalty_score is not None
+        )
+
     def __str__(self):
         return (
             f"Match {self.id} (Draft {self.draft_id}): "
@@ -341,6 +387,13 @@ class MatchResult(models.Model):
 
 
 class MatchEvent(models.Model):
+    """
+    Match timeline events.
+
+    Penalty events additionally store their shootout round and
+    whether they occurred during sudden death.
+    """
+
     match = models.ForeignKey(
         MatchResult,
         on_delete=models.CASCADE,
@@ -369,8 +422,17 @@ class MatchEvent(models.Model):
         related_name="secondary_match_events",
     )
 
-    event_type = models.CharField(max_length=20, default="GOAL")
+    # Increased to accommodate PENALTY_SHOOTOUT_START and END.
+    event_type = models.CharField(max_length=30, default="GOAL")
+
     commentary = models.CharField(max_length=255)
+
+    penalty_round = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+    )
+
+    is_sudden_death = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["minute", "event_number"]
@@ -412,6 +474,9 @@ class TeamMatchStatistics(models.Model):
     yellow_cards = models.PositiveSmallIntegerField(default=0)
     red_cards = models.PositiveSmallIntegerField(default=0)
 
+    penalty_goals = models.PositiveSmallIntegerField(default=0)
+    penalty_misses = models.PositiveSmallIntegerField(default=0)
+
     class Meta:
         ordering = ["team_number"]
         constraints = [
@@ -443,8 +508,10 @@ class TeamMatchStatistics(models.Model):
 
 class PlayerMatchRating(models.Model):
     """
-    One row per player per match. Ratings remain match-specific and are
-    not written to the players.Player model.
+    One row per player per match.
+
+    Penalty statistics are stored separately from regular goals.
+    Ratings remain match-specific and are not written to players.Player.
     """
 
     match = models.ForeignKey(
@@ -471,6 +538,9 @@ class PlayerMatchRating(models.Model):
     interceptions = models.PositiveSmallIntegerField(default=0)
     yellow_cards = models.PositiveSmallIntegerField(default=0)
     red_cards = models.PositiveSmallIntegerField(default=0)
+
+    penalty_goals = models.PositiveSmallIntegerField(default=0)
+    penalty_misses = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         ordering = ["team_number", "id"]

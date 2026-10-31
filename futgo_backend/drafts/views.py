@@ -41,6 +41,16 @@ POSITION_SEQUENCE = [
 
 MAX_NAME_LENGTH = 50
 
+# Events that carry the RESULT of a single shootout kick.
+PENALTY_EVENT_TYPES = {
+    "PENALTY_GOAL",
+    "PENALTY_SAVE",
+    "PENALTY_MISS",
+}
+
+# Event shown just before the result ("<player> steps up...").
+PENALTY_KICK_SETUP_TYPE = "PENALTY_KICK"
+
 
 # ============================================================
 # AUTHENTICATION AND ROOM HELPERS
@@ -126,8 +136,6 @@ def get_token_participant(request, draft):
 
 
 def team_selection_error(draft, team, seat_number):
-    """Return a validation message when a club cannot be assigned."""
-
     if not team.is_active:
         return "This football club is not available for selection."
 
@@ -148,10 +156,6 @@ def team_selection_error(draft, team, seat_number):
 # ============================================================
 
 class TeamListAPIView(APIView):
-    """
-    Return the active football clubs available for draft selection.
-    """
-
     def get(self, request):
         teams = Team.objects.filter(is_active=True).order_by("name")
 
@@ -255,14 +259,6 @@ def serialize_event(event):
 
 
 def serialize_draft_state(draft):
-    """
-    Return the current draft state, selected club identities, and the
-    first event that has not yet been completed.
-
-    This endpoint is polled by online clients, so it uses a fixed number
-    of queries (events + picks) instead of one query per event.
-    """
-
     draft_events = list(
         DraftEvent.objects
         .filter(draft=draft)
@@ -402,19 +398,6 @@ class CreateDraftAPIView(APIView):
 # ============================================================
 
 class SelectDraftTeamAPIView(APIView):
-    """
-    Select a club for a draft seat.
-
-    Online mode:
-        The participant token determines which seat can be updated.
-        The request must contain team_id.
-
-    Local mode:
-        The request must contain player_number (1 or 2) and team_id.
-
-    Club selection is only allowed while the draft is waiting.
-    """
-
     def post(self, request, draft_id):
         team_id = request.data.get("team_id")
 
@@ -538,8 +521,13 @@ class SelectDraftTeamAPIView(APIView):
 
 class JoinDraftAPIView(APIView):
     def post(self, request):
-        room_code = str(request.data.get("room_code", "") or "").strip().upper()
-        display_name = str(request.data.get("display_name", "") or "").strip()
+        room_code = str(
+            request.data.get("room_code", "") or ""
+        ).strip().upper()
+
+        display_name = str(
+            request.data.get("display_name", "") or ""
+        ).strip()
 
         if not room_code or not display_name:
             return Response(
@@ -638,7 +626,9 @@ class JoinDraftAPIView(APIView):
 
 class ReconnectDraftAPIView(APIView):
     def post(self, request):
-        token = str(request.data.get("participant_token", "") or "").strip()
+        token = str(
+            request.data.get("participant_token", "") or ""
+        ).strip()
 
         if not token:
             return Response(
@@ -648,7 +638,11 @@ class ReconnectDraftAPIView(APIView):
 
         participant = (
             DraftParticipant.objects
-            .select_related("draft", "draft__player1_team", "draft__player2_team")
+            .select_related(
+                "draft",
+                "draft__player1_team",
+                "draft__player2_team",
+            )
             .filter(token_hash=hash_token(token))
             .first()
         )
@@ -735,11 +729,7 @@ class StartDraftAPIView(APIView):
                 or not draft.player2_team.is_active
             ):
                 return Response(
-                    {
-                        "detail": (
-                            "Both selected clubs must be available."
-                        )
-                    },
+                    {"detail": "Both selected clubs must be available."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -954,9 +944,8 @@ class SubmitDraftPickAPIView(APIView):
                 draft.status = "COMPLETED"
                 update_fields = ["status"]
 
-                if hasattr(draft, "completed_at"):
-                    draft.completed_at = timezone.now()
-                    update_fields.append("completed_at")
+                draft.completed_at = timezone.now()
+                update_fields.append("completed_at")
 
                 draft.save(update_fields=update_fields)
 
@@ -966,7 +955,6 @@ class SubmitDraftPickAPIView(APIView):
                 try:
                     create_next_event(draft, event.event_number + 1)
                 except ValueError as exc:
-                    # Undo both picks so the draft is not left half-advanced.
                     transaction.set_rollback(True)
                     return Response(
                         {"detail": str(exc)},
@@ -1008,29 +996,107 @@ def _match_payload(match):
         .order_by("minute", "event_number")
     )
 
-    score = {1: 0, 2: 0}
+    regular_score = {1: 0, 2: 0}
+    penalty_score = {1: 0, 2: 0}
+
+    # Per-team kick counters used by the penalty tracker on the
+    # frontend. "setup" counts PENALTY_KICK events (shooter steps up),
+    # "result" counts PENALTY_GOAL / PENALTY_SAVE / PENALTY_MISS.
+    setup_counter = {1: 0, 2: 0}
+    result_counter = {1: 0, 2: 0}
+
     serialized_events = []
+    penalty_attempts = []
 
     for event in events:
-        if event.event_type == "GOAL" and event.team_number in (1, 2):
-            score[event.team_number] += 1
+        team_number = event.team_number
+
+        if event.event_type == "GOAL" and team_number in (1, 2):
+            regular_score[team_number] += 1
+
+        if (
+            event.event_type == "PENALTY_GOAL"
+            and team_number in (1, 2)
+        ):
+            penalty_score[team_number] += 1
+
+        is_penalty_attempt = event.event_type in PENALTY_EVENT_TYPES
+
+        # 1-based number of this kick for the kicking team.
+        kick_number = None
+
+        if team_number in (1, 2):
+            if event.event_type == PENALTY_KICK_SETUP_TYPE:
+                setup_counter[team_number] += 1
+                kick_number = setup_counter[team_number]
+
+            elif is_penalty_attempt:
+                result_counter[team_number] += 1
+                kick_number = result_counter[team_number]
+
+        if is_penalty_attempt:
+            outcome = event.event_type.replace("PENALTY_", "")
+
+            penalty_attempts.append({
+                "round": event.penalty_round,
+                "team_number": team_number,
+                "kick_number": kick_number,
+                "shooter": _serialize_match_player(event.player),
+                "goalkeeper": _serialize_match_player(
+                    event.secondary_player
+                ),
+                "outcome": outcome,
+                "score": {
+                    "1": penalty_score[1],
+                    "2": penalty_score[2],
+                },
+                "sudden_death": event.is_sudden_death,
+            })
 
         serialized_events.append({
             "id": event.id,
             "event_number": event.event_number,
             "minute": event.minute,
-            "team_number": event.team_number,
+            "team_number": team_number,
             "event_type": event.event_type,
             "commentary": event.commentary,
             "player": _serialize_match_player(event.player),
             "secondary_player": _serialize_match_player(
                 event.secondary_player
             ),
+            "penalty_round": event.penalty_round,
+            "penalty_kick_number": kick_number,
+            "is_sudden_death": event.is_sudden_death,
             "score_after": {
-                "player1": score[1],
-                "player2": score[2],
+                "player1": regular_score[1],
+                "player2": regular_score[2],
+                "penalties": {
+                    "player1": penalty_score[1],
+                    "player2": penalty_score[2],
+                },
             },
         })
+
+    penalty_shootout = None
+
+    if match.penalties_played:
+        rounds = [
+            attempt["round"]
+            for attempt in penalty_attempts
+            if attempt["round"] is not None
+        ]
+
+        penalty_shootout = {
+            "team1_score": match.player1_penalty_score,
+            "team2_score": match.player2_penalty_score,
+            "winner_number": match.winner_number,
+            "total_rounds": max(rounds, default=0),
+            "sudden_death": any(
+                attempt["sudden_death"]
+                for attempt in penalty_attempts
+            ),
+            "attempts": penalty_attempts,
+        }
 
     team_statistics = list(
         match.team_statistics
@@ -1045,6 +1111,8 @@ def _match_payload(match):
             "corners",
             "yellow_cards",
             "red_cards",
+            "penalty_goals",
+            "penalty_misses",
         )
     )
 
@@ -1068,6 +1136,8 @@ def _match_payload(match):
             "interceptions": rating.interceptions,
             "yellow_cards": rating.yellow_cards,
             "red_cards": rating.red_cards,
+            "penalty_goals": rating.penalty_goals,
+            "penalty_misses": rating.penalty_misses,
         })
 
     if match.winner_number == 1:
@@ -1079,22 +1149,30 @@ def _match_payload(match):
 
     return {
         "id": match.id,
-        # The frontend reads match_id; "id" is kept for compatibility.
         "match_id": match.id,
         "draft_id": match.draft_id,
         "status": "COMPLETED",
         "player1_name": draft.player1_name,
         "player2_name": draft.player2_name,
         **serialize_draft_teams(draft),
+
+        # Regular-time plus extra-time score.
         "player1_score": match.player1_score,
         "player2_score": match.player2_score,
+
+        # Penalty score is separate from the match score.
+        "player1_penalty_score": match.player1_penalty_score,
+        "player2_penalty_score": match.player2_penalty_score,
+        "penalty_shootout": penalty_shootout,
+
         "winner_number": match.winner_number,
         "winner_name": winner_name,
-        "is_draw": (
-            match.winner_number == 0
-            or match.player1_score == match.player2_score
-        ),
+        "is_draw": match.winner_number == 0,
+
         "duration_minutes": match.duration_minutes,
+        "extra_time_played": match.extra_time_played,
+        "penalties_played": match.penalties_played,
+
         "man_of_the_match": _serialize_match_player(
             match.man_of_the_match
         ),
@@ -1110,6 +1188,7 @@ def _match_payload(match):
 # ============================================================
 
 class SimulateMatchAPIView(APIView):
+
     def get(self, request, draft_id):
         draft = get_object_or_404(
             Draft.objects.select_related(
@@ -1181,8 +1260,6 @@ class SimulateMatchAPIView(APIView):
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
 
-                # Only the host creates matches. The guest reads the same
-                # match through GET, so both players always see one result.
                 if participant.seat_number != 1:
                     return Response(
                         {"detail": "Only the host can start the match."},
@@ -1294,19 +1371,29 @@ class SimulateMatchAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            penalty_shootout = result.get("penalty_shootout")
+
+            extra_time_played = any(
+                event["event_type"] == "EXTRA_TIME_START"
+                for event in result["events"]
+            )
+
             match = MatchResult.objects.create(
                 draft=draft,
                 player1_score=result["player1_score"],
                 player2_score=result["player2_score"],
-                winner_number=result["winner_number"],
-                duration_minutes=(
-                    120
-                    if any(
-                        event["event_type"] == "EXTRA_TIME_START"
-                        for event in result["events"]
-                    )
-                    else 90
+                player1_penalty_score=(
+                    penalty_shootout["team1_score"]
+                    if penalty_shootout
+                    else None
                 ),
+                player2_penalty_score=(
+                    penalty_shootout["team2_score"]
+                    if penalty_shootout
+                    else None
+                ),
+                winner_number=result["winner_number"],
+                duration_minutes=120 if extra_time_played else 90,
                 man_of_the_match=result["man_of_the_match"],
                 idempotency_key=idempotency_key or None,
             )
@@ -1321,6 +1408,8 @@ class SimulateMatchAPIView(APIView):
                     secondary_player=event.get("secondary_player"),
                     event_type=event["event_type"],
                     commentary=event["commentary"],
+                    penalty_round=event.get("penalty_round"),
+                    is_sudden_death=event.get("is_sudden_death", False),
                 )
                 for event in result["events"]
             ])
@@ -1337,6 +1426,8 @@ class SimulateMatchAPIView(APIView):
                     corners=stats["corners"],
                     yellow_cards=stats["yellow_cards"],
                     red_cards=stats["red_cards"],
+                    penalty_goals=stats.get("penalty_goals", 0),
+                    penalty_misses=stats.get("penalty_misses", 0),
                 )
                 for stats in result["team_statistics"]
             ])
@@ -1356,6 +1447,8 @@ class SimulateMatchAPIView(APIView):
                     interceptions=stats["interceptions"],
                     yellow_cards=stats["yellow_cards"],
                     red_cards=stats["red_cards"],
+                    penalty_goals=stats.get("penalty_goals", 0),
+                    penalty_misses=stats.get("penalty_misses", 0),
                 )
                 for stats in result["player_ratings"]
             ])
