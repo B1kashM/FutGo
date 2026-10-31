@@ -28,6 +28,203 @@ ATTACK_WEIGHTS = {
     "LWF": 2.3,
 }
 
+# Most sendings-off allowed per team, so a match never collapses.
+MAX_RED_CARDS_PER_TEAM = 2
+DIRECT_RED_CHANCE = 0.03
+YELLOW_CHANCE = 0.18
+
+# --------------------------------------------------
+# COMMENTARY BANKS
+# --------------------------------------------------
+# Placeholders: {p} main player, {gk} goalkeeper, {assist} assisting player.
+# Each bank is shuffled and used up before any line repeats in a match.
+
+GOAL_PHRASES = [
+    "GOAL! {p} finds the back of the net!",
+    "What a finish! {p} scores!",
+    "Brilliant attacking play ends with {p} scoring!",
+    "The crowd erupts as {p} puts it away!",
+    "{p} makes no mistake in front of goal!",
+    "{p} stays calm and slots it past the keeper!",
+    "Clinical! {p} buries the chance!",
+    "{p} sweeps the ball into the corner of the net!",
+    "The net bulges! {p} has scored!",
+    "{p} picks his spot and gets it right!",
+    "Ruthless finishing from {p}!",
+    "{p} rifles it home and the stadium roars!",
+]
+
+GOAL_ASSISTED_PHRASES = [
+    "GOAL! {assist} threads the pass and {p} finishes it off!",
+    "Lovely build-up! {assist} sets it up for {p}, who scores!",
+    "{assist} picks him out and {p} makes no mistake!",
+    "Great vision from {assist}, and {p} converts the chance!",
+    "{assist} slides it through and {p} slots it home!",
+    "A perfectly weighted ball from {assist} and {p} does the rest!",
+    "{p} taps it in after a clever delivery from {assist}!",
+    "Brilliant teamwork! {assist} lays it on and {p} scores!",
+]
+
+GOAL_HEADER_PHRASES = [
+    "GOAL! {p} rises highest and heads it in!",
+    "A powerful header from {p} flies into the net!",
+    "{p} climbs above the defence and nods it home!",
+    "{p} meets the cross with a thumping header!",
+    "Towering header! {p} gives the keeper no chance!",
+]
+
+GOLAZO_PHRASES = [
+    "GOLAZO! {p} unleashes an absolute rocket!",
+    "WHAT A GOAL! {p} scores a stunning long-range strike!",
+    "An unbelievable finish! {p} produces a moment of magic!",
+    "Top corner! {p} scores a world-class screamer!",
+    "{p} curls it in from distance. Pure quality!",
+    "Sensational! {p} volleys it in from the edge of the box!",
+]
+
+LATE_EQUALIZER_PHRASES = [
+    "LATE EQUALIZER! {p} brings the teams level!",
+    "{p} rescues it late on! All square again!",
+    "Dramatic scenes! {p} drags his side level!",
+    "Never give up! {p} equalizes in the closing stages!",
+]
+
+LATE_WINNER_PHRASES = [
+    "LATE WINNER! {p} puts the team in front!",
+    "{p} strikes late and could win it!",
+    "Huge moment! {p} scores to take the lead late on!",
+    "{p} breaks the deadlock when it matters most!",
+]
+
+SAVE_PHRASES = [
+    "{p} tests the goalkeeper, who makes an excellent save!",
+    "{gk} dives full stretch to keep out the effort from {p}!",
+    "Superb stop! {gk} denies {p}!",
+    "{p} hits it well, but {gk} gets a strong hand to it!",
+    "{gk} stands tall and smothers the shot from {p}!",
+    "Point-blank save! {gk} somehow keeps {p} out!",
+    "{gk} tips the effort from {p} over the bar!",
+    "{gk} parries {p}'s shot away to safety!",
+    "{p} thought he had scored, but {gk} produces a brilliant save!",
+    "Reflex save from {gk} to deny {p}!",
+]
+
+SHOT_MISS_PHRASES = [
+    "{p} takes aim, but the effort goes wide.",
+    "{p} fires over the crossbar!",
+    "{p} drags the shot just past the post.",
+    "Off the woodwork! {p} hits the post!",
+    "{p} blazes it high and wide.",
+    "A defender throws himself in the way and blocks the shot from {p}.",
+    "{p} snatches at it and sends it wide of the target.",
+    "{p} tries his luck from distance but it sails over.",
+    "So close! {p}'s shot flashes just past the upright.",
+    "{p} hits the bar! Inches away from a goal!",
+]
+
+TACKLE_PHRASES = [
+    "{p} times the challenge perfectly and wins the ball.",
+    "Crunching tackle from {p} breaks up the attack!",
+    "{p} slides in and cleanly takes the ball away.",
+    "Great defending! {p} dispossesses the attacker.",
+    "{p} steps in with a strong tackle and clears the danger.",
+    "{p} wins the duel and gets his team moving forward.",
+    "Perfectly timed! {p} nicks the ball off his opponent.",
+    "{p} stands firm and wins the ball back.",
+]
+
+INTERCEPTION_PHRASES = [
+    "{p} reads the pass and intercepts it.",
+    "{p} steps in front of the attacker and cuts out the pass.",
+    "Sharp reading of the game from {p}, who snuffs out the move.",
+    "{p} anticipates the through ball and gets there first.",
+    "Danger averted! {p} intercepts the pass into the box.",
+    "{p} cuts out the ball and starts a counter-attack.",
+    "{p} pokes the ball away just before it reaches the striker.",
+    "Excellent awareness from {p} to break up the play.",
+]
+
+FOUL_PHRASES = [
+    "{p} gives away a free kick.",
+    "{p} catches his opponent and the referee blows for a foul.",
+    "A clumsy challenge from {p} halts the attack.",
+    "Free kick awarded after {p} brings the player down.",
+    "{p} pulls his man back and the whistle goes.",
+    "The referee spots a push from {p} and stops play.",
+    "{p} arrives late and concedes a foul.",
+    "A cynical foul from {p} stops the counter.",
+]
+
+YELLOW_PHRASES = [
+    "The referee books {p} for a late challenge.",
+    "{p} goes into the book for a reckless tackle.",
+    "Yellow card for {p} after a heavy challenge.",
+    "{p} is cautioned for a professional foul.",
+    "The referee shows {p} a yellow card for persistent fouling.",
+    "{p} protests, but the card is shown. Booked.",
+]
+
+DIRECT_RED_PHRASES = [
+    "RED CARD! {p} is sent off for a dreadful challenge!",
+    "The referee shows a straight red to {p} for serious foul play!",
+    "{p} has gone in studs up and is sent off!",
+    "Off he goes! {p} sees red after a reckless lunge!",
+    "RED CARD! {p} denies a clear goalscoring chance and is dismissed!",
+]
+
+SECOND_YELLOW_PHRASES = [
+    "A second yellow for {p}, and he is sent off!",
+    "{p} is already on a booking and the referee shows him a second yellow. Red!",
+    "Costly mistake! {p} picks up a second caution and has to go!",
+    "{p} is dismissed after a second yellow card!",
+]
+
+CORNER_PHRASES = [
+    "{p} prepares to deliver the corner.",
+    "Corner kick. {p} swings it into the box.",
+    "{p} whips in the corner towards the penalty spot.",
+    "{p} takes the corner short, looking for a different angle.",
+    "Pressure builds and {p} stands over the corner.",
+    "{p} sends a dangerous corner into the six-yard area.",
+    "{p} curls the corner towards the far post.",
+    "Everyone is up for the corner as {p} gets ready to take it.",
+]
+
+OFFSIDE_PHRASES = [
+    "The flag goes up against {p} for offside.",
+    "{p} is caught offside, and the move is cancelled.",
+    "{p} breaks free, but the linesman's flag is up.",
+    "Offside! {p} was a step ahead of the last defender.",
+    "{p} thought he was through, but he is flagged offside.",
+    "The defence steps up and catches {p} offside.",
+    "{p} finishes the move, but the flag has been raised.",
+]
+
+PENALTY_GOAL_PHRASES = [
+    "GOAL! {p} converts the penalty!",
+    "{p} sends the keeper the wrong way and scores!",
+    "Cool as ice! {p} slots it into the corner!",
+    "{p} hammers it down the middle. Scored!",
+    "No mistake from {p}. The penalty goes in!",
+    "{p} places it perfectly beyond the keeper's reach!",
+]
+
+PENALTY_SAVE_PHRASES = [
+    "SAVED! {gk} denies {p} from the spot!",
+    "{gk} guesses right and keeps out the penalty from {p}!",
+    "What a stop! {gk} palms away {p}'s effort!",
+    "{gk} dives to his left and saves it! {p} is devastated!",
+    "{gk} is the hero, pushing {p}'s penalty to safety!",
+]
+
+PENALTY_MISS_PHRASES = [
+    "MISSED! {p} fails to convert the penalty!",
+    "{p} blazes the penalty over the bar!",
+    "Off the post! {p} cannot believe it!",
+    "{p} drags the penalty wide of the target!",
+    "{p} puts the penalty off target. A huge miss!",
+]
+
 
 def player_weight(player):
     return ATTACK_WEIGHTS.get(player.position, 1.0)
@@ -82,6 +279,9 @@ def simulate_match(team1, team2):
     player_stats = {}
     team_stats = {}
     events = []
+
+    # Players who have been sent off: {(team_number, player.id)}.
+    sent_off = set()
 
     penalty_shootout = None
 
@@ -153,6 +353,20 @@ def simulate_match(team1, team2):
     # HELPERS
     # --------------------------------------------------
 
+    # Each commentary bank is shuffled and used up before any line
+    # repeats, so the same sentence does not come back again and again.
+    phrase_bags = {}
+
+    def say(bank_name, bank, **names):
+        bag = phrase_bags.get(bank_name)
+
+        if not bag:
+            bag = list(bank)
+            random.shuffle(bag)
+            phrase_bags[bank_name] = bag
+
+        return bag.pop().format(**names)
+
     def add_event(
         minute,
         team_number,
@@ -185,6 +399,16 @@ def simulate_match(team1, team2):
 
         return player_stats[key]
 
+    def on_pitch(team_number, players):
+        """Players who have not been sent off (falls back to all)."""
+        remaining = [
+            player
+            for player in players
+            if (team_number, player.id) not in sent_off
+        ]
+
+        return remaining or players
+
     # --------------------------------------------------
     # MATCH INCIDENTS
     # --------------------------------------------------
@@ -200,17 +424,23 @@ def simulate_match(team1, team2):
         stats = team_stats[team_number]
         opponent_stats = team_stats[opponent_number]
 
-        attackers = [
-            player
-            for player in squad
-            if player.position in ("ST", "RWF", "LWF", "AMF", "CMF")
-        ] or squad
+        attackers = on_pitch(
+            team_number,
+            [
+                player
+                for player in squad
+                if player.position in ("ST", "RWF", "LWF", "AMF", "CMF")
+            ] or squad,
+        )
 
-        defenders = [
-            player
-            for player in opponent
-            if player.position in ("RB", "RCB", "LCB", "LB", "DMF", "CMF")
-        ] or opponent
+        defenders = on_pitch(
+            opponent_number,
+            [
+                player
+                for player in opponent
+                if player.position in ("RB", "RCB", "LCB", "LB", "DMF", "CMF")
+            ] or opponent,
+        )
 
         incident = random.choices(
             [
@@ -302,7 +532,7 @@ def simulate_match(team1, team2):
 
                     possible_assists = [
                         player
-                        for player in squad
+                        for player in on_pitch(team_number, squad)
                         if player.id != shooter.id
                         and player.position != "GK"
                     ]
@@ -319,41 +549,47 @@ def simulate_match(team1, team2):
                         assist_stats["assists"] += 1
                         assist_stats["rating"] += 0.5
 
-                normal_phrases = [
-                    f"GOAL! {shooter.name} finds the back of the net!",
-                    f"What a finish! {shooter.name} scores!",
-                    f"Brilliant attacking play ends with {shooter.name} scoring!",
-                    f"The crowd erupts as {shooter.name} puts it away!",
-                    f"{shooter.name} makes no mistake in front of goal!",
-                ]
+                lead = scores[team_number] - scores[opponent_number]
 
-                golazo_phrases = [
-                    f"GOLAZO! {shooter.name} unleashes an absolute rocket!",
-                    f"WHAT A GOAL! {shooter.name} scores a stunning long-range strike!",
-                    f"An unbelievable finish! {shooter.name} produces a moment of magic!",
-                    f"Top corner! {shooter.name} scores a world-class screamer!",
-                ]
+                if minute >= 85 and lead == 0:
+                    commentary = say(
+                        "late_equalizer", LATE_EQUALIZER_PHRASES,
+                        p=shooter.name,
+                    )
 
-                if random.random() < 0.10:
-                    commentary = random.choice(golazo_phrases)
+                elif minute >= 85 and lead == 1:
+                    commentary = say(
+                        "late_winner", LATE_WINNER_PHRASES,
+                        p=shooter.name,
+                    )
+
                 else:
-                    commentary = random.choice(normal_phrases)
+                    style = random.random()
 
-                if (
-                    minute >= 85
-                    and scores[team_number] == scores[opponent_number]
-                ):
-                    commentary = (
-                        f"LATE EQUALIZER! {shooter.name} brings the teams level!"
-                    )
+                    if style < 0.10:
+                        commentary = say(
+                            "golazo", GOLAZO_PHRASES,
+                            p=shooter.name,
+                        )
 
-                elif (
-                    minute >= 85
-                    and scores[team_number] > scores[opponent_number]
-                ):
-                    commentary = (
-                        f"LATE WINNER! {shooter.name} puts the team in front!"
-                    )
+                    elif style < 0.25:
+                        commentary = say(
+                            "goal_header", GOAL_HEADER_PHRASES,
+                            p=shooter.name,
+                        )
+
+                    elif assist is not None and style < 0.65:
+                        commentary = say(
+                            "goal_assisted", GOAL_ASSISTED_PHRASES,
+                            p=shooter.name,
+                            assist=assist.name,
+                        )
+
+                    else:
+                        commentary = say(
+                            "goal", GOAL_PHRASES,
+                            p=shooter.name,
+                        )
 
                 add_event(
                     minute,
@@ -387,9 +623,10 @@ def simulate_match(team1, team2):
                     minute,
                     team_number,
                     "SAVE",
-                    (
-                        f"{shooter.name} tests the goalkeeper, "
-                        "who makes an excellent save!"
+                    say(
+                        "save", SAVE_PHRASES,
+                        p=shooter.name,
+                        gk=goalkeeper.name,
                     ),
                     shooter,
                     goalkeeper,
@@ -401,7 +638,7 @@ def simulate_match(team1, team2):
                     minute,
                     team_number,
                     "SHOT",
-                    f"{shooter.name} takes aim, but the effort goes wide.",
+                    say("shot_miss", SHOT_MISS_PHRASES, p=shooter.name),
                     shooter,
                 )
 
@@ -421,10 +658,7 @@ def simulate_match(team1, team2):
                 minute,
                 opponent_number,
                 "TACKLE",
-                (
-                    f"{tackler.name} times the challenge perfectly "
-                    "and wins the ball."
-                ),
+                say("tackle", TACKLE_PHRASES, p=tackler.name),
                 tackler,
             )
 
@@ -444,7 +678,10 @@ def simulate_match(team1, team2):
                 minute,
                 opponent_number,
                 "INTERCEPTION",
-                f"{interceptor.name} reads the pass and intercepts it.",
+                say(
+                    "interception", INTERCEPTION_PHRASES,
+                    p=interceptor.name,
+                ),
                 interceptor,
             )
 
@@ -460,21 +697,65 @@ def simulate_match(team1, team2):
             opponent_stats["fouls"] += 1
             offender_stats["rating"] -= 0.12
 
-            if random.random() < 0.18:
+            card_roll = random.random()
+            can_send_off = (
+                opponent_stats["red_cards"] < MAX_RED_CARDS_PER_TEAM
+            )
 
-                offender_stats["yellow_cards"] += 1
-                opponent_stats["yellow_cards"] += 1
+            if can_send_off and card_roll < DIRECT_RED_CHANCE:
+
+                # Straight red card.
+                offender_stats["red_cards"] += 1
+                opponent_stats["red_cards"] += 1
+                offender_stats["rating"] -= 0.6
+                sent_off.add((opponent_number, offender.id))
 
                 add_event(
                     minute,
                     opponent_number,
-                    "YELLOW_CARD",
-                    (
-                        f"The referee books {offender.name} "
-                        "for a late challenge."
+                    "RED_CARD",
+                    say(
+                        "direct_red", DIRECT_RED_PHRASES,
+                        p=offender.name,
                     ),
                     offender,
                 )
+
+            elif card_roll < DIRECT_RED_CHANCE + YELLOW_CHANCE:
+
+                already_booked = offender_stats["yellow_cards"] >= 1
+
+                offender_stats["yellow_cards"] += 1
+                opponent_stats["yellow_cards"] += 1
+
+                if already_booked and can_send_off:
+
+                    # Second yellow: the player is sent off.
+                    offender_stats["red_cards"] += 1
+                    opponent_stats["red_cards"] += 1
+                    offender_stats["rating"] -= 0.6
+                    sent_off.add((opponent_number, offender.id))
+
+                    add_event(
+                        minute,
+                        opponent_number,
+                        "RED_CARD",
+                        say(
+                            "second_yellow", SECOND_YELLOW_PHRASES,
+                            p=offender.name,
+                        ),
+                        offender,
+                    )
+
+                else:
+
+                    add_event(
+                        minute,
+                        opponent_number,
+                        "YELLOW_CARD",
+                        say("yellow", YELLOW_PHRASES, p=offender.name),
+                        offender,
+                    )
 
             else:
 
@@ -482,7 +763,7 @@ def simulate_match(team1, team2):
                     minute,
                     opponent_number,
                     "FOUL",
-                    f"{offender.name} gives away a free kick.",
+                    say("foul", FOUL_PHRASES, p=offender.name),
                     offender,
                 )
 
@@ -496,7 +777,7 @@ def simulate_match(team1, team2):
                 minute,
                 team_number,
                 "CORNER",
-                f"{taker.name} prepares to deliver the corner.",
+                say("corner", CORNER_PHRASES, p=taker.name),
                 taker,
             )
 
@@ -508,7 +789,7 @@ def simulate_match(team1, team2):
                 minute,
                 team_number,
                 "OFFSIDE",
-                f"The flag goes up against {runner.name} for offside.",
+                say("offside", OFFSIDE_PHRASES, p=runner.name),
                 runner,
             )
 
@@ -603,8 +884,9 @@ def simulate_match(team1, team2):
 
                 event_type = "PENALTY_GOAL"
 
-                commentary = (
-                    f"GOAL! {shooter.name} converts the penalty!"
+                commentary = say(
+                    "penalty_goal", PENALTY_GOAL_PHRASES,
+                    p=shooter.name,
                 )
 
             elif outcome == "SAVE":
@@ -617,9 +899,10 @@ def simulate_match(team1, team2):
 
                 event_type = "PENALTY_SAVE"
 
-                commentary = (
-                    f"SAVED! {goalkeeper.name} denies "
-                    f"{shooter.name} from the spot!"
+                commentary = say(
+                    "penalty_save", PENALTY_SAVE_PHRASES,
+                    p=shooter.name,
+                    gk=goalkeeper.name,
                 )
 
             else:
@@ -629,9 +912,9 @@ def simulate_match(team1, team2):
 
                 event_type = "PENALTY_MISS"
 
-                commentary = (
-                    f"MISSED! {shooter.name} fails to convert "
-                    "the penalty!"
+                commentary = say(
+                    "penalty_miss", PENALTY_MISS_PHRASES,
+                    p=shooter.name,
                 )
 
             penalty_events.append({

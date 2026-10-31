@@ -526,6 +526,12 @@ export function MatchCentreView({
     }
   }, [playbackFinished, matchData.match_id, winnerNumber]);
 
+  // Match history: the match currently being played stays hidden until it
+  // has finished. Only completed matches are listed.
+  const historyVisibleCount = matchHistory.filter(
+    (item) => playbackFinished || item.match_id !== matchData.match_id,
+  ).length;
+
   return (
     <section className="mx-auto max-w-7xl py-8 sm:py-12">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
@@ -750,7 +756,7 @@ export function MatchCentreView({
                 teamName={teamName}
                 playerName={playerName}
                 secondaryName={secondaryName}
-                secondaryLabel={isPenaltyKick ? "Goalkeeper" : "Goalkeeper"}
+                secondaryLabel={isPenaltyKick ? "Goalkeeper" : "Assist"}
                 score={liveBoard.scoreAfter[eventIndex] ?? ""}
                 subtitle={roundLabel}
               />
@@ -801,19 +807,22 @@ export function MatchCentreView({
         </div>
       </div>
 
-      {/* Match history */}
-      {matchHistory.length > 1 && (
+      {/* Match history: completed matches only. The current match appears here once it has finished. */}
+      {matchHistory.length > 1 && historyVisibleCount > 0 && (
         <div className="mt-8 rounded-[24px] border border-border bg-surface p-5 sm:p-7">
-          <SectionHeading eyebrow="This draft" title="Match history" icon={<Clock3 size={21} />} description="Switch between results from this page session." />
+          <SectionHeading eyebrow="This draft" title="Match history" icon={<Clock3 size={21} />} description="Completed matches from this page session. The current match is added once it finishes." />
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {matchHistory.map((item, index) => {
+              const isCurrent = item.match_id === matchData.match_id;
+              // Hide the match that is still being played.
+              if (isCurrent && !playbackFinished) return null;
               const itemHasPenalties = hasPenaltyShootout(item);
               const itemDraw = item.winner_number === 0 || (!itemHasPenalties && item.is_draw);
               return (
-                <button key={item.match_id} onClick={() => onShowPrevious(item)} className={`rounded-2xl border p-4 text-left transition ${item.match_id === matchData.match_id ? "border-accent/40 bg-accent/[0.06]" : "border-border bg-foreground/[0.02] hover:border-foreground/20"}`}>
+                <button key={item.match_id} onClick={() => onShowPrevious(item)} className={`rounded-2xl border p-4 text-left transition ${isCurrent ? "border-accent/40 bg-accent/[0.06]" : "border-border bg-foreground/[0.02] hover:border-foreground/20"}`}>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-muted">Match {matchHistory.length - index}</span>
-                    {item.match_id === matchData.match_id && <span className="rounded-full bg-accent/10 px-2 py-1 text-[10px] font-bold text-accent-text">Viewing</span>}
+                    {isCurrent && <span className="rounded-full bg-accent/10 px-2 py-1 text-[10px] font-bold text-accent-text">Viewing</span>}
                   </div>
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <span className="min-w-0 truncate text-sm font-bold">{item.player1_name}</span>
@@ -965,7 +974,8 @@ export function PenaltyShootoutView({
 /* Winner celebration                                                  */
 /* ================================================================== */
 
-const CONFETTI_COLORS = ["#b9f36b", "#facc15", "#f97316", "#ec4899", "#38bdf8", "#a78bfa", "#ffffff"];
+const GOLD = "#d4af37";
+const GOLD_LIGHT = "#f1dc8f";
 
 export function WinnerCelebration({
   winnerName, team, youWon, scoreLine, penaltyLine, onClose,
@@ -977,39 +987,30 @@ export function WinnerCelebration({
   penaltyLine: string | null;
   onClose: () => void;
 }) {
+  // Restrained palette: gold, white and the winning club's own colours.
   const palette = useMemo(
-    () => [team?.primary_color, team?.secondary_color, ...CONFETTI_COLORS].filter(Boolean) as string[],
+    () => [GOLD, GOLD_LIGHT, "#ffffff", team?.primary_color, team?.secondary_color].filter(Boolean) as string[],
     [team],
   );
 
-  const confetti = useMemo(
-    () => Array.from({ length: 110 }, (_, i) => ({
+  // Thin streamers that drift down slowly, like a trophy-lift celebration.
+  const streamers = useMemo(
+    () => Array.from({ length: 64 }, (_, i) => ({
       id: i,
       left: Math.random() * 100,
-      delay: Math.random() * 3.5,
-      duration: 3.2 + Math.random() * 3,
-      size: 6 + Math.random() * 9,
-      drift: (Math.random() - 0.5) * 220,
-      spin: 360 + Math.random() * 720,
+      delay: Math.random() * 5,
+      duration: 6 + Math.random() * 5,
+      width: 4 + Math.random() * 4,
+      height: 14 + Math.random() * 14,
+      drift: (Math.random() - 0.5) * 140,
+      spin: 240 + Math.random() * 480,
       color: palette[Math.floor(Math.random() * palette.length)],
-      round: Math.random() > 0.65,
     })),
     [palette],
   );
 
-  const bursts = useMemo(
-    () => [
-      { id: 0, x: 18, y: 28, delay: 0.3 },
-      { id: 1, x: 82, y: 24, delay: 0.9 },
-      { id: 2, x: 50, y: 16, delay: 1.5 },
-      { id: 3, x: 28, y: 62, delay: 2.2 },
-      { id: 4, x: 74, y: 66, delay: 2.8 },
-    ],
-    [],
-  );
-
   useEffect(() => {
-    const timer = window.setTimeout(onClose, 16000);
+    const timer = window.setTimeout(onClose, 14000);
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
     return () => {
@@ -1019,85 +1020,82 @@ export function WinnerCelebration({
   }, [onClose]);
 
   return (
-    <div role="dialog" aria-label={`${winnerName} wins`} onClick={onClose} className="fut-win-backdrop fixed inset-0 z-[200] flex cursor-pointer items-center justify-center overflow-hidden bg-black/80 p-4 backdrop-blur-sm">
+    <div
+      role="dialog"
+      aria-label={`${winnerName} wins`}
+      onClick={onClose}
+      className="fut-win-backdrop fixed inset-0 z-[200] flex cursor-pointer items-center justify-center overflow-hidden p-4"
+      style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(30,34,44,0.92) 0%, rgba(6,8,12,0.97) 65%)" }}
+    >
       <style>{`
         @keyframes fut-fade { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes fut-fall { 0% { transform: translate3d(0,-12vh,0) rotate(0); opacity: 1 } 100% { transform: translate3d(var(--dx),112vh,0) rotate(var(--spin)); opacity: .9 } }
-        @keyframes fut-burst { 0% { transform: rotate(var(--a)) translateX(0) scale(1); opacity: 1 } 100% { transform: rotate(var(--a)) translateX(var(--r)) scale(.2); opacity: 0 } }
-        @keyframes fut-pop { 0% { transform: scale(0) rotate(-25deg); opacity: 0 } 55% { transform: scale(1.35) rotate(8deg); opacity: 1 } 100% { transform: scale(1) rotate(0); opacity: 1 } }
-        @keyframes fut-float { 0%,100% { transform: translateY(0) rotate(-4deg) } 50% { transform: translateY(-16px) rotate(4deg) } }
-        @keyframes fut-ring { 0% { transform: scale(.4); opacity: .7 } 100% { transform: scale(2.6); opacity: 0 } }
-        @keyframes fut-shine { 0% { background-position: 0% 50% } 100% { background-position: 200% 50% } }
-        @keyframes fut-rise { from { transform: translateY(30px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-        @keyframes fut-shake { 0%,100% { transform: translate(0,0) } 20% { transform: translate(-4px,2px) } 40% { transform: translate(4px,-3px) } 60% { transform: translate(-3px,-2px) } 80% { transform: translate(3px,3px) } }
-        .fut-win-backdrop { animation: fut-fade .35s ease-out both }
-        .fut-win-card { animation: fut-shake .6s ease-out .15s both }
-        .fut-confetti { position: absolute; top: 0; animation: fut-fall var(--dur) linear var(--delay) infinite; will-change: transform }
-        .fut-spark { position: absolute; width: 6px; height: 6px; border-radius: 9999px; animation: fut-burst 1.5s ease-out var(--delay) infinite }
-        .fut-trophy { animation: fut-pop .9s cubic-bezier(.2,1.4,.4,1) .2s both, fut-float 2.6s ease-in-out 1.1s infinite }
-        .fut-ring { animation: fut-ring 2.2s ease-out infinite }
-        .fut-title { background-size: 200% auto; animation: fut-shine 2.2s linear infinite, fut-pop .8s cubic-bezier(.2,1.4,.4,1) .5s both }
-        .fut-rise-1 { animation: fut-rise .7s ease-out .9s both }
-        .fut-rise-2 { animation: fut-rise .7s ease-out 1.2s both }
-        .fut-rise-3 { animation: fut-rise .7s ease-out 1.5s both }
+        @keyframes fut-fall { 0% { transform: translate3d(0,-10vh,0) rotate(0); opacity: 0 } 8% { opacity: .95 } 100% { transform: translate3d(var(--dx),110vh,0) rotate(var(--spin)); opacity: .85 } }
+        @keyframes fut-rise { from { transform: translateY(18px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+        @keyframes fut-line { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+        @keyframes fut-glow { 0%,100% { opacity: .55 } 50% { opacity: .85 } }
+        @keyframes fut-sweep { 0% { transform: translateX(-120%) } 100% { transform: translateX(220%) } }
+        .fut-win-backdrop { animation: fut-fade .4s ease-out both }
+        .fut-streamer { position: absolute; top: 0; animation: fut-fall var(--dur) ease-in-out var(--delay) infinite; will-change: transform }
+        .fut-beam { animation: fut-glow 4s ease-in-out infinite }
+        .fut-line { transform-origin: center; animation: fut-line .9s cubic-bezier(.2,.8,.2,1) .5s both }
+        .fut-sweep { animation: fut-sweep 3.4s ease-in-out 1.4s infinite }
+        .fut-r1 { animation: fut-rise .7s ease-out .15s both }
+        .fut-r2 { animation: fut-rise .7s ease-out .35s both }
+        .fut-r3 { animation: fut-rise .7s ease-out .65s both }
+        .fut-r4 { animation: fut-rise .7s ease-out .9s both }
+        .fut-r5 { animation: fut-rise .7s ease-out 1.15s both }
         @media (prefers-reduced-motion: reduce) {
-          .fut-confetti, .fut-spark, .fut-ring, .fut-win-card, .fut-trophy, .fut-title { animation: none !important }
-          .fut-confetti, .fut-spark { display: none }
+          .fut-streamer, .fut-beam, .fut-sweep { animation: none !important }
+          .fut-streamer, .fut-sweep { display: none }
         }
       `}</style>
 
-      {/* Confetti rain */}
-      {confetti.map((piece) => (
-        <span key={piece.id} className="fut-confetti pointer-events-none"
+      {/* Stadium floodlight beams */}
+      <div className="fut-beam pointer-events-none absolute -top-10 left-[12%] h-[70vh] w-40 origin-top -rotate-[18deg] sm:w-56" style={{ background: "linear-gradient(to bottom, rgba(255,255,255,0.16), transparent 85%)", filter: "blur(18px)" }} />
+      <div className="fut-beam pointer-events-none absolute -top-10 right-[12%] h-[70vh] w-40 origin-top rotate-[18deg] sm:w-56" style={{ background: "linear-gradient(to bottom, rgba(255,255,255,0.16), transparent 85%)", filter: "blur(18px)", animationDelay: "1.2s" }} />
+
+      {/* Streamers */}
+      {streamers.map((piece) => (
+        <span key={piece.id} className="fut-streamer pointer-events-none"
           style={{
-            left: `${piece.left}%`, width: piece.size, height: piece.round ? piece.size : piece.size * 0.45,
-            backgroundColor: piece.color, borderRadius: piece.round ? 9999 : 2,
+            left: `${piece.left}%`, width: piece.width, height: piece.height,
+            backgroundColor: piece.color, borderRadius: 1,
             ["--dx" as string]: `${piece.drift}px`, ["--spin" as string]: `${piece.spin}deg`,
             ["--dur" as string]: `${piece.duration}s`, ["--delay" as string]: `${piece.delay}s`,
           } as CSSProperties} />
       ))}
 
-      {/* Firework bursts */}
-      {bursts.map((burst) => (
-        <span key={burst.id} className="pointer-events-none absolute" style={{ left: `${burst.x}%`, top: `${burst.y}%` }}>
-          {Array.from({ length: 18 }, (_, i) => (
-            <span key={i} className="fut-spark"
-              style={{
-                backgroundColor: palette[(i + burst.id) % palette.length],
-                boxShadow: `0 0 8px ${palette[(i + burst.id) % palette.length]}`,
-                ["--a" as string]: `${i * 20}deg`, ["--r" as string]: `${90 + (i % 3) * 30}px`,
-                ["--delay" as string]: `${burst.delay}s`,
-              } as CSSProperties} />
-          ))}
-        </span>
-      ))}
-
       {/* Main card */}
-      <div className="fut-win-card relative z-10 w-full max-w-lg text-center" onClick={(event) => event.stopPropagation()}>
-        <div className="relative mx-auto mb-2 flex h-44 w-44 items-center justify-center">
-          <span className="fut-ring absolute inset-0 rounded-full border-4 border-yellow-300/60" />
-          <span className="fut-ring absolute inset-0 rounded-full border-4 border-accent/60" style={{ animationDelay: "0.7s" }} />
-          <span className="fut-ring absolute inset-0 rounded-full border-4 border-pink-400/50" style={{ animationDelay: "1.4s" }} />
-          <span className="fut-trophy relative text-[110px] leading-none drop-shadow-[0_0_30px_rgba(250,204,21,0.8)]">🏆</span>
+      <div className="relative z-10 w-full max-w-xl text-center" onClick={(event) => event.stopPropagation()}>
+        <p className="fut-r1 text-[11px] font-semibold uppercase tracking-[0.42em] text-white/60">Full time</p>
+
+        <div className="fut-r1 mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full" style={{ border: `1px solid ${GOLD}`, background: "rgba(212,175,55,0.08)", boxShadow: "0 0 40px rgba(212,175,55,0.25)" }}>
+          <Trophy size={36} strokeWidth={1.5} style={{ color: GOLD }} />
         </div>
 
-        <h2 className="fut-title bg-gradient-to-r from-yellow-300 via-white to-yellow-300 bg-clip-text text-5xl font-black uppercase tracking-wider text-transparent sm:text-7xl">
-          {youWon ? "You win!" : "Champion!"}
+        <h2 className="fut-r2 mt-6 text-4xl font-black uppercase tracking-[0.18em] text-white sm:text-6xl">
+          {youWon ? "Victory" : "Champions"}
         </h2>
 
-        <div className="fut-rise-1 mt-5 flex flex-col items-center gap-3">
+        <div className="fut-line mx-auto mt-4 h-px w-40 sm:w-56" style={{ background: `linear-gradient(to right, transparent, ${GOLD}, transparent)` }} />
+
+        <div className="fut-r3 mt-8 flex flex-col items-center gap-3">
           {team && <TeamBadge team={team} compact />}
-          <p className="break-words text-3xl font-black text-white sm:text-4xl">{winnerName}</p>
-          {team && <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent-text">{team.name}</p>}
+          <p className="break-words text-2xl font-bold uppercase tracking-[0.12em] text-white sm:text-3xl">{winnerName}</p>
+          {team && <p className="text-[11px] font-semibold uppercase tracking-[0.3em]" style={{ color: GOLD_LIGHT }}>{team.name}</p>}
         </div>
 
-        <p className="fut-rise-2 mt-5 text-base font-bold text-white/85">{scoreLine}</p>
-        {penaltyLine && <p className="fut-rise-2 mt-1 text-sm font-black text-yellow-300">{penaltyLine}</p>}
+        {/* Broadcast-style score strip */}
+        <div className="fut-r4 relative mx-auto mt-8 max-w-md overflow-hidden rounded-md border border-white/10 bg-white/[0.04] px-5 py-4 backdrop-blur-sm">
+          <span className="fut-sweep pointer-events-none absolute inset-y-0 left-0 w-1/3" style={{ background: "linear-gradient(to right, transparent, rgba(255,255,255,0.08), transparent)" }} />
+          <p className="relative text-sm font-semibold tracking-wide text-white/90 sm:text-base">{scoreLine}</p>
+          {penaltyLine && <p className="relative mt-1 text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: GOLD_LIGHT }}>{penaltyLine}</p>}
+        </div>
 
-        <button onClick={onClose} className="fut-rise-3 mx-auto mt-8 flex items-center gap-2 rounded-xl bg-accent px-8 py-4 font-black text-accent-ink transition hover:brightness-110">
-          <Sparkles size={18} />See match report
+        <button onClick={onClose} className="fut-r5 mx-auto mt-8 flex items-center gap-2 rounded-md px-8 py-3.5 text-sm font-bold uppercase tracking-[0.18em] text-black transition hover:brightness-110" style={{ background: `linear-gradient(135deg, ${GOLD_LIGHT}, ${GOLD})` }}>
+          View match report<ArrowRight size={16} />
         </button>
-        <p className="fut-rise-3 mt-3 text-[11px] text-white/50">Click anywhere or press Esc to continue</p>
+        <p className="fut-r5 mt-3 text-[11px] text-white/40">Click anywhere or press Esc to continue</p>
       </div>
     </div>
   );
