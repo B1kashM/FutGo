@@ -162,9 +162,9 @@ export default function Home() {
               </span>
             </h1>
 
-            <p className="mt-7 max-w-lg text-base leading-7 text-muted sm:text-lg sm:leading-8">
+            {/* <p className="mt-7 max-w-lg text-base leading-7 text-muted sm:text-lg sm:leading-8">
               {club.blurb}
-            </p>
+            </p> */}
 
             <div className="mt-9 flex flex-wrap gap-3">
               <a
