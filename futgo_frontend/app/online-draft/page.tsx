@@ -891,16 +891,16 @@ export default function OnlineDraftPage() {
               setError("");
               setView("join");
             }}
-            className="group rounded-[28px] border border-border bg-surface p-6 text-left transition hover:-translate-y-1 hover:border-sky-400/60 sm:p-8"
+            className="group rounded-[28px] border border-border bg-surface p-6 text-left transition hover:-translate-y-1 hover:border-accent-2/60 sm:p-8"
           >
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-400/10 text-sky-600 dark:text-sky-300">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-2/10 text-accent-2-text">
               <LogIn size={28} />
             </div>
             <h2 className="mt-6 text-2xl font-black">Join room</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
               Enter the room code from your friend and pick your club in the lobby.
             </p>
-            <span className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-muted transition group-hover:text-sky-600 dark:group-hover:text-sky-300">
+            <span className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-muted transition group-hover:text-accent-2-text">
               Enter a code <ArrowRight size={16} />
             </span>
           </button>
@@ -1339,7 +1339,7 @@ function SeatCard({
             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
               isHost
                 ? "bg-accent/10 text-accent-text"
-                : "bg-sky-400/10 text-sky-600 dark:text-sky-300"
+                : "bg-accent-2/10 text-accent-2-text"
             }`}
           >
             {isHost ? <Crown size={20} /> : <Users size={20} />}

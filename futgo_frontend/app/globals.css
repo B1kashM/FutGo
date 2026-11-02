@@ -3,52 +3,334 @@
 /* Make Tailwind's `dark:` utilities follow the data-theme attribute */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* ---------- Theme tokens ---------- */
+/* ------------------------------------------------------------------
+   Theme tokens
+   - data-theme = light | dark   (set by ThemeToggle)
+   - data-club  = club id        (set by the landing-page ClubPicker)
+   Plain :root is FC Barcelona dark, and :root[data-theme="light"] is
+   FC Barcelona light, so the page is never unstyled before JS runs.
 
-/* Dark (default) */
+   Token meaning:
+   --accent / --accent-ink / --accent-text       primary colour: fill, text on fill, used as text
+   --accent-2 / --accent-2-ink / --accent-2-text secondary colour, same roles
+   --trim       highlight colour (badges, rings around shirts)
+   --shirt-bg / --shirt-ink   kit colour on the pitch and logo tile
+   --bar-bg     the brand bar at the top and footer
+   --field-a / --field-b      mowing stripes of the club-tinted Dream XI pitch
+   ------------------------------------------------------------------ */
+
+/* ---------- FC Barcelona (default) ---------- */
 :root {
   color-scheme: dark;
-  --background: #080b10;
-  --foreground: #ffffff;
-  --surface: #0d1219;
-  --surface-2: #141b23;
-  --border: rgba(255, 255, 255, 0.1);
-  --muted: rgba(255, 255, 255, 0.6);
-  --accent: #b9f36b;        /* fills, buttons, highlights */
-  --accent-text: #b9f36b;   /* accent used as text/icon colour */
-  --accent-ink: #080b10;    /* text placed on top of --accent */
+  --background: #070a1c;
+  --foreground: #f4f1ea;
+  --surface: #0c1130;
+  --surface-2: #121a40;
+  --border: rgba(255, 255, 255, 0.12);
+  --muted: rgba(244, 241, 234, 0.62);
+
+  --accent: #b3004d;
+  --accent-ink: #ffffff;
+  --accent-text: #ff6aa3;
+  --accent-2: #1a6fd1;
+  --accent-2-ink: #ffffff;
+  --accent-2-text: #7fb8ff;
+  --trim: #edbb00;
+
+  --shirt-bg: repeating-linear-gradient(90deg, #004d98 0 5px, #a50044 5px 10px);
+  --shirt-ink: #ffffff;
+  --bar-bg: repeating-linear-gradient(90deg, #004d98 0 28px, #a50044 28px 56px);
+
+  --field-a: #0c2a55;
+  --field-b: #4a0a2c;
 }
 
-/* Light */
 :root[data-theme="light"] {
   color-scheme: light;
-  --background: #f5f7fa;
-  --foreground: #0b1018;
+  --background: #f7f4ee;
+  --foreground: #0b1230;
   --surface: #ffffff;
-  --surface-2: #eef2f6;
-  --border: rgba(11, 16, 24, 0.12);
-  --muted: rgba(11, 16, 24, 0.62);
-  --accent: #b9f36b;
-  --accent-text: #3f6212;   /* darker lime so text stays readable on light */
-  --accent-ink: #080b10;
+  --surface-2: #efebe2;
+  --border: rgba(11, 18, 48, 0.13);
+  --muted: rgba(11, 18, 48, 0.64);
+
+  --accent: #a50044;
+  --accent-ink: #ffffff;
+  --accent-text: #a50044;
+  --accent-2: #004d98;
+  --accent-2-ink: #ffffff;
+  --accent-2-text: #004d98;
+  --trim: #d9a900;
+
+  --field-a: #1f5aa6;
+  --field-b: #9c1650;
 }
 
-/* No-JS fallback: follow the OS until the theme script sets data-theme */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) {
-    color-scheme: light;
-    --background: #f5f7fa;
-    --foreground: #0b1018;
-    --surface: #ffffff;
-    --surface-2: #eef2f6;
-    --border: rgba(11, 16, 24, 0.12);
-    --muted: rgba(11, 16, 24, 0.62);
-    --accent-text: #3f6212;
-  }
+/* ---------- Real Madrid ---------- */
+:root[data-club="madrid"] {
+  --background: #070b14;
+  --foreground: #ffffff;
+  --surface: #0d1322;
+  --surface-2: #141c30;
+  --border: rgba(255, 255, 255, 0.11);
+  --muted: rgba(255, 255, 255, 0.62);
+
+  --accent: #febe10;
+  --accent-ink: #0a1630;
+  --accent-text: #febe10;
+  --accent-2: #1c5fb8;
+  --accent-2-ink: #ffffff;
+  --accent-2-text: #7db3f5;
+  --trim: #ffffff;
+
+  --shirt-bg: #ffffff;
+  --shirt-ink: #0a1630;
+  --bar-bg: linear-gradient(90deg, var(--accent) 0 33.4%, var(--accent-2) 33.4% 66.7%, var(--trim) 66.7%);
+
+  --field-a: #0a1530;
+  --field-b: #0e1c3e;
+}
+:root[data-club="madrid"][data-theme="light"] {
+  --background: #f6f7fa;
+  --foreground: #0a1630;
+  --surface: #ffffff;
+  --surface-2: #eceff5;
+  --border: rgba(10, 22, 48, 0.12);
+  --muted: rgba(10, 22, 48, 0.64);
+
+  --accent: #00529f;
+  --accent-ink: #ffffff;
+  --accent-text: #00529f;
+  --accent-2: #febe10;
+  --accent-2-ink: #0a1630;
+  --accent-2-text: #8a6200;
+  --trim: #febe10;
+
+  --field-a: #244a8f;
+  --field-b: #2c569f;
 }
 
-/* Expose tokens as Tailwind utilities: bg-background, text-foreground, bg-surface,
-   border-border, text-muted, bg-accent, text-accent-text, text-accent-ink */
+/* ---------- Manchester United ---------- */
+:root[data-club="manutd"] {
+  --background: #0b0707;
+  --foreground: #ffffff;
+  --surface: #140c0c;
+  --surface-2: #1d1212;
+  --border: rgba(255, 255, 255, 0.1);
+  --muted: rgba(255, 255, 255, 0.62);
+
+  --accent: #da291c;
+  --accent-ink: #ffffff;
+  --accent-text: #ff6b5e;
+  --accent-2: #fbe122;
+  --accent-2-ink: #1a1200;
+  --accent-2-text: #fbe122;
+  --trim: #fbe122;
+
+  --shirt-bg: #da291c;
+  --shirt-ink: #ffffff;
+  --bar-bg: linear-gradient(90deg, var(--accent) 0 33.4%, var(--accent-2) 33.4% 66.7%, #111 66.7%);
+
+  --field-a: #1b0e0d;
+  --field-b: #2a1210;
+}
+:root[data-club="manutd"][data-theme="light"] {
+  --background: #fbf6f4;
+  --foreground: #1a0c0b;
+  --surface: #ffffff;
+  --surface-2: #f4ebe8;
+  --border: rgba(26, 12, 11, 0.12);
+  --muted: rgba(26, 12, 11, 0.64);
+
+  --accent: #da291c;
+  --accent-ink: #ffffff;
+  --accent-text: #b81d12;
+  --accent-2: #fbe122;
+  --accent-2-ink: #1a1200;
+  --accent-2-text: #8a6d00;
+  --trim: #fbe122;
+
+  --field-a: #9a2018;
+  --field-b: #a9261c;
+}
+
+/* ---------- Manchester City ---------- */
+:root[data-club="mancity"] {
+  --background: #060d1b;
+  --foreground: #ffffff;
+  --surface: #0b1428;
+  --surface-2: #121d38;
+  --border: rgba(255, 255, 255, 0.11);
+  --muted: rgba(255, 255, 255, 0.62);
+
+  --accent: #6cabdd;
+  --accent-ink: #07142c;
+  --accent-text: #8cc3ee;
+  --accent-2: #2f4fae;
+  --accent-2-ink: #ffffff;
+  --accent-2-text: #9db4ee;
+  --trim: #ffffff;
+
+  --shirt-bg: #6cabdd;
+  --shirt-ink: #07142c;
+  --bar-bg: linear-gradient(90deg, var(--accent) 0 50%, var(--accent-2) 50%);
+
+  --field-a: #102f52;
+  --field-b: #143a65;
+}
+:root[data-club="mancity"][data-theme="light"] {
+  --background: #f4f8fc;
+  --foreground: #0b1736;
+  --surface: #ffffff;
+  --surface-2: #e9f0f8;
+  --border: rgba(11, 23, 54, 0.12);
+  --muted: rgba(11, 23, 54, 0.64);
+
+  --accent: #6cabdd;
+  --accent-ink: #07142c;
+  --accent-text: #1f5f9a;
+  --accent-2: #1c2c5b;
+  --accent-2-ink: #ffffff;
+  --accent-2-text: #1c2c5b;
+  --trim: #1c2c5b;
+
+  --field-a: #5c9fd3;
+  --field-b: #69abdf;
+}
+
+/* ---------- Bayern Munich ---------- */
+:root[data-club="bayern"] {
+  --background: #0c0709;
+  --foreground: #ffffff;
+  --surface: #150b0e;
+  --surface-2: #1e1115;
+  --border: rgba(255, 255, 255, 0.1);
+  --muted: rgba(255, 255, 255, 0.62);
+
+  --accent: #dc052d;
+  --accent-ink: #ffffff;
+  --accent-text: #ff5a77;
+  --accent-2: #0a6fc4;
+  --accent-2-ink: #ffffff;
+  --accent-2-text: #6db6ff;
+  --trim: #ffffff;
+
+  --shirt-bg: #dc052d;
+  --shirt-ink: #ffffff;
+  --bar-bg: linear-gradient(90deg, var(--accent) 0 50%, var(--accent-2) 50%);
+
+  --field-a: #3a0b16;
+  --field-b: #480e1b;
+}
+:root[data-club="bayern"][data-theme="light"] {
+  --background: #fbf5f6;
+  --foreground: #1a0a0e;
+  --surface: #ffffff;
+  --surface-2: #f4eaec;
+  --border: rgba(26, 10, 14, 0.12);
+  --muted: rgba(26, 10, 14, 0.64);
+
+  --accent: #dc052d;
+  --accent-ink: #ffffff;
+  --accent-text: #b50425;
+  --accent-2: #0066b2;
+  --accent-2-ink: #ffffff;
+  --accent-2-text: #0066b2;
+  --trim: #0066b2;
+
+  --field-a: #bd1d34;
+  --field-b: #c9233b;
+}
+
+/* ---------- Chelsea ---------- */
+:root[data-club="chelsea"] {
+  --background: #050a1c;
+  --foreground: #ffffff;
+  --surface: #0a1230;
+  --surface-2: #101a42;
+  --border: rgba(255, 255, 255, 0.11);
+  --muted: rgba(255, 255, 255, 0.62);
+
+  --accent: #0a56c2;
+  --accent-ink: #ffffff;
+  --accent-text: #6fa8ff;
+  --accent-2: #dba111;
+  --accent-2-ink: #171000;
+  --accent-2-text: #f0be3a;
+  --trim: #dba111;
+
+  --shirt-bg: #034694;
+  --shirt-ink: #ffffff;
+  --bar-bg: linear-gradient(90deg, var(--accent) 0 50%, var(--accent-2) 50%);
+
+  --field-a: #0a2566;
+  --field-b: #0d2f7c;
+}
+:root[data-club="chelsea"][data-theme="light"] {
+  --background: #f5f7fc;
+  --foreground: #08122e;
+  --surface: #ffffff;
+  --surface-2: #eaeff9;
+  --border: rgba(8, 18, 46, 0.12);
+  --muted: rgba(8, 18, 46, 0.64);
+
+  --accent: #034694;
+  --accent-ink: #ffffff;
+  --accent-text: #034694;
+  --accent-2: #dba111;
+  --accent-2-ink: #171000;
+  --accent-2-text: #8a6400;
+  --trim: #dba111;
+
+  --field-a: #2a5cb8;
+  --field-b: #3268c8;
+}
+
+/* ---------- Paris Saint-Germain ---------- */
+:root[data-club="psg"] {
+  --background: #050912;
+  --foreground: #ffffff;
+  --surface: #0a111f;
+  --surface-2: #101a2f;
+  --border: rgba(255, 255, 255, 0.11);
+  --muted: rgba(255, 255, 255, 0.62);
+
+  --accent: #0d5aa7;
+  --accent-ink: #ffffff;
+  --accent-text: #6fb2f0;
+  --accent-2: #da291c;
+  --accent-2-ink: #ffffff;
+  --accent-2-text: #ff6b60;
+  --trim: #ffffff;
+
+  --shirt-bg: linear-gradient(90deg, #004170 0 36%, #da291c 36% 64%, #004170 64%);
+  --shirt-ink: #ffffff;
+  --bar-bg: linear-gradient(90deg, var(--accent) 0 40%, var(--accent-2) 40% 60%, var(--accent) 60%);
+
+  --field-a: #0a1d3d;
+  --field-b: #0e2650;
+}
+:root[data-club="psg"][data-theme="light"] {
+  --background: #f5f7fb;
+  --foreground: #07142a;
+  --surface: #ffffff;
+  --surface-2: #e9eef6;
+  --border: rgba(7, 20, 42, 0.12);
+  --muted: rgba(7, 20, 42, 0.64);
+
+  --accent: #004170;
+  --accent-ink: #ffffff;
+  --accent-text: #004170;
+  --accent-2: #da291c;
+  --accent-2-ink: #ffffff;
+  --accent-2-text: #c01f13;
+  --trim: #da291c;
+
+  --field-a: #1b4a8a;
+  --field-b: #2255a0;
+}
+
+/* Expose tokens as Tailwind utilities (bg-accent, text-accent-2-text, border-trim, ...) */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -57,8 +339,12 @@
   --color-border: var(--border);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
-  --color-accent-text: var(--accent-text);
   --color-accent-ink: var(--accent-ink);
+  --color-accent-text: var(--accent-text);
+  --color-accent-2: var(--accent-2);
+  --color-accent-2-ink: var(--accent-2-ink);
+  --color-accent-2-text: var(--accent-2-text);
+  --color-trim: var(--trim);
 }
 
 /* ---------- Base ---------- */
@@ -94,7 +380,39 @@ button {
   background: var(--accent);
 }
 
-/* Pitch stays green in both themes; slightly softer stripes in light mode */
+/* ---------- Club helpers ---------- */
+
+.brand-bar {
+  background: var(--bar-bg);
+}
+
+/* Kit colours: pitch dots and the logo tile */
+.shirt {
+  background: var(--shirt-bg);
+  color: var(--shirt-ink);
+  border-color: var(--trim);
+}
+
+/* Landing-page Dream XI pitch: tinted with the selected club's colours */
+.pitch-club {
+  aspect-ratio: 4 / 4.5;
+  background-color: var(--field-a);
+  background-image: repeating-linear-gradient(
+    0deg,
+    var(--field-a) 0,
+    var(--field-a) 36px,
+    var(--field-b) 36px,
+    var(--field-b) 72px
+  );
+  transition: background-color 0.2s ease;
+}
+
+.pitch-line {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Draft and match pages keep a classic green pitch in every club;
+   softer stripes in light mode */
 .pitch {
   --pitch-a: #173d2a;
   --pitch-b: #1b462f;

@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 
 import ThemeToggle from "../components/ThemeToggle";
+import ClubPicker from "../components/ClubPicker";
+import { useClub } from "../_theme/useClub";
 import {
   DRAFT_CATEGORIES,
   EXTRA_TIME_END,
@@ -56,18 +58,26 @@ import type {
 /* ================================================================== */
 
 export function DraftPageShell({ children }: { children: ReactNode }) {
+  const { club } = useClub();
+
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <div className="brand-bar h-1.5 w-full" />
       <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-7 lg:px-10">
         <header className="flex items-center justify-between border-b border-border pb-5">
           <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-lg font-black text-accent-ink">F</div>
+            <div className="shirt flex h-10 w-10 items-center justify-center rounded-xl border-2">
+              <Goal size={22} strokeWidth={2.5} />
+            </div>
             <div>
-              <div className="text-lg font-black tracking-[0.16em]">FUTGO</div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">Build your legacy</div>
+              <div className="text-lg font-black tracking-[0.16em]">
+                FUT<span className="text-accent-text">GO</span>
+              </div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{club.brandTag}</div>
             </div>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <ClubPicker />
             <ThemeToggle />
             <Link href="/" className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted transition hover:border-accent-text/50 hover:text-foreground">
               <ArrowLeft size={16} />
@@ -101,7 +111,7 @@ export function CategoryGrid({
           <button key={category.value} type="button" aria-pressed={selected}
             disabled={disabled} onClick={() => onChange(category.value)}
             className={`relative flex min-h-[82px] items-center gap-3 rounded-2xl border p-3 text-left transition sm:p-4 ${
-              selected ? "border-accent-text/80 bg-accent/[0.09] shadow-[0_0_22px_rgba(185,243,107,0.06)]" : "border-border bg-background/70 hover:border-foreground/25 hover:bg-foreground/[0.03]"
+              selected ? "border-accent-text/80 bg-accent/[0.09] shadow-lg shadow-accent/10" : "border-border bg-background/70 hover:border-foreground/25 hover:bg-foreground/[0.03]"
             } disabled:opacity-60`}>
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-foreground/[0.05] text-2xl">{category.icon}</span>
             <span className="min-w-0 flex-1">
@@ -175,7 +185,7 @@ export function DraftingView({
             <div className="relative flex items-start justify-between gap-2 sm:gap-4">
               <span className="rounded-full border border-border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-muted sm:px-3 sm:py-1.5 sm:text-[10px] sm:tracking-[0.16em]"><span className="hidden sm:inline">Option </span>{index + 1}</span>
               <div className="flex items-center gap-2">
-                <span className="rounded-lg border border-[#b9f36b]/40 bg-[#b9f36b]/15 px-2.5 py-1 text-xs font-black text-[#b9f36b] sm:px-3 sm:py-1.5 sm:text-sm">{player.ovr_rating ?? 0} OVR</span>
+                <span className="rounded-lg border border-trim/50 bg-trim/15 px-2.5 py-1 text-xs font-black text-accent-text sm:px-3 sm:py-1.5 sm:text-sm">{player.ovr_rating ?? 0} OVR</span>
                 <span className="rounded-full bg-accent/10 px-2 py-1 text-[10px] font-bold text-accent-text sm:px-3 sm:py-1.5 sm:text-xs">{player.position}</span>
               </div>
             </div>
@@ -1105,6 +1115,13 @@ export function WinnerCelebration({
 /* Shared small components                                             */
 /* ================================================================== */
 
+// Real club colours from the backend win; otherwise fall back to the active theme
+function teamChipStyle(team: Team): CSSProperties {
+  return team.primary_color
+    ? { backgroundColor: team.primary_color, color: "#000" }
+    : { backgroundColor: "var(--accent)", color: "var(--accent-ink)" };
+}
+
 export function TeamDropdown({
   teams, value, placeholder, onChange, disabled = false, excludedId = "",
 }: {
@@ -1133,7 +1150,7 @@ export function TeamDropdown({
     <div ref={rootRef} className="relative z-30 w-full">
       <button type="button" aria-haspopup="listbox" aria-expanded={open} disabled={disabled} onClick={() => setOpen((current) => !current)}
         className={`flex min-h-[50px] w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left text-sm outline-none transition focus:border-accent-text/70 focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60 ${open ? "border-accent-text/60 bg-surface-2" : "border-border bg-background hover:border-foreground/25"}`}>
-        {selected ? <>{selected.logo_url ? <img src={selected.logo_url} alt="" className="h-7 w-7 shrink-0 object-contain" /> : <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[9px] font-black text-black" style={{ backgroundColor: selected.primary_color || "#b9f36b" }}>{(selected.short_name || selected.name).slice(0, 3).toUpperCase()}</span>}<span className="min-w-0 flex-1 truncate font-semibold text-foreground">{selected.name}</span></> : <span className="min-w-0 flex-1 truncate text-muted">{placeholder}</span>}
+        {selected ? <>{selected.logo_url ? <img src={selected.logo_url} alt="" className="h-7 w-7 shrink-0 object-contain" /> : <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[9px] font-black" style={teamChipStyle(selected)}>{(selected.short_name || selected.name).slice(0, 3).toUpperCase()}</span>}<span className="min-w-0 flex-1 truncate font-semibold text-foreground">{selected.name}</span></> : <span className="min-w-0 flex-1 truncate text-muted">{placeholder}</span>}
         <ChevronDown size={17} className={`shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && !disabled && <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-[100] overflow-hidden rounded-2xl border border-border bg-surface-2 shadow-2xl shadow-black/30">
@@ -1144,7 +1161,7 @@ export function TeamDropdown({
             const excluded = id === excludedId;
             const isSelected = id === value;
             return <button key={team.id} type="button" role="option" aria-selected={isSelected} disabled={excluded} onClick={() => { onChange(id); setOpen(false); }} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-35 ${isSelected ? "bg-accent/10" : "hover:bg-foreground/[0.06]"}`}>
-              {team.logo_url ? <img src={team.logo_url} alt="" className="h-8 w-8 shrink-0 object-contain" /> : <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[9px] font-black text-black" style={{ backgroundColor: team.primary_color || "#b9f36b" }}>{(team.short_name || team.name).slice(0, 3).toUpperCase()}</span>}
+              {team.logo_url ? <img src={team.logo_url} alt="" className="h-8 w-8 shrink-0 object-contain" /> : <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[9px] font-black" style={teamChipStyle(team)}>{(team.short_name || team.name).slice(0, 3).toUpperCase()}</span>}
               <span className="min-w-0 flex-1"><span className={`block truncate text-sm font-bold ${isSelected ? "text-accent-text" : "text-foreground/85"}`}>{team.name}</span>{excluded && <span className="block text-[10px] text-muted">Already selected by the other manager</span>}</span>
               {isSelected && <Check size={16} className="shrink-0 text-accent-text" />}
             </button>;
@@ -1157,8 +1174,8 @@ export function TeamDropdown({
 
 export function TeamBadge({ team, compact = false }: { team?: Team | null; compact?: boolean }) {
   if (!team) return null;
-  const primary = team.primary_color || "#b9f36b";
-  const secondary = team.secondary_color || "#080b10";
+  const primary = team.primary_color || "var(--accent)";
+  const secondary = team.secondary_color || "var(--accent-ink)";
   return (
     <div className={`flex min-w-0 items-center gap-3 rounded-xl border border-border bg-foreground/[0.03] ${compact ? "mx-auto w-fit max-w-full flex-col justify-center border-0 bg-transparent p-0" : "p-3"}`}>
       {team.logo_url ? <img src={team.logo_url} alt={`${team.name} logo`} className={`${compact ? "h-12 w-12 sm:h-16 sm:w-16" : "h-10 w-10"} shrink-0 object-contain`} /> : <div className={`${compact ? "h-12 w-12 sm:h-16 sm:w-16" : "h-10 w-10"} flex shrink-0 items-center justify-center rounded-xl text-xs font-black`} style={{ backgroundColor: primary, color: secondary }}>{(team.short_name || team.name).slice(0, 3).toUpperCase()}</div>}
@@ -1296,8 +1313,8 @@ export function SquadPitch({
             <div key={`${slot.code}-${index}`} className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1" style={{ left: slot.x, top: slot.y }} title={player ? `${player.name} (${player.position})` : slot.code}>
               {player ? <>
                 <div className="relative">
-                  <PlayerAvatar player={player} className="h-9 w-9 rounded-full border-[#b9f36b]/80! text-[11px] shadow-[0_0_16px_rgba(185,243,107,0.25)] sm:h-12 sm:w-12 sm:text-sm" />
-                  {showRatings && <span className={`absolute -right-4 -top-2 z-20 min-w-[26px] rounded-md border border-black/40 px-1.5 py-0.5 text-center text-[10px] font-black leading-none tabular-nums shadow-lg sm:text-xs ${ratingText ? "bg-[#b9f36b] text-black" : "bg-white/25 text-white/80"}`} aria-label={ratingText ? `Match rating ${ratingText}` : "No match rating"}>{ratingText ?? "—"}</span>}
+                  <PlayerAvatar player={player} className="h-9 w-9 rounded-full border-trim! text-[11px] shadow-lg sm:h-12 sm:w-12 sm:text-sm" />
+                  {showRatings && <span className={`absolute -right-4 -top-2 z-20 min-w-[26px] rounded-md border border-black/40 px-1.5 py-0.5 text-center text-[10px] font-black leading-none tabular-nums shadow-lg sm:text-xs ${ratingText ? "bg-accent text-accent-ink" : "bg-white/25 text-white/80"}`} aria-label={ratingText ? `Match rating ${ratingText}` : "No match rating"}>{ratingText ?? "—"}</span>}
                 </div>
                 <span className="max-w-[68px] truncate rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-bold text-white sm:max-w-[84px] sm:text-[10px]">{player.name.split(" ").slice(-1)[0]}</span>
               </> : <>

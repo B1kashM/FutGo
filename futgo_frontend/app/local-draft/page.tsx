@@ -380,7 +380,7 @@ export default function LocalDraftPage() {
 
               <div className="p-5 sm:p-7">
                 <div className="mb-5 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-400/10 font-black text-sky-600 dark:text-sky-300">02</div>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-2/10 font-black text-accent-2-text">02</div>
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Manager two</p>
                     <h3 className="text-lg font-black">Away side</h3>
