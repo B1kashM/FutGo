@@ -9,16 +9,16 @@ export type ClubId =
   | "arsenal"
   | "dortmund"
   | "inter"
-  | "ajax"
+//   | "ajax"
   | "juventus"
   | "atletico"
   | "ac-milan"
-  | "benfica"
-  | "napoli"
-  | "roma"
-  | "tottenham"
+//   | "benfica"
+//   | "napoli"
+//   | "roma"
+//   | "tottenham"
   | "galatasaray"
-  | "fenerbahce"
+//   | "fenerbahce"
   | "fiorentina"
   | "celtic";
 
@@ -169,19 +169,19 @@ export const CLUBS: Club[] = [
     stepTitles: ["Build your Inter XI", "Outplay your rival", "Win the Derby della Madonnina"],
     footerCheer: "Forza Inter!",
     },
-    {
-    id: "ajax",
-    name: "AFC Ajax",
-    short: "AJX",
-    swatch: ["#D71920", "#FFFFFF"],
-    brandTag: "THE AMSTERDAM DRAFT",
-    badge: "WIJ ZIJN AJAX. YOUR PICKS. YOUR LEGACY.",
-    headline: ["Forza", "Ajax!",""],
-    blurb: "Build your ultimate Ajax XI. Prove who really knows football.",
-    formation: "AJAX 4–3–3",
-    stepTitles: ["Build your Ajax XI", "Outplay your rival", "Rule Amsterdam"],
-    footerCheer: "Hup Ajax!",
-    },
+    // {
+    // id: "ajax",
+    // name: "AFC Ajax",
+    // short: "AJX",
+    // swatch: ["#D71920", "#FFFFFF"],
+    // brandTag: "THE AMSTERDAM DRAFT",
+    // badge: "WIJ ZIJN AJAX. YOUR PICKS. YOUR LEGACY.",
+    // headline: ["Forza", "Ajax!",""],
+    // blurb: "Build your ultimate Ajax XI. Prove who really knows football.",
+    // formation: "AJAX 4–3–3",
+    // stepTitles: ["Build your Ajax XI", "Outplay your rival", "Rule Amsterdam"],
+    // footerCheer: "Hup Ajax!",
+    // },
     {
     id: "juventus",
     name: "Juventus FC",
@@ -221,58 +221,58 @@ export const CLUBS: Club[] = [
     stepTitles: ["Build your Milan XI", "Outplay your rival", "Rule Milano"],
     footerCheer: "Forza Milan!",
     },
-    {
-    id: "benfica",
-    name: "SL Benfica",
-    short: "BEN",
-    swatch: ["#D71920", "#FFFFFF"],
-    brandTag: "THE EAGLES DRAFT",
-    badge: "ETERNAMENTE BENFICA. YOUR PICKS. YOUR LEGACY.",
-    headline: ["E Pluribus", "Unum.",""],
-    blurb: "Build your ultimate Benfica XI. Prove who really knows football.",
-    formation: "ÁGUIAS 4–2–3–1",
-    stepTitles: ["Build your Benfica XI", "Outplay your rival", "Conquer Lisbon"],
-    footerCheer: "Força Benfica!",
-    },
-    {
-    id: "napoli",
-    name: "SSC Napoli",
-    short: "NAP",
-    swatch: ["#168ACB", "#FFFFFF"],
-    brandTag: "THE PARTENOPEI DRAFT",
-    badge: "SARÒ CON TE. YOUR PICKS. YOUR LEGACY.",
-    headline: ["Forza", "Napoli!",""],
-    blurb: "Build your ultimate Napoli XI. Prove who really knows football.",
-    formation: "PARTENOPEI 4–3–3",
-    stepTitles: ["Build your Napoli XI", "Outplay your rival", "Rule Naples"],
-    footerCheer: "Forza Napoli!",
-    },
-    {
-    id: "roma",
-    name: "AS Roma",
-    short: "ROM",
-    swatch: ["#8E1B2B", "#DDBB65"],
-    brandTag: "THE GIALLOROSSI DRAFT",
-    badge: "LA ROMA NON SI DISCUTE. YOUR PICKS. YOUR LEGACY.",
-    headline: ["Daje", "Roma!",""],
-    blurb: "Build your ultimate Giallorossi XI. Prove who really knows football.",
-    formation: "GIALLOROSSI 3–4–2–1",
-    stepTitles: ["Build your Roma XI", "Outplay your rival", "Conquer Rome"],
-    footerCheer: "Forza Roma!",
-    },
-    {
-    id: "tottenham",
-    name: "Tottenham Hotspur",
-    short: "TOT",
-    swatch: ["#132257", "#FFFFFF"],
-    brandTag: "THE NORTH LONDON DRAFT",
-    badge: "TO DARE IS TO DO. YOUR PICKS. YOUR LEGACY.",
-    headline: ["Come On", "You Spurs!",""],
-    blurb: "Build your ultimate Spurs XI. Prove who really knows football.",
-    formation: "SPURS 4–3–3",
-    stepTitles: ["Build your Spurs XI", "Outplay your rival", "Own North London"],
-    footerCheer: "Come On You Spurs!",
-    },
+    // {
+    // id: "benfica",
+    // name: "SL Benfica",
+    // short: "BEN",
+    // swatch: ["#D71920", "#FFFFFF"],
+    // brandTag: "THE EAGLES DRAFT",
+    // badge: "ETERNAMENTE BENFICA. YOUR PICKS. YOUR LEGACY.",
+    // headline: ["E Pluribus", "Unum.",""],
+    // blurb: "Build your ultimate Benfica XI. Prove who really knows football.",
+    // formation: "ÁGUIAS 4–2–3–1",
+    // stepTitles: ["Build your Benfica XI", "Outplay your rival", "Conquer Lisbon"],
+    // footerCheer: "Força Benfica!",
+    // },
+    // {
+    // id: "napoli",
+    // name: "SSC Napoli",
+    // short: "NAP",
+    // swatch: ["#168ACB", "#FFFFFF"],
+    // brandTag: "THE PARTENOPEI DRAFT",
+    // badge: "SARÒ CON TE. YOUR PICKS. YOUR LEGACY.",
+    // headline: ["Forza", "Napoli!",""],
+    // blurb: "Build your ultimate Napoli XI. Prove who really knows football.",
+    // formation: "PARTENOPEI 4–3–3",
+    // stepTitles: ["Build your Napoli XI", "Outplay your rival", "Rule Naples"],
+    // footerCheer: "Forza Napoli!",
+    // },
+    // {
+    // id: "roma",
+    // name: "AS Roma",
+    // short: "ROM",
+    // swatch: ["#8E1B2B", "#DDBB65"],
+    // brandTag: "THE GIALLOROSSI DRAFT",
+    // badge: "LA ROMA NON SI DISCUTE. YOUR PICKS. YOUR LEGACY.",
+    // headline: ["Daje", "Roma!",""],
+    // blurb: "Build your ultimate Giallorossi XI. Prove who really knows football.",
+    // formation: "GIALLOROSSI 3–4–2–1",
+    // stepTitles: ["Build your Roma XI", "Outplay your rival", "Conquer Rome"],
+    // footerCheer: "Forza Roma!",
+    // },
+    // {
+    // id: "tottenham",
+    // name: "Tottenham Hotspur",
+    // short: "TOT",
+    // swatch: ["#132257", "#FFFFFF"],
+    // brandTag: "THE NORTH LONDON DRAFT",
+    // badge: "TO DARE IS TO DO. YOUR PICKS. YOUR LEGACY.",
+    // headline: ["Come On", "You Spurs!",""],
+    // blurb: "Build your ultimate Spurs XI. Prove who really knows football.",
+    // formation: "SPURS 4–3–3",
+    // stepTitles: ["Build your Spurs XI", "Outplay your rival", "Own North London"],
+    // footerCheer: "Come On You Spurs!",
+    // },
     {
     id: "galatasaray",
     name: "Galatasaray SK",
@@ -286,19 +286,19 @@ export const CLUBS: Club[] = [
     stepTitles: ["Build your Gala XI", "Outplay your rival", "Rule Istanbul"],
     footerCheer: "Haydi Cimbom!",
     },
-    {
-    id: "fenerbahce",
-    name: "Fenerbahçe SK",
-    short: "FB",
-    swatch: ["#003399", "#FFED00"],
-    brandTag: "THE SARI LACIVERT DRAFT",
-    badge: "BÜYÜK FENERBAHÇE. YOUR PICKS. YOUR LEGACY.",
-    headline: ["Yaşa", "Fenerbahçe!",""],
-    blurb: "Build your ultimate Fenerbahçe XI. Prove who really knows football.",
-    formation: "KANARYALAR 4–3–3",
-    stepTitles: ["Build your Fenerbahçe XI", "Outplay your rival", "Rule Istanbul"],
-    footerCheer: "Yaşa Fenerbahçe!",
-    },
+    // {
+    // id: "fenerbahce",
+    // name: "Fenerbahçe SK",
+    // short: "FB",
+    // swatch: ["#003399", "#FFED00"],
+    // brandTag: "THE SARI LACIVERT DRAFT",
+    // badge: "BÜYÜK FENERBAHÇE. YOUR PICKS. YOUR LEGACY.",
+    // headline: ["Yaşa", "Fenerbahçe!",""],
+    // blurb: "Build your ultimate Fenerbahçe XI. Prove who really knows football.",
+    // formation: "KANARYALAR 4–3–3",
+    // stepTitles: ["Build your Fenerbahçe XI", "Outplay your rival", "Rule Istanbul"],
+    // footerCheer: "Yaşa Fenerbahçe!",
+    // },
     {
     id: "fiorentina",
     name: "ACF Fiorentina",

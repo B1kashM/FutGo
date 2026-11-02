@@ -171,7 +171,7 @@
   --accent-2-text: #9db4ee;
   --trim: #ffffff;
 
-  --shirt-bg: #6cabdd;
+  --shirt-bg: #f0f0f0;
   --shirt-ink: #07142c;
   --bar-bg: linear-gradient(90deg, var(--accent) 0 50%, var(--accent-2) 50%);
 
@@ -474,7 +474,7 @@
 /* =========================================
    AJAX
 ========================================= */
-:root[data-club="ajax"] {
+/* :root[data-club="ajax"] {
   --background: #160608;
   --foreground: #fff;
   --surface: #280b10;
@@ -512,7 +512,7 @@
   --shirt-ink: #fff;
   --field-a: #d94c53;
   --field-b: #eb777d;
-}
+} */
 
 /* =========================================
    JUVENTUS
@@ -646,7 +646,7 @@
 /* =========================================
    BENFICA
 ========================================= */
-:root[data-club="benfica"] {
+/* :root[data-club="benfica"] {
   --background: #170609;
   --foreground: #fff;
   --surface: #290c12;
@@ -684,12 +684,12 @@
   --shirt-ink: #fff;
   --field-a: #d85a5f;
   --field-b: #e98283;
-}
+} */
 
 /* =========================================
    NAPOLI
 ========================================= */
-:root[data-club="napoli"] {
+/* :root[data-club="napoli"] {
   --background: #061523;
   --foreground: #fff;
   --surface: #0b2035;
@@ -727,12 +727,12 @@
   --shirt-ink: #fff;
   --field-a: #60a8d2;
   --field-b: #80bde0;
-}
+} */
 
 /* =========================================
    AS ROMA
 ========================================= */
-:root[data-club="roma"] {
+/* :root[data-club="roma"] {
   --background: #16080b;
   --foreground: #fff;
   --surface: #291015;
@@ -770,12 +770,12 @@
   --shirt-ink: #fff;
   --field-a: #c77978;
   --field-b: #d99994;
-}
+} */
 
 /* =========================================
    TOTTENHAM
 ========================================= */
-:root[data-club="tottenham"] {
+/* :root[data-club="tottenham"] {
   --background: #070e20;
   --foreground: #fff;
   --surface: #101c35;
@@ -813,7 +813,7 @@
   --shirt-ink: #fff;
   --field-a: #6383ba;
   --field-b: #819bc9;
-}
+} */
 
 /* =========================================
    GALATASARAY
@@ -861,7 +861,7 @@
 /* =========================================
    FENERBAHCE
 ========================================= */
-:root[data-club="fenerbahce"] {
+/* :root[data-club="fenerbahce"] {
   --background: #071023;
   --foreground: #fff;
   --surface: #101f3d;
@@ -899,7 +899,7 @@
   --shirt-ink: #fff;
   --field-a: #6384c4;
   --field-b: #819ed1;
-}
+} */
 
 /* =========================================
    FIORENTINA

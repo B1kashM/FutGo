@@ -185,8 +185,8 @@ export default function Home() {
                 How to play
               </a>
             </div>
-
-            <div className="mt-11 flex flex-wrap gap-x-7 gap-y-3 text-xs font-medium text-muted sm:text-sm">
+            <br /><br />
+            {/* <div className="mt-11 flex flex-wrap gap-x-7 gap-y-3 text-xs font-medium text-muted sm:text-sm">
               <span className="flex items-center gap-2">
                 <Check size={15} className="text-accent-text" />
                 11 players per squad
@@ -195,7 +195,7 @@ export default function Home() {
                 <Check size={15} className="text-accent-text" />
                 Position-by-position picks
               </span>
-            </div>
+            </div> */}
           </div>
 
           {/* Dream XI preview: every colour here follows the selected club */}
