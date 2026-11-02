@@ -330,6 +330,664 @@
   --field-b: #2255a0;
 }
 
+/* ---------- Arsenal ---------- */
+:root[data-club="arsenal"] {
+  --background: #160608;
+  --foreground: #ffffff;
+  --surface: #280b10;
+  --surface-2: #3a1119;
+  --border: rgba(255, 255, 255, 0.11);
+  --muted: rgba(255, 255, 255, 0.62);
+
+  --accent: #db0007;
+  --accent-ink: #ffffff;
+  --accent-text: #ff7378;
+  --accent-2: #ffffff;
+  --accent-2-ink: #160608;
+  --accent-2-text: #e6bfc2;
+  --trim: #ffffff;
+
+  --shirt-bg: #db0007;
+  --shirt-ink: #ffffff;
+  --bar-bg: linear-gradient(90deg, var(--accent) 0 50%, var(--accent-2) 50%);
+
+  --field-a: #5c101b;
+  --field-b: #701521;
+}
+:root[data-club="arsenal"][data-theme="light"] {
+  --background: #fff5f5;
+  --foreground: #25080c;
+  --surface: #ffffff;
+  --surface-2: #f8e6e8;
+  --border: rgba(37, 8, 12, 0.12);
+  --muted: rgba(37, 8, 12, 0.64);
+
+  --accent: #db0007;
+  --accent-ink: #ffffff;
+  --accent-text: #b00008;
+  --accent-2: #ffffff;
+  --accent-2-ink: #25080c;
+  --accent-2-text: #8c1820;
+  --trim: #db0007;
+
+  --shirt-bg: #db0007;
+  --shirt-ink: #ffffff;
+
+  --field-a: #c72b35;
+  --field-b: #d83b45;
+}
+
+/* ---------- Borussia Dortmund ---------- */
+:root[data-club="dortmund"] {
+  --background: #090909;
+  --foreground: #ffffff;
+  --surface: #151515;
+  --surface-2: #222222;
+  --border: rgba(255, 255, 255, 0.11);
+  --muted: rgba(255, 255, 255, 0.62);
+
+  --accent: #fde100;
+  --accent-ink: #090909;
+  --accent-text: #ffe84d;
+  --accent-2: #ffffff;
+  --accent-2-ink: #090909;
+  --accent-2-text: #d6d6d6;
+  --trim: #fde100;
+
+  --shirt-bg: #fde100;
+  --shirt-ink: #090909;
+  --bar-bg: linear-gradient(90deg, var(--accent) 0 50%, #000000 50%);
+
+  --field-a: #292400;
+  --field-b: #383000;
+}
+:root[data-club="dortmund"][data-theme="light"] {
+  --background: #fffbea;
+  --foreground: #151515;
+  --surface: #ffffff;
+  --surface-2: #fff3b8;
+  --border: rgba(21, 21, 21, 0.12);
+  --muted: rgba(21, 21, 21, 0.64);
+
+  --accent: #e5c900;
+  --accent-ink: #090909;
+  --accent-text: #8c7800;
+  --accent-2: #111111;
+  --accent-2-ink: #ffffff;
+  --accent-2-text: #333333;
+  --trim: #e5c900;
+
+  --shirt-bg: #fde100;
+  --shirt-ink: #090909;
+
+  --field-a: #e6cf50;
+  --field-b: #f0dc72;
+}
+
+/* ---------- Inter Milan ---------- */
+:root[data-club="inter"] {
+  --background: #050b16;
+  --foreground: #ffffff;
+  --surface: #0b1628;
+  --surface-2: #12233b;
+  --border: rgba(255, 255, 255, 0.11);
+  --muted: rgba(255, 255, 255, 0.62);
+
+  --accent: #0068a8;
+  --accent-ink: #ffffff;
+  --accent-text: #55b9f5;
+  --accent-2: #000000;
+  --accent-2-ink: #ffffff;
+  --accent-2-text: #aeb9c8;
+  --trim: #0068a8;
+
+  --shirt-bg: #0068a8;
+  --shirt-ink: #ffffff;
+  --bar-bg: linear-gradient(90deg, #0068a8 0 50%, #000000 50%);
+
+  --field-a: #092c4b;
+  --field-b: #103d62;
+}
+:root[data-club="inter"][data-theme="light"] {
+  --background: #f1f7fc;
+  --foreground: #071526;
+  --surface: #ffffff;
+  --surface-2: #e4eff8;
+  --border: rgba(7, 21, 38, 0.12);
+  --muted: rgba(7, 21, 38, 0.64);
+
+  --accent: #0068a8;
+  --accent-ink: #ffffff;
+  --accent-text: #00558c;
+  --accent-2: #111111;
+  --accent-2-ink: #ffffff;
+  --accent-2-text: #333333;
+  --trim: #0068a8;
+
+  --shirt-bg: #0068a8;
+  --shirt-ink: #ffffff;
+
+  --field-a: #3b80b4;
+  --field-b: #5795c5;
+}
+
+/* =========================================
+   AJAX
+========================================= */
+:root[data-club="ajax"] {
+  --background: #160608;
+  --foreground: #fff;
+  --surface: #280b10;
+  --surface-2: #3a1119;
+  --border: rgba(255,255,255,.11);
+  --muted: rgba(255,255,255,.62);
+  --accent: #D71920;
+  --accent-ink: #fff;
+  --accent-text: #ff7378;
+  --accent-2: #fff;
+  --accent-2-ink: #160608;
+  --accent-2-text: #e6bfc2;
+  --trim: #D71920;
+  --shirt-bg: #D71920;
+  --shirt-ink: #fff;
+  --bar-bg: linear-gradient(90deg,#D71920 0 50%,#fff 50%);
+  --field-a: #64141a;
+  --field-b: #801b23;
+}
+:root[data-club="ajax"][data-theme="light"] {
+  --background: #fff5f5;
+  --foreground: #25080c;
+  --surface: #fff;
+  --surface-2: #f8e6e8;
+  --border: rgba(37,8,12,.12);
+  --muted: rgba(37,8,12,.64);
+  --accent: #D71920;
+  --accent-ink: #fff;
+  --accent-text: #b00008;
+  --accent-2: #fff;
+  --accent-2-ink: #25080c;
+  --accent-2-text: #8c1820;
+  --trim: #D71920;
+  --shirt-bg: #D71920;
+  --shirt-ink: #fff;
+  --field-a: #d94c53;
+  --field-b: #eb777d;
+}
+
+/* =========================================
+   JUVENTUS
+========================================= */
+:root[data-club="juventus"] {
+  --background: #080808;
+  --foreground: #fff;
+  --surface: #141414;
+  --surface-2: #222;
+  --border: rgba(255,255,255,.11);
+  --muted: rgba(255,255,255,.62);
+  --accent: #fff;
+  --accent-ink: #080808;
+  --accent-text: #ddd;
+  --accent-2: #888;
+  --accent-2-ink: #080808;
+  --accent-2-text: #aaa;
+  --trim: #fff;
+  --shirt-bg: #fff;
+  --shirt-ink: #080808;
+  --bar-bg: linear-gradient(90deg,#fff 0 50%,#000 50%);
+  --field-a: #292929;
+  --field-b: #383838;
+}
+:root[data-club="juventus"][data-theme="light"] {
+  --background: #f5f5f5;
+  --foreground: #111;
+  --surface: #fff;
+  --surface-2: #eaeaea;
+  --border: rgba(0,0,0,.12);
+  --muted: rgba(0,0,0,.62);
+  --accent: #111;
+  --accent-ink: #fff;
+  --accent-text: #333;
+  --accent-2: #777;
+  --accent-2-ink: #fff;
+  --accent-2-text: #555;
+  --trim: #111;
+  --shirt-bg: #111;
+  --shirt-ink: #fff;
+  --field-a: #c9c9c9;
+  --field-b: #dedede;
+}
+
+/* =========================================
+   ATLETICO MADRID
+========================================= */
+:root[data-club="atletico"] {
+  --background: #10070d;
+  --foreground: #fff;
+  --surface: #210d18;
+  --surface-2: #321322;
+  --border: rgba(255,255,255,.11);
+  --muted: rgba(255,255,255,.62);
+  --accent: #C8102E;
+  --accent-ink: #fff;
+  --accent-text: #ff7187;
+  --accent-2: #fff;
+  --accent-2-ink: #10070d;
+  --accent-2-text: #e5bdc5;
+  --trim: #C8102E;
+  --shirt-bg: #C8102E;
+  --shirt-ink: #fff;
+  --bar-bg: linear-gradient(90deg,#C8102E 0 50%,#fff 50%);
+  --field-a: #501329;
+  --field-b: #691a36;
+}
+:root[data-club="atletico"][data-theme="light"] {
+  --background: #fff4f6;
+  --foreground: #240810;
+  --surface: #fff;
+  --surface-2: #f7e4e9;
+  --border: rgba(36,8,16,.12);
+  --muted: rgba(36,8,16,.64);
+  --accent: #C8102E;
+  --accent-ink: #fff;
+  --accent-text: #a40b25;
+  --accent-2: #fff;
+  --accent-2-ink: #240810;
+  --accent-2-text: #8e1b32;
+  --trim: #C8102E;
+  --shirt-bg: #C8102E;
+  --shirt-ink: #fff;
+  --field-a: #d95b70;
+  --field-b: #e87b8d;
+}
+
+/* =========================================
+   AC MILAN
+========================================= */
+:root[data-club="ac-milan"] {
+  --background: #100608;
+  --foreground: #fff;
+  --surface: #210c10;
+  --surface-2: #321217;
+  --border: rgba(255,255,255,.11);
+  --muted: rgba(255,255,255,.62);
+  --accent: #FB090B;
+  --accent-ink: #fff;
+  --accent-text: #ff696a;
+  --accent-2: #000;
+  --accent-2-ink: #fff;
+  --accent-2-text: #aaa;
+  --trim: #FB090B;
+  --shirt-bg: #FB090B;
+  --shirt-ink: #fff;
+  --bar-bg: linear-gradient(90deg,#FB090B 0 50%,#000 50%);
+  --field-a: #58151a;
+  --field-b: #751b21;
+}
+:root[data-club="ac-milan"][data-theme="light"] {
+  --background: #fff5f5;
+  --foreground: #1a0809;
+  --surface: #fff;
+  --surface-2: #f7e5e5;
+  --border: rgba(26,8,9,.12);
+  --muted: rgba(26,8,9,.64);
+  --accent: #D90008;
+  --accent-ink: #fff;
+  --accent-text: #b00008;
+  --accent-2: #111;
+  --accent-2-ink: #fff;
+  --accent-2-text: #333;
+  --trim: #D90008;
+  --shirt-bg: #D90008;
+  --shirt-ink: #fff;
+  --field-a: #d64a50;
+  --field-b: #e56d72;
+}
+
+/* =========================================
+   BENFICA
+========================================= */
+:root[data-club="benfica"] {
+  --background: #170609;
+  --foreground: #fff;
+  --surface: #290c12;
+  --surface-2: #3b121a;
+  --border: rgba(255,255,255,.11);
+  --muted: rgba(255,255,255,.62);
+  --accent: #D71920;
+  --accent-ink: #fff;
+  --accent-text: #ff747a;
+  --accent-2: #DDBB65;
+  --accent-2-ink: #241900;
+  --accent-2-text: #f1d48e;
+  --trim: #DDBB65;
+  --shirt-bg: #D71920;
+  --shirt-ink: #fff;
+  --bar-bg: linear-gradient(90deg,#D71920 0 50%,#DDBB65 50%);
+  --field-a: #5e141c;
+  --field-b: #7c1b26;
+}
+:root[data-club="benfica"][data-theme="light"] {
+  --background: #fff6f3;
+  --foreground: #27090d;
+  --surface: #fff;
+  --surface-2: #f8e9e3;
+  --border: rgba(39,9,13,.12);
+  --muted: rgba(39,9,13,.64);
+  --accent: #C81020;
+  --accent-ink: #fff;
+  --accent-text: #a20d19;
+  --accent-2: #DDBB65;
+  --accent-2-ink: #241900;
+  --accent-2-text: #87631b;
+  --trim: #b98b27;
+  --shirt-bg: #C81020;
+  --shirt-ink: #fff;
+  --field-a: #d85a5f;
+  --field-b: #e98283;
+}
+
+/* =========================================
+   NAPOLI
+========================================= */
+:root[data-club="napoli"] {
+  --background: #061523;
+  --foreground: #fff;
+  --surface: #0b2035;
+  --surface-2: #122c45;
+  --border: rgba(255,255,255,.11);
+  --muted: rgba(255,255,255,.62);
+  --accent: #168ACB;
+  --accent-ink: #fff;
+  --accent-text: #66c4fa;
+  --accent-2: #fff;
+  --accent-2-ink: #061523;
+  --accent-2-text: #c5dbe9;
+  --trim: #168ACB;
+  --shirt-bg: #168ACB;
+  --shirt-ink: #fff;
+  --bar-bg: linear-gradient(90deg,#168ACB 0 50%,#fff 50%);
+  --field-a: #104a73;
+  --field-b: #176394;
+}
+:root[data-club="napoli"][data-theme="light"] {
+  --background: #f0f9ff;
+  --foreground: #071a2a;
+  --surface: #fff;
+  --surface-2: #e0f0fa;
+  --border: rgba(7,26,42,.12);
+  --muted: rgba(7,26,42,.64);
+  --accent: #0878b7;
+  --accent-ink: #fff;
+  --accent-text: #08699f;
+  --accent-2: #fff;
+  --accent-2-ink: #071a2a;
+  --accent-2-text: #55758b;
+  --trim: #0878b7;
+  --shirt-bg: #0878b7;
+  --shirt-ink: #fff;
+  --field-a: #60a8d2;
+  --field-b: #80bde0;
+}
+
+/* =========================================
+   AS ROMA
+========================================= */
+:root[data-club="roma"] {
+  --background: #16080b;
+  --foreground: #fff;
+  --surface: #291015;
+  --surface-2: #3a1720;
+  --border: rgba(255,255,255,.11);
+  --muted: rgba(255,255,255,.62);
+  --accent: #8E1B2B;
+  --accent-ink: #fff;
+  --accent-text: #df7180;
+  --accent-2: #DDBB65;
+  --accent-2-ink: #241900;
+  --accent-2-text: #f0d18b;
+  --trim: #DDBB65;
+  --shirt-bg: #8E1B2B;
+  --shirt-ink: #fff;
+  --bar-bg: linear-gradient(90deg,#8E1B2B 0 50%,#DDBB65 50%);
+  --field-a: #541824;
+  --field-b: #702132;
+}
+:root[data-club="roma"][data-theme="light"] {
+  --background: #fff7f4;
+  --foreground: #260c10;
+  --surface: #fff;
+  --surface-2: #f4e6df;
+  --border: rgba(38,12,16,.12);
+  --muted: rgba(38,12,16,.64);
+  --accent: #8E1B2B;
+  --accent-ink: #fff;
+  --accent-text: #751522;
+  --accent-2: #DDBB65;
+  --accent-2-ink: #241900;
+  --accent-2-text: #87631b;
+  --trim: #a67b2b;
+  --shirt-bg: #8E1B2B;
+  --shirt-ink: #fff;
+  --field-a: #c77978;
+  --field-b: #d99994;
+}
+
+/* =========================================
+   TOTTENHAM
+========================================= */
+:root[data-club="tottenham"] {
+  --background: #070e20;
+  --foreground: #fff;
+  --surface: #101c35;
+  --surface-2: #19294a;
+  --border: rgba(255,255,255,.11);
+  --muted: rgba(255,255,255,.62);
+  --accent: #132257;
+  --accent-ink: #fff;
+  --accent-text: #7c9cff;
+  --accent-2: #fff;
+  --accent-2-ink: #070e20;
+  --accent-2-text: #c8d0df;
+  --trim: #fff;
+  --shirt-bg: #fff;
+  --shirt-ink: #132257;
+  --bar-bg: linear-gradient(90deg,#132257 0 50%,#fff 50%);
+  --field-a: #172d65;
+  --field-b: #203d80;
+}
+:root[data-club="tottenham"][data-theme="light"] {
+  --background: #f3f7fc;
+  --foreground: #08142b;
+  --surface: #fff;
+  --surface-2: #e6edf7;
+  --border: rgba(8,20,43,.12);
+  --muted: rgba(8,20,43,.64);
+  --accent: #132257;
+  --accent-ink: #fff;
+  --accent-text: #132257;
+  --accent-2: #fff;
+  --accent-2-ink: #08142b;
+  --accent-2-text: #506080;
+  --trim: #132257;
+  --shirt-bg: #132257;
+  --shirt-ink: #fff;
+  --field-a: #6383ba;
+  --field-b: #819bc9;
+}
+
+/* =========================================
+   GALATASARAY
+========================================= */
+:root[data-club="galatasaray"] {
+  --background: #17070c;
+  --foreground: #fff;
+  --surface: #2a0d16;
+  --surface-2: #3d1421;
+  --border: rgba(255,255,255,.11);
+  --muted: rgba(255,255,255,.62);
+  --accent: #A90432;
+  --accent-ink: #fff;
+  --accent-text: #ff668d;
+  --accent-2: #FDB912;
+  --accent-2-ink: #211500;
+  --accent-2-text: #ffcf52;
+  --trim: #FDB912;
+  --shirt-bg: #A90432;
+  --shirt-ink: #fff;
+  --bar-bg: linear-gradient(90deg,#A90432 0 50%,#FDB912 50%);
+  --field-a: #60142e;
+  --field-b: #801a3d;
+}
+:root[data-club="galatasaray"][data-theme="light"] {
+  --background: #fff8eb;
+  --foreground: #260b13;
+  --surface: #fff;
+  --surface-2: #fff0ce;
+  --border: rgba(38,11,19,.12);
+  --muted: rgba(38,11,19,.64);
+  --accent: #A90432;
+  --accent-ink: #fff;
+  --accent-text: #92002a;
+  --accent-2: #E5A600;
+  --accent-2-ink: #211500;
+  --accent-2-text: #936700;
+  --trim: #c18a00;
+  --shirt-bg: #A90432;
+  --shirt-ink: #fff;
+  --field-a: #d75d70;
+  --field-b: #e67b8a;
+}
+
+/* =========================================
+   FENERBAHCE
+========================================= */
+:root[data-club="fenerbahce"] {
+  --background: #071023;
+  --foreground: #fff;
+  --surface: #101f3d;
+  --surface-2: #192e52;
+  --border: rgba(255,255,255,.11);
+  --muted: rgba(255,255,255,.62);
+  --accent: #003399;
+  --accent-ink: #fff;
+  --accent-text: #73a0ff;
+  --accent-2: #FFED00;
+  --accent-2-ink: #171400;
+  --accent-2-text: #ffe95b;
+  --trim: #FFED00;
+  --shirt-bg: #003399;
+  --shirt-ink: #fff;
+  --bar-bg: linear-gradient(90deg,#003399 0 50%,#FFED00 50%);
+  --field-a: #102c64;
+  --field-b: #19418a;
+}
+:root[data-club="fenerbahce"][data-theme="light"] {
+  --background: #f2f6ff;
+  --foreground: #081630;
+  --surface: #fff;
+  --surface-2: #e6edfc;
+  --border: rgba(8,22,48,.12);
+  --muted: rgba(8,22,48,.64);
+  --accent: #003399;
+  --accent-ink: #fff;
+  --accent-text: #003399;
+  --accent-2: #E6D000;
+  --accent-2-ink: #171400;
+  --accent-2-text: #8a7900;
+  --trim: #c5b300;
+  --shirt-bg: #003399;
+  --shirt-ink: #fff;
+  --field-a: #6384c4;
+  --field-b: #819ed1;
+}
+
+/* =========================================
+   FIORENTINA
+========================================= */
+:root[data-club="fiorentina"] {
+  --background: #10091b;
+  --foreground: #fff;
+  --surface: #211331;
+  --surface-2: #302047;
+  --border: rgba(255,255,255,.11);
+  --muted: rgba(255,255,255,.62);
+  --accent: #592C82;
+  --accent-ink: #fff;
+  --accent-text: #c39ae8;
+  --accent-2: #fff;
+  --accent-2-ink: #10091b;
+  --accent-2-text: #d3c6df;
+  --trim: #a47bc5;
+  --shirt-bg: #592C82;
+  --shirt-ink: #fff;
+  --bar-bg: linear-gradient(90deg,#592C82 0 50%,#fff 50%);
+  --field-a: #3b2057;
+  --field-b: #512c75;
+}
+:root[data-club="fiorentina"][data-theme="light"] {
+  --background: #f8f3fc;
+  --foreground: #21102e;
+  --surface: #fff;
+  --surface-2: #eee4f6;
+  --border: rgba(33,16,46,.12);
+  --muted: rgba(33,16,46,.64);
+  --accent: #592C82;
+  --accent-ink: #fff;
+  --accent-text: #592C82;
+  --accent-2: #fff;
+  --accent-2-ink: #21102e;
+  --accent-2-text: #665273;
+  --trim: #75449e;
+  --shirt-bg: #592C82;
+  --shirt-ink: #fff;
+  --field-a: #a17bbd;
+  --field-b: #b89bd0;
+}
+
+/* =========================================
+   CELTIC
+========================================= */
+:root[data-club="celtic"] {
+  --background: #07150d;
+  --foreground: #fff;
+  --surface: #10251a;
+  --surface-2: #193729;
+  --border: rgba(255,255,255,.11);
+  --muted: rgba(255,255,255,.62);
+  --accent: #16834B;
+  --accent-ink: #fff;
+  --accent-text: #64d998;
+  --accent-2: #fff;
+  --accent-2-ink: #07150d;
+  --accent-2-text: #c4e2d0;
+  --trim: #16834B;
+  --shirt-bg: #16834B;
+  --shirt-ink: #fff;
+  --bar-bg: linear-gradient(90deg,#16834B 0 50%,#fff 50%);
+  --field-a: #145a35;
+  --field-b: #1c7445;
+}
+:root[data-club="celtic"][data-theme="light"] {
+  --background: #f1faf4;
+  --foreground: #0b2113;
+  --surface: #fff;
+  --surface-2: #e2f2e7;
+  --border: rgba(11,33,19,.12);
+  --muted: rgba(11,33,19,.64);
+  --accent: #16834B;
+  --accent-ink: #fff;
+  --accent-text: #126b3d;
+  --accent-2: #fff;
+  --accent-2-ink: #0b2113;
+  --accent-2-text: #587563;
+  --trim: #16834B;
+  --shirt-bg: #16834B;
+  --shirt-ink: #fff;
+  --field-a: #6bb58b;
+  --field-b: #8acba5;
+}
+
+
 /* Expose tokens as Tailwind utilities (bg-accent, text-accent-2-text, border-trim, ...) */
 @theme inline {
   --color-background: var(--background);
