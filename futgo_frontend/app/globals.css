@@ -560,7 +560,7 @@
 /* =========================================
    ATLETICO MADRID
 ========================================= */
-:root[data-club="atletico"] {
+/* :root[data-club="atletico"] {
   --background: #10070d;
   --foreground: #fff;
   --surface: #210d18;
@@ -598,7 +598,7 @@
   --shirt-ink: #fff;
   --field-a: #d95b70;
   --field-b: #e87b8d;
-}
+} */
 
 /* =========================================
    AC MILAN
@@ -987,6 +987,52 @@
   --field-b: #8acba5;
 }
 
+/* ---------- Inter Miami ---------- */
+:root[data-club="miami"] {
+  --background: #160d12;
+  --foreground: #ffffff;
+  --surface: #281720;
+  --surface-2: #3a202e;
+  --border: rgba(255, 255, 255, 0.11);
+  --muted: rgba(255, 255, 255, 0.62);
+
+  --accent: #f7b5cd;
+  --accent-ink: #231f20;
+  --accent-text: #f7b5cd;
+  --accent-2: #231f20;
+  --accent-2-ink: #ffffff;
+  --accent-2-text: #d9a2b8;
+  --trim: #f7b5cd;
+
+  --shirt-bg: #f7b5cd;
+  --shirt-ink: #231f20;
+  --bar-bg: linear-gradient(90deg, var(--accent) 0 50%, var(--accent-2) 50%);
+
+  --field-a: #54283f;
+  --field-b: #69334f;
+}
+:root[data-club="miami"][data-theme="light"] {
+  --background: #fff4f8;
+  --foreground: #23121b;
+  --surface: #ffffff;
+  --surface-2: #f8e4ed;
+  --border: rgba(35, 18, 27, 0.12);
+  --muted: rgba(35, 18, 27, 0.64);
+
+  --accent: #f7b5cd;
+  --accent-ink: #231f20;
+  --accent-text: #b65c80;
+  --accent-2: #231f20;
+  --accent-2-ink: #ffffff;
+  --accent-2-text: #8f4965;
+  --trim: #e58eae;
+
+  --shirt-bg: #f7b5cd;
+  --shirt-ink: #231f20;
+
+  --field-a: #d98aaa;
+  --field-b: #e8a0ba;
+}
 
 /* Expose tokens as Tailwind utilities (bg-accent, text-accent-2-text, border-trim, ...) */
 @theme inline {

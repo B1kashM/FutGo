@@ -11,7 +11,7 @@ export type ClubId =
   | "inter"
 //   | "ajax"
   | "juventus"
-  | "atletico"
+//   | "atletico"
   | "ac-milan"
 //   | "benfica"
 //   | "napoli"
@@ -20,7 +20,8 @@ export type ClubId =
   | "galatasaray"
 //   | "fenerbahce"
   | "fiorentina"
-  | "celtic";
+  | "celtic"
+  | "miami";
 
 export type Club = {
   id: ClubId;
@@ -195,19 +196,19 @@ export const CLUBS: Club[] = [
     stepTitles: ["Build your Juventus XI", "Outplay your rival", "Rule Turin"],
     footerCheer: "Forza Juve!",
     },
-    {
-    id: "atletico",
-    name: "Atlético Madrid",
-    short: "ATM",
-    swatch: ["#C8102E", "#FFFFFF"],
-    brandTag: "THE ROJIBLANCO DRAFT",
-    badge: "NUNCA DEJES DE CREER. YOUR PICKS. YOUR LEGACY.",
-    headline: ["Aúpa", "Atleti!",""],
-    blurb: "Build your ultimate Atlético XI. Prove who really knows football.",
-    formation: "ROJIBLANCOS 4–4–2",
-    stepTitles: ["Build your Atleti XI", "Outplay your rival", "Rule Madrid"],
-    footerCheer: "Aúpa Atleti!",
-    },
+    // {
+    // id: "atletico",
+    // name: "Atlético Madrid",
+    // short: "ATM",
+    // swatch: ["#C8102E", "#FFFFFF"],
+    // brandTag: "THE ROJIBLANCO DRAFT",
+    // badge: "NUNCA DEJES DE CREER. YOUR PICKS. YOUR LEGACY.",
+    // headline: ["Aúpa", "Atleti!",""],
+    // blurb: "Build your ultimate Atlético XI. Prove who really knows football.",
+    // formation: "ROJIBLANCOS 4–4–2",
+    // stepTitles: ["Build your Atleti XI", "Outplay your rival", "Rule Madrid"],
+    // footerCheer: "Aúpa Atleti!",
+    // },
     {
     id: "ac-milan",
     name: "AC Milan",
@@ -324,6 +325,19 @@ export const CLUBS: Club[] = [
     formation: "HOOPS 4–3–3",
     stepTitles: ["Build your Celtic XI", "Outplay your rival", "Rule Glasgow"],
     footerCheer: "Hail Hail!",
+    },
+    {
+    id: "miami",
+    name: "Inter Miami CF",
+    short: "MIA",
+    swatch: ["#F7B5CD", "#231F20"],
+    brandTag: "THE MAGIC CITY DRAFT",
+    badge: "FREEDOM TO DREAM. YOUR PICKS. YOUR LEGACY.",
+    headline: ["Freedom", "To", "Dream."],
+    blurb: "Build your ultimate Herons XI. Prove who really knows football.",
+    formation: "HERONS 4–3–3",
+    stepTitles: ["Build your Inter Miami XI", "Outplay your rival", "Conquer the MLS"],
+    footerCheer: "Vamos Inter Miami!",
     },
 ];
 
