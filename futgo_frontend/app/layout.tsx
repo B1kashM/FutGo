@@ -18,25 +18,27 @@ export const metadata: Metadata = {
   title: "FutGo",
   description: "Built with Passion",
 
+  // PWA manifest
   manifest: "/manifest.json",
 
+  // iOS Home Screen app configuration
   appleWebApp: {
     capable: true,
     title: "FutGo",
     statusBarStyle: "black-translucent",
   },
 
+  // App icons
   icons: {
-    apple: [
-      {
-        url: "/icons/image.png",
-        sizes: "512x512",
-        type: "image/png",
-      },
-    ],
+    apple: "/icons/apple-touch-icon.png",
     icon: [
       {
-        url: "/icons/image.png",
+        url: "/icons/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: "/icons/icon-512.png",
         sizes: "512x512",
         type: "image/png",
       },
@@ -44,12 +46,15 @@ export const metadata: Metadata = {
   },
 };
 
+// Viewport and browser theme configuration
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#000000",
 };
 
+// Runs before first paint: applies the saved light/dark theme (or the OS theme)
+// and the saved club to <html>
 const themeScript = `(function(){try{var d=document.documentElement;var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}var c=localStorage.getItem('club');if(${JSON.stringify(
   CLUB_IDS,
 )}.indexOf(c)<0){c=${JSON.stringify(DEFAULT_CLUB)}}d.dataset.theme=t;d.dataset.club=c}catch(e){}})()`;
@@ -62,11 +67,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
-        <link
-          rel="apple-touch-icon"
-          href="/icons/image.png"
-          sizes="512x512"
-        />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
 
