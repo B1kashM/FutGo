@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { CLUB_IDS, DEFAULT_CLUB } from "./_theme/clubs";
@@ -16,6 +17,40 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "FutGo",
   description: "Built with Passion",
+
+  // PWA manifest
+  manifest: "/manifest.json",
+
+  // iOS Home Screen app configuration
+  appleWebApp: {
+    capable: true,
+    title: "FutGo",
+    statusBarStyle: "black-translucent",
+  },
+
+  // App icons
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+    icon: [
+      {
+        url: "/icons/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: "/icons/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
+    ],
+  },
+};
+
+// Viewport and browser theme configuration
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#000000",
 };
 
 // Runs before first paint: applies the saved light/dark theme (or the OS theme)
@@ -34,7 +69,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+
+      <body className="min-h-full flex flex-col">
+        {children}
+      </body>
     </html>
   );
 }
