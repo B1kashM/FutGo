@@ -64,25 +64,29 @@ export function DraftPageShell({ children }: { children: ReactNode }) {
     <main className="min-h-screen bg-background text-foreground">
       <div className="brand-bar h-1.5 w-full" />
       <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-7 lg:px-10">
-        <header className="flex items-center justify-between border-b border-border pb-5">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="shirt flex h-10 w-10 items-center justify-center rounded-xl border-2">
-              <Goal size={22} strokeWidth={2.5} />
+        <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-3 border-b border-border pb-4 sm:pb-5">
+          <Link href="/" className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <div className="shirt flex h-9 w-9 items-center justify-center rounded-xl border-2 sm:h-10 sm:w-10">
+              <Goal size={20} strokeWidth={2.5} />
             </div>
             <div>
-              <div className="text-lg font-black tracking-[0.16em]">
+              <div className="text-base font-black tracking-[0.16em] sm:text-lg">
                 FUT<span className="text-accent-text">GO</span>
               </div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{club.brandTag}</div>
+              <div className="hidden text-[10px] font-semibold uppercase tracking-[0.22em] text-muted min-[400px]:block">{club.brandTag}</div>
             </div>
           </Link>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <ClubPicker />
-            <ThemeToggle />
-            <Link href="/" className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted transition hover:border-accent-text/50 hover:text-foreground">
+          <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-3">
+            {/* Scaled down on small screens so the picker never overflows the header */}
+            <div className="min-w-0 max-w-full [zoom:0.8] sm:[zoom:0.9] lg:[zoom:1]">
+              <ClubPicker />
+            </div>
+            <div className="shrink-0 [zoom:0.85] sm:[zoom:0.95] lg:[zoom:1]">
+              <ThemeToggle />
+            </div>
+            <Link href="/" aria-label="Back home" className="flex shrink-0 items-center gap-2 rounded-full border border-border px-3 py-2 text-sm text-muted transition hover:border-accent-text/50 hover:text-foreground sm:px-4">
               <ArrowLeft size={16} />
               <span className="hidden sm:inline">Back home</span>
-              <span className="sm:hidden">Home</span>
             </Link>
           </div>
         </header>
@@ -150,6 +154,33 @@ export function DraftingView({
   const offered = draft.current_event?.offered_players ?? [];
   const seatName = (seat: number, name: string) => mySeat === seat ? `${name} (You)` : name;
 
+  // The two offered players appear in a popup. A new round (new offered
+  // players) re-opens it; choosing a player closes it so the squads show.
+  const offerKey = `${draft.current_event?.event_number ?? 0}-${activePlayer}-${offered.map((player) => player.id).join(",")}`;
+  const [popupOpen, setPopupOpen] = useState(true);
+  useEffect(() => { setPopupOpen(true); }, [offerKey]);
+
+  const showPopup = popupOpen && canPick && offered.length > 0;
+
+  useEffect(() => {
+    if (!showPopup) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !loading) setPopupOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [showPopup, loading]);
+
+  const handlePick = (player: Player) => {
+    setPopupOpen(false);
+    onPick(player);
+  };
+
   return (
     <section className="py-8 sm:py-10">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
@@ -168,40 +199,35 @@ export function DraftingView({
         </div>
       </div>
 
-      <div className="mb-5 flex items-center gap-3">
-        <div className="h-px flex-1 bg-border" />
-        <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-muted"><Sparkles size={14} className="text-accent-text" />{promptLabel ?? `${currentName}, choose your footballer`}</span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:gap-5">
-        {offered.map((player, index) => (
-          <button key={player.id} type="button" disabled={loading || !canPick}
-            onClick={() => onPick(player)}
-            className={`group relative overflow-hidden rounded-2xl border border-border bg-surface p-3 text-left transition sm:rounded-3xl sm:p-7 ${
-              canPick ? "hover:-translate-y-1 hover:border-accent-text/60 hover:bg-surface-2 disabled:cursor-wait disabled:opacity-60" : "cursor-not-allowed opacity-70"
-            }`}>
-            <div className="absolute right-0 top-0 h-36 w-36 rounded-full bg-accent/[0.04] blur-3xl transition group-hover:bg-accent/10" />
-            <div className="relative flex items-start justify-between gap-2 sm:gap-4">
-              <span className="rounded-full border border-border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-muted sm:px-3 sm:py-1.5 sm:text-[10px] sm:tracking-[0.16em]"><span className="hidden sm:inline">Option </span>{index + 1}</span>
-              <div className="flex items-center gap-2">
-                <span className="rounded-lg border border-trim/50 bg-trim/15 px-2.5 py-1 text-xs font-black text-accent-text sm:px-3 sm:py-1.5 sm:text-sm">{player.ovr_rating ?? 0} OVR</span>
-                <span className="rounded-full bg-accent/10 px-2 py-1 text-[10px] font-bold text-accent-text sm:px-3 sm:py-1.5 sm:text-xs">{player.position}</span>
-              </div>
+      {/* Pick status bar (the cards themselves live in the popup) */}
+      {offered.length > 0 && (
+        canPick ? (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-accent/25 bg-accent/[0.06] p-4">
+            <div className="flex items-center gap-3 text-sm font-bold text-accent-text">
+              {loading ? <LoaderCircle size={18} className="animate-spin" /> : <Sparkles size={18} />}
+              {loading ? "Locking in your pick..." : (promptLabel ?? `${currentName}, choose your footballer`)}
             </div>
-            <div className="relative mt-4 flex flex-col items-start gap-3 sm:mt-7 sm:min-h-28 sm:flex-row sm:items-center sm:gap-5">
-              <PlayerAvatar player={player} className="h-16 w-16 rounded-xl text-xl sm:h-24 sm:w-24 sm:rounded-2xl sm:text-3xl" />
-              <div className="min-w-0">
-                <h2 className="break-words text-base font-black leading-tight sm:text-3xl">{player.name}</h2>
-                <p className="mt-1 text-[11px] leading-4 text-muted sm:mt-2 sm:text-sm">{[player.club, player.country].filter(Boolean).join(" · ") || "Football star"}</p>
-              </div>
+            {!loading && !showPopup && (
+              <button type="button" onClick={() => setPopupOpen(true)} className="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-black text-accent-ink transition hover:brightness-110">
+                <Users size={16} />Open player picks
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="mb-6 rounded-2xl border border-border bg-surface p-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2 text-sm font-bold text-muted"><span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent-text" />Waiting for {currentName} to choose...</span>
             </div>
-            <div className="relative mt-4 flex items-center justify-between border-t border-border pt-3 sm:mt-7 sm:pt-4">
-              {canPick ? <><span className="text-xs font-bold text-muted transition group-hover:text-accent-text sm:text-sm">Draft<span className="hidden sm:inline"> this player</span></span>{loading ? <LoaderCircle size={19} className="animate-spin text-accent-text" /> : <span className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground/5 transition group-hover:bg-accent group-hover:text-accent-ink sm:h-9 sm:w-9"><ChevronRight size={17} /></span>}</> : <><span className="truncate text-xs font-bold text-muted sm:text-sm">Waiting for {currentName}</span><span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent-text" /></>}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {offered.map((player) => (
+                <span key={player.id} className="flex items-center gap-2 rounded-full border border-border bg-foreground/[0.03] px-3 py-1.5 text-xs font-semibold">
+                  <span className="text-accent-text">{player.ovr_rating ?? 0}</span>{player.name}<span className="text-muted">{player.position}</span>
+                </span>
+              ))}
             </div>
-          </button>
-        ))}
-      </div>
+          </div>
+        )
+      )}
 
       {offered.length === 0 && <div className="rounded-2xl border border-border bg-surface p-8 text-center"><p className="text-muted">No player options were returned for this round.</p><button onClick={onRefresh} disabled={loading} className="mt-4 rounded-xl border border-border px-4 py-2 text-sm font-semibold hover:bg-foreground/5 disabled:opacity-60">Refresh draft</button></div>}
       {error && <div className="mt-5"><ErrorMessage message={error} /></div>}
@@ -212,6 +238,74 @@ export function DraftingView({
         <SquadPitch name={seatName(2, draft.player2_name)} team={draft.player2_team} number={2} players={player2Squad} active={activePlayer === 2} />
       </div>
       <div className="mt-8 flex items-center justify-between border-t border-border pt-5 text-xs text-muted"><span>{player1Squad.length + player2Squad.length} / 22 players drafted</span><span className="flex items-center gap-2"><Check size={14} className="text-accent-text" />{footerNote}</span></div>
+
+      {/* Player picks popup */}
+      {showPopup && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${currentName}, choose your footballer`}
+          className="fut-pick-backdrop fixed inset-0 z-[150] flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-md lg:p-8"
+        >
+          <style>{`
+            @keyframes fut-pick-fade { from { opacity: 0 } to { opacity: 1 } }
+            @keyframes fut-pick-pop { 0% { opacity: 0; transform: translateY(24px) scale(.92) } 100% { opacity: 1; transform: translateY(0) scale(1) } }
+            .fut-pick-backdrop { animation: fut-pick-fade .25s ease-out both }
+            .fut-pick-card-1 { animation: fut-pick-pop .45s cubic-bezier(.2,.9,.25,1.1) .05s both }
+            .fut-pick-card-2 { animation: fut-pick-pop .45s cubic-bezier(.2,.9,.25,1.1) .2s both }
+            @media (prefers-reduced-motion: reduce) {
+              .fut-pick-backdrop, .fut-pick-card-1, .fut-pick-card-2 { animation: none !important }
+            }
+          `}</style>
+
+          <div className="relative my-auto w-full max-w-4xl lg:max-w-5xl">
+            <div className="mb-5 flex items-start justify-between gap-4 text-white lg:mb-6">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-accent-text"><Zap size={14} />Round {round} of 11</div>
+                <h2 className="mt-2 text-2xl font-black sm:text-4xl lg:text-[2.75rem] lg:leading-tight">{promptLabel ?? `${currentName}, choose your footballer`}</h2>
+                <br />
+              </div>
+              <button type="button" onClick={() => setPopupOpen(false)} disabled={loading} aria-label="Close and view squads" title="Close and view squads"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 text-white/70 transition hover:bg-white/10 hover:text-white disabled:opacity-40">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:gap-8">
+              {offered.map((player, index) => (
+                <button key={player.id} type="button" disabled={loading}
+                  onClick={() => handlePick(player)}
+                  className={`${index === 0 ? "fut-pick-card-1" : "fut-pick-card-2"} group relative overflow-hidden rounded-3xl border border-foreground/20 bg-surface/75 p-5 text-left text-foreground shadow-xl shadow-black/30 backdrop-blur-xl transition duration-200 hover:-translate-y-1.5 hover:border-accent-text/70 hover:bg-accent/15 hover:shadow-accent/20 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40 disabled:cursor-wait disabled:opacity-60 sm:p-7 lg:p-9`}>
+                  <div className="absolute right-0 top-0 h-44 w-44 rounded-full bg-accent/10 blur-3xl transition group-hover:bg-accent/25" />
+                  <div className="relative flex items-start justify-between gap-3">
+                    <span className="rounded-full border border-border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted lg:text-xs">Option {index + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-lg border border-trim/50 bg-trim/15 px-3 py-1.5 text-sm font-black text-accent-text lg:text-lg">{player.ovr_rating ?? 0} OVR</span>
+                      <span className="rounded-full bg-accent/10 px-3 py-1.5 text-xs font-bold text-accent-text lg:text-base">{player.position}</span>
+                    </div>
+                  </div>
+                  <div className="relative mt-6 flex items-center gap-4 sm:gap-5 lg:mt-8 lg:gap-6">
+                    <PlayerAvatar player={player} className="h-20 w-20 rounded-2xl text-2xl sm:h-24 sm:w-24 sm:text-3xl lg:h-28 lg:w-28 lg:text-4xl" />
+                    <div className="min-w-0">
+                      <h3 className="break-words text-xl font-black leading-tight sm:text-3xl lg:text-[2.1rem]">{player.name}</h3>
+                      <p className="mt-2 text-xs leading-4 text-muted sm:text-sm lg:text-base">{[player.club, player.country].filter(Boolean).join(" · ") || "Football star"}</p>
+                    </div>
+                  </div>
+                  <div className="relative mt-6 flex items-center justify-between border-t border-border pt-4 lg:mt-8">
+                    <span className="text-sm font-bold text-muted transition group-hover:text-accent-text lg:text-lg">Draft this player</span>
+                    {loading
+                      ? <LoaderCircle size={19} className="animate-spin text-accent-text" />
+                      : <span className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/10 transition group-hover:bg-accent group-hover:text-accent-ink lg:h-11 lg:w-11"><ChevronRight size={17} /></span>}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {error && <div className="mt-5"><ErrorMessage message={error} /></div>}
+            <p className="mt-5 text-center text-xs text-white/40">Pick one player to continue. Press Esc to close and view the squads.</p>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -511,6 +605,47 @@ export function MatchCentreView({
   const winnerName = getWinnerName(matchData);
   const isDraw = matchData.winner_number === 0 || (!penaltiesPlayed && matchData.is_draw);
 
+  // Man of the Match: image, rating and contribution (from player_ratings).
+  const motmObj = motm && typeof motm === "object" ? (motm as Player & { rating?: number }) : null;
+  const motmRating = motmObj
+    ? ratings.find((item) => item.player?.id !== null && item.player?.id !== undefined && String(item.player.id) === String(motmObj.id))
+      ?? ratings.find((item) => (item.player?.name ?? "").trim().toLowerCase() === (motmObj.name ?? "").trim().toLowerCase())
+    : undefined;
+  const motmSquadMatch = motmObj
+    ? [...player1Squad, ...player2Squad].find((item) => String(item.id) === String(motmObj.id))
+    : undefined;
+  const motmRatingPlayer = motmRating?.player as Player | undefined;
+  const motmPlayer: Player | null = motmObj
+    ? ({
+        ...motmSquadMatch,
+        ...motmRatingPlayer,
+        ...motmObj,
+        image_url: motmObj.image_url || motmRatingPlayer?.image_url || motmSquadMatch?.image_url,
+      } as Player)
+    : null;
+  const motmStat = (key: string) =>
+    Number(((motmRating as unknown as Record<string, unknown> | undefined)?.[key]) ?? 0) || 0;
+  const motmRatingValue = motmRating
+    ? safeNumber(motmRating.rating)
+    : motmObj && motmObj.rating !== undefined && motmObj.rating !== null
+      ? safeNumber(motmObj.rating)
+      : null;
+  const motmRatingText = motmRatingValue ? motmRatingValue.toFixed(1) : null;
+  const motmTeamNumber = motmRating?.team_number ?? null;
+  const motmTeamName = motmTeamNumber === 1
+    ? getTeamName(team1) || matchData.player1_name
+    : motmTeamNumber === 2
+      ? getTeamName(team2) || matchData.player2_name
+      : "";
+  const motmExtraStats = [
+    { label: "Shots", value: motmStat("shots") },
+    { label: "On target", value: motmStat("shots_on_target") },
+    { label: "Saves", value: motmStat("saves") },
+    { label: "Tackles", value: motmStat("tackles") },
+    { label: "Interceptions", value: motmStat("interceptions") },
+    { label: "Pen. goals", value: motmStat("penalty_goals") },
+  ].filter((item) => item.value > 0);
+
   // Winner celebration: plays once when a match finishes while you are
   // watching it. It does not replay when you open an old match from history.
   const winnerNumber =
@@ -657,12 +792,39 @@ export function MatchCentreView({
             {!isDraw && <button onClick={() => setCelebrate(true)} className="mt-3 flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs font-bold text-foreground/70 transition hover:bg-foreground/5"><Sparkles size={13} className="text-accent-text" />Replay celebration</button>}
           </div>
 
-          <div className="rounded-2xl border border-accent/20 bg-accent/[0.05] p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/10 text-accent-text"><Medal size={22} /></div>
-              <div><p className="text-xs text-muted">Man of the Match</p><p className="mt-1 font-black">{motmName || "Not provided"}</p></div>
-            </div>
-            {motm && typeof motm === "object" && "rating" in motm && <p className="mt-3 text-sm text-accent-text">Rating: {safeNumber((motm as Player & { rating?: number }).rating).toFixed(1)}/10</p>}
+          <div className="relative overflow-hidden rounded-2xl border border-accent/30 bg-accent/[0.06] p-5">
+            <div className="pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-accent/15 blur-3xl" />
+            <div className="relative flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-accent-text"><Medal size={15} />Man of the Match</div>
+            {motmPlayer ? (
+              <>
+                <div className="relative mt-4 flex items-center gap-4">
+                  <div className="relative shrink-0">
+                    <PlayerAvatar player={motmPlayer} className="h-20 w-20 rounded-2xl text-2xl sm:h-24 sm:w-24 sm:text-3xl" />
+                    {motmRatingText && <span className="absolute -bottom-2 -right-2 rounded-lg border border-black/30 bg-accent px-2 py-1 text-sm font-black tabular-nums text-accent-ink shadow-lg">{motmRatingText}</span>}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="break-words text-lg font-black leading-tight sm:text-xl">{motmName || motmPlayer.name}</p>
+                    <p className="mt-1 text-xs text-muted">{[motmPlayer.position, motmTeamName].filter(Boolean).join(" · ")}</p>
+                    {motmRatingText && <p className="mt-1 text-sm font-bold text-accent-text">Rating {motmRatingText} / 10</p>}
+                  </div>
+                </div>
+                <div className="relative mt-5 grid grid-cols-2 gap-2">
+                  <MotmStatTile label="Goals" value={motmStat("goals")} highlight={motmStat("goals") > 0} />
+                  <MotmStatTile label="Assists" value={motmStat("assists")} highlight={motmStat("assists") > 0} />
+                </div>
+                {motmExtraStats.length > 0 && (
+                  <div className="relative mt-3 flex flex-wrap gap-2">
+                    {motmExtraStats.map((item) => (
+                      <span key={item.label} className="rounded-full border border-border bg-foreground/[0.03] px-2.5 py-1 text-[11px] font-semibold text-muted">
+                        {item.label} <strong className="text-foreground">{item.value}</strong>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="relative mt-3 font-black">Not provided</p>
+            )}
           </div>
 
           <div className="rounded-2xl border border-border bg-surface p-5">
@@ -1235,6 +1397,15 @@ function TimelineItem({
       {teamName && <span className="w-fit max-w-full truncate rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] text-muted">{teamName}</span>}
       {playerName && <p className="truncate text-xs font-bold text-foreground/75">{playerName}{secondaryName && <span className="font-medium text-muted"> · {secondaryLabel}: {secondaryName}</span>}</p>}
       <p className="line-clamp-3 text-xs leading-5 text-muted">{description}</p>
+    </div>
+  );
+}
+
+function MotmStatTile({ label, value, highlight = false }: { label: string; value: number; highlight?: boolean }) {
+  return (
+    <div className={`rounded-xl border px-3 py-2.5 text-center ${highlight ? "border-accent/40 bg-accent/10" : "border-border bg-foreground/[0.03]"}`}>
+      <p className={`text-2xl font-black tabular-nums ${highlight ? "text-accent-text" : "text-foreground/80"}`}>{value}</p>
+      <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-muted">{label}</p>
     </div>
   );
 }
