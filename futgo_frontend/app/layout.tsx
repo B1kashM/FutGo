@@ -1,8 +1,8 @@
-
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { CLUB_IDS, DEFAULT_CLUB } from "./_theme/clubs";
+import InitialLoader from "./components/InitialLoader";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -71,6 +71,24 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
 
       <body className="min-h-full flex flex-col">
+        {/* FutGo Initial Loading Screen */}
+        <div id="initial-loader" className="initial-loader">
+          <div className="loader-content">
+            <img
+              src="/icons/image.png"
+              alt="FutGo"
+              className="loader-logo"
+            />
+
+            <div className="loader-text">FUTGO</div>
+
+            <div className="loader-indicator">
+              <div className="loader-indicator-bar"></div>
+            </div>
+          </div>
+        </div>
+
+        <InitialLoader />
         {children}
       </body>
     </html>
