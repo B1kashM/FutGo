@@ -295,8 +295,18 @@ export default function Home() {
               </div>
 
               {/* Mobile pitch: fixed size, raised above the headline */}
-              <div className="relative -mt-8 h-[240px] w-[150px] shrink-0 self-start overflow-hidden rounded-2xl border border-accent/30 shadow-lg shadow-accent/10 md:hidden">
-                <div className="pitch-club absolute inset-0" />
+              <div className="relative -mt-8 h-[210px] w-[150px] shrink-0 self-start overflow-hidden rounded-2xl border border-accent/30 shadow-lg shadow-accent/10 md:hidden">
+                {/* Stripes fill the whole pitch, alternating the club's two colours */}
+                <div className="absolute inset-0 flex flex-col bg-surface-2">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`flex-1 ${
+                        i % 2 === 0 ? "bg-accent/35" : "bg-accent-2/35"
+                      }`}
+                    />
+                  ))}
+                </div>
                 <div className="pitch-line absolute left-0 right-0 top-1/2 border-t" />
                 <div className="pitch-line absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border" />
                 <div className="pitch-line absolute left-1/2 top-0 h-8 w-16 -translate-x-1/2 rounded-b-lg border-x border-b" />
