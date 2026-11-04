@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   ArrowUpRight,
-  Check,
   ChevronRight,
   CircleHelp,
   Crown,
@@ -19,7 +18,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import ClubPicker from "./components/ClubPicker";
 import ThemeToggle from "./components/ThemeToggle";
 import { useClub } from "./_theme/useClub";
@@ -56,13 +55,63 @@ const pitchPlayers = [
   { x: "80%", y: "72%", name: "RW", number: "11" },
 ];
 
+const mobileChips = [
+  { icon: Users, label: "2 managers" },
+  { icon: Shield, label: "11 picks" },
+  { icon: Zap, label: "1 winner" },
+];
+
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showModes, setShowModes] = useState(false);
+  const [showHow, setShowHow] = useState(false);
   const { club } = useClub();
 
+  const isMobile = () =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 767px)").matches;
+
+  // On mobile the page is a fixed screen: never let the anchor jump scroll it.
+  const openModes = (e: MouseEvent) => {
+    setMenuOpen(false);
+    if (isMobile()) {
+      e.preventDefault();
+      setShowModes(true);
+    }
+  };
+
+  const openHow = (e: MouseEvent) => {
+    setMenuOpen(false);
+    if (isMobile()) {
+      e.preventDefault();
+      setShowHow(true);
+    }
+  };
+
+  // Lock page scrolling on mobile so nothing can be dragged or scrolled.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const html = document.documentElement;
+    const apply = () => {
+      const locked = mq.matches;
+      html.style.overflow = locked ? "hidden" : "";
+      document.body.style.overflow = locked ? "hidden" : "";
+      html.style.overscrollBehavior = locked ? "none" : "";
+      document.body.style.overscrollBehavior = locked ? "none" : "";
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => {
+      mq.removeEventListener("change", apply);
+      html.style.overflow = "";
+      document.body.style.overflow = "";
+      html.style.overscrollBehavior = "";
+      document.body.style.overscrollBehavior = "";
+    };
+  }, []);
+
   return (
-    <main className="relative h-[100svh] overflow-hidden bg-background text-foreground md:h-auto md:min-h-screen md:overflow-visible">
+    <main className="relative h-[100dvh] overflow-hidden bg-background text-foreground md:h-auto md:min-h-screen md:overflow-visible">
       {/* Club colour bar */}
       <div className="brand-bar h-1.5 w-full" />
 
@@ -86,13 +135,14 @@ export default function Home() {
           <nav className="hidden items-center gap-8 md:flex">
             <a
               href="#how-it-works"
+              onClick={openHow}
               className="text-sm text-muted transition hover:text-foreground"
             >
               How to play
             </a>
             <a
               href="#game-modes"
-              onClick={() => setShowModes(true)}
+              onClick={openModes}
               className="text-sm text-muted transition hover:text-foreground"
             >
               Matchday
@@ -112,7 +162,7 @@ export default function Home() {
 
             <a
               href="#game-modes"
-              onClick={() => setShowModes(true)}
+              onClick={openModes}
               className="hidden items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-accent-ink transition hover:brightness-110 sm:flex"
             >
               Play now <ArrowUpRight size={16} />
@@ -130,16 +180,10 @@ export default function Home() {
 
         {menuOpen && (
           <nav className="absolute left-0 right-0 top-full flex flex-col gap-4 border-b border-border bg-surface p-6 md:hidden">
-            <a href="#how-it-works" onClick={() => setMenuOpen(false)}>
+            <a href="#how-it-works" onClick={openHow}>
               How to play
             </a>
-            <a
-              href="#game-modes"
-              onClick={() => {
-                setMenuOpen(false);
-                setShowModes(true);
-              }}
-            >
+            <a href="#game-modes" onClick={openModes}>
               Matchday
             </a>
             <a href="#about" onClick={() => setMenuOpen(false)}>
@@ -150,89 +194,97 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className={`relative h-[calc(100svh-83px)] overflow-hidden md:h-auto md:overflow-visible ${showModes ? "hidden md:block" : "block"}`}>
+      <section
+        className={`relative h-[calc(100dvh-83px)] overflow-hidden md:h-auto md:overflow-visible ${
+          showModes ? "hidden md:block" : "block"
+        }`}
+      >
         <div className="pointer-events-none absolute left-1/4 top-0 h-[500px] w-[600px] -translate-x-1/2 rounded-full bg-accent/20 blur-[130px]" />
         <div className="pointer-events-none absolute right-0 top-20 h-[420px] w-[520px] rounded-full bg-accent-2/20 blur-[130px]" />
 
-        <div className="relative mx-auto grid h-full max-w-7xl content-center items-center gap-3 overflow-hidden px-5 py-3 sm:px-8 sm:py-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12 lg:px-12 lg:py-28">
+        <div className="relative mx-auto grid h-full max-w-7xl content-center items-center gap-3 overflow-hidden px-5 py-6 sm:px-8 sm:py-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12 lg:px-12 lg:py-28">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-trim/40 bg-trim/10 px-4 py-1.5 text-[10px] font-semibold text-accent-text sm:mb-4 sm:px-4 sm:py-2 sm:text-xs">
+            {/* Badge: desktop only */}
+            <div className="mb-4 hidden items-center gap-2 rounded-full border border-trim/40 bg-trim/10 px-4 py-2 text-xs font-semibold text-accent-text md:inline-flex">
               <Sparkles size={14} />
               {club.badge}
             </div>
 
-            <h1 className="max-w-2xl text-[clamp(2rem,8.8vw,3.15rem)] font-black leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-[76px]">
-              {club.headline[0]}
-              <br />
-              {club.headline[1]}
-              <br />
-              <span className="bg-gradient-to-r from-accent-text to-accent-2-text bg-clip-text text-transparent">
-                {club.headline[2]}
-              </span>
-            </h1>
+            {/* Mobile: text left, pitch right. Desktop: normal block */}
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 md:block">
+              <div>
+                <h1 className="max-w-2xl text-[clamp(2.2rem,10.5vw,3.2rem)] font-black leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-[76px]">
+                  {club.headline[0]}
+                  <br />
+                  {club.headline[1]}
+                  <br />
+                  <span className="bg-gradient-to-r from-accent-text to-accent-2-text bg-clip-text text-transparent">
+                    {club.headline[2]}
+                  </span>
+                </h1>
 
-            {/* <p className="mt-7 max-w-lg text-base leading-7 text-muted sm:text-lg sm:leading-8">
-              {club.blurb}
-            </p> */}
+                <div className="mt-6 flex flex-col gap-2.5 md:mt-6 md:flex-row md:flex-wrap md:gap-3">
+                  <a
+                    href="#game-modes"
+                    onClick={openModes}
+                    className="group inline-flex w-full items-center justify-center gap-3 rounded-xl bg-accent px-5 py-3.5 text-sm font-bold text-accent-ink shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:brightness-110 md:w-auto"
+                  >
+                    Start drafting
+                    <ArrowRight
+                      size={19}
+                      className="transition group-hover:translate-x-1"
+                    />
+                  </a>
+                  <a
+                    href="#how-it-works"
+                    onClick={openHow}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-5 py-3.5 text-sm font-semibold text-foreground/80 transition hover:border-accent-2 hover:bg-accent-2/10 md:w-auto"
+                  >
+                    <CircleHelp size={18} />
+                    How to play
+                  </a>
+                </div>
+              </div>
 
-            <div className="mt-4 flex flex-wrap gap-2.5 sm:mt-6 sm:gap-3">
-              <a
-                href="#game-modes"
-                onClick={() => setShowModes(true)}
-                className="group inline-flex items-center gap-3 rounded-xl bg-accent px-5 py-3.5 text-sm font-bold text-accent-ink shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:brightness-110"
-              >
-                Start drafting
-                <ArrowRight
-                  size={19}
-                  className="transition group-hover:translate-x-1"
-                />
-              </a>
-              <a
-                href="#how-it-works"
-                className="inline-flex items-center gap-2 rounded-xl border border-border px-5 py-3.5 text-sm font-semibold text-foreground/80 transition hover:border-accent-2 hover:bg-accent-2/10"
-              >
-                <CircleHelp size={18} />
-                How to play
-              </a>
-            </div>
-
-            {/* <div className="mt-11 flex flex-wrap gap-x-7 gap-y-3 text-xs font-medium text-muted sm:text-sm">
-              <span className="flex items-center gap-2">
-                <Check size={15} className="text-accent-text" />
-                11 players per squad
-              </span>
-              <span className="flex items-center gap-2">
-                <Check size={15} className="text-accent-text" />
-                Position-by-position picks
-              </span>
-            </div> */}
-            {/* Vertical football pitch for the mobile landing screen */}
-            <div className="mt-4 flex justify-center md:hidden">
-              <div className="relative h-[clamp(180px,30svh,235px)] w-[min(52vw,170px)] overflow-hidden rounded-2xl border border-accent/30 shadow-lg shadow-accent/10">
+              {/* Mobile pitch: fixed size, raised above the headline */}
+              <div className="relative -mt-8 h-[240px] w-[150px] shrink-0 self-start overflow-hidden rounded-2xl border border-accent/30 shadow-lg shadow-accent/10 md:hidden">
                 <div className="pitch-club absolute inset-0" />
                 <div className="pitch-line absolute left-0 right-0 top-1/2 border-t" />
-                <div className="pitch-line absolute left-1/2 top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border" />
-                <div className="pitch-line absolute left-1/2 top-0 h-7 w-14 -translate-x-1/2 rounded-b-lg border-x border-b" />
-                <div className="pitch-line absolute bottom-0 left-1/2 h-7 w-14 -translate-x-1/2 rounded-t-lg border-x border-t" />
+                <div className="pitch-line absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border" />
+                <div className="pitch-line absolute left-1/2 top-0 h-8 w-16 -translate-x-1/2 rounded-b-lg border-x border-b" />
+                <div className="pitch-line absolute bottom-0 left-1/2 h-8 w-16 -translate-x-1/2 rounded-t-lg border-x border-t" />
                 {pitchPlayers.map((player) => (
                   <div
                     key={`mobile-${player.number}`}
-                    className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+                    className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5"
                     style={{ left: player.x, top: player.y }}
                   >
-                    <div className="shirt flex h-5 w-5 items-center justify-center rounded-full border text-[7px] font-black shadow">
+                    <div className="shirt flex h-6 w-6 items-center justify-center rounded-full border text-[8px] font-black shadow">
                       {player.number}
                     </div>
-                    <span className="rounded bg-black/60 px-1 text-[6px] font-bold leading-3 text-white">
+                    <span className="rounded bg-black/60 px-1 text-[7px] font-bold leading-3 text-white">
                       {player.name}
                     </span>
                   </div>
                 ))}
               </div>
             </div>
+
+            {/* Mobile-only info chips fill the lower space */}
+            <div className="mt-7 flex flex-wrap justify-center gap-2 md:hidden">
+              {mobileChips.map(({ icon: Icon, label }) => (
+                <span
+                  key={label}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2/60 px-3.5 py-2 text-[11px] font-semibold text-muted"
+                >
+                  <Icon size={13} className="text-accent-text" />
+                  {label}
+                </span>
+              ))}
+            </div>
           </div>
 
-          {/* Dream XI preview: every colour here follows the selected club */}
+          {/* Dream XI preview (desktop): every colour here follows the selected club */}
           <div className="relative mx-auto hidden w-full max-w-[510px] md:block">
             <div className="absolute inset-8 rounded-full bg-accent-2/25 blur-3xl" />
 
@@ -293,7 +345,9 @@ export default function Home() {
 
       {/* Mobile game mode screen */}
       <section
-        className={`${showModes ? "flex" : "hidden"} fixed inset-0 z-50 flex-col overflow-hidden bg-surface px-5 pb-5 pt-[max(1rem,env(safe-area-inset-top))] md:hidden`}
+        className={`${
+          showModes ? "flex" : "hidden"
+        } fixed inset-0 z-50 h-[100dvh] flex-col overflow-hidden overscroll-none bg-surface px-5 pb-5 pt-[max(1rem,env(safe-area-inset-top))] md:hidden`}
       >
         <button
           type="button"
@@ -333,11 +387,14 @@ export default function Home() {
               </div>
               <h3 className="mt-3 text-lg font-black">Local Draft</h3>
               <p className="mt-1.5 max-w-xs text-xs leading-4 text-muted">
-                Play with a friend on the same device. Take turns picking players and build two legendary squads.
+                Play with a friend on the same device. Take turns picking
+                players and build two legendary squads.
               </p>
             </div>
             <div className="relative flex items-center justify-between">
-              <span className="text-sm font-bold text-accent-text">Play locally</span>
+              <span className="text-sm font-bold text-accent-text">
+                Play locally
+              </span>
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-accent-ink">
                 <ArrowRight size={19} />
               </span>
@@ -360,11 +417,14 @@ export default function Home() {
               </div>
               <h3 className="mt-3 text-lg font-black">Online Draft</h3>
               <p className="mt-1.5 max-w-xs text-xs leading-4 text-muted">
-                Challenge a friend anywhere. Create a private room, share your code, and compete pick by pick.
+                Challenge a friend anywhere. Create a private room, share your
+                code, and compete pick by pick.
               </p>
             </div>
             <div className="relative flex items-center justify-between">
-              <span className="text-sm font-bold text-accent-2-text">Challenge a friend</span>
+              <span className="text-sm font-bold text-accent-2-text">
+                Challenge a friend
+              </span>
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-2 text-accent-2-ink">
                 <ArrowRight size={19} />
               </span>
@@ -373,8 +433,63 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Mobile how-to-play screen */}
+      <section
+        className={`${
+          showHow ? "flex" : "hidden"
+        } fixed inset-0 z-50 h-[100dvh] flex-col overflow-hidden overscroll-none bg-surface px-5 pb-5 pt-[max(1rem,env(safe-area-inset-top))] md:hidden`}
+      >
+        <button
+          type="button"
+          onClick={() => setShowHow(false)}
+          className="mb-4 flex w-fit shrink-0 items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-muted"
+        >
+          <ChevronRight className="rotate-180" size={16} />
+          Back to home
+        </button>
+
+        <div className="mb-4 shrink-0">
+          <div className="text-[10px] font-bold tracking-[0.22em] text-accent-text">
+            SIMPLE TO LEARN. HARD TO MASTER.
+          </div>
+          <h2 className="mt-2 text-2xl font-black tracking-tight">
+            THREE STEPS. ONE DREAM TEAM.
+          </h2>
+        </div>
+
+        <div className="grid min-h-0 flex-1 grid-rows-3 gap-3 overflow-hidden">
+          {stepMeta.map((step, i) => {
+            const Icon = step.icon;
+            return (
+              <div
+                key={step.number}
+                className="flex min-h-0 flex-col justify-between rounded-2xl border border-border bg-surface-2 p-4"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-accent-text">
+                    {step.number}
+                  </span>
+                  <Icon size={22} className="text-muted" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">{club.stepTitles[i]}</h3>
+                  <p className="mt-1.5 text-xs leading-5 text-muted">
+                    {step.description}
+                  </p>
+                </div>
+                <div
+                  className={`h-1 w-12 rounded-full ${
+                    i % 2 === 0 ? "bg-accent" : "bg-accent-2"
+                  }`}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       {/* Game modes */}
-      <section id="game-modes" className="border-y border-border bg-surface">
+      <section id="game-modes" className="hidden border-y border-border bg-surface md:block">
         <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-12 lg:py-24">
           <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
@@ -457,7 +572,7 @@ export default function Home() {
       {/* How it works */}
       <section
         id="how-it-works"
-        className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-12 lg:py-24"
+        className="mx-auto hidden max-w-7xl md:block px-5 py-20 sm:px-8 lg:px-12 lg:py-24"
       >
         <div className="max-w-2xl">
           <div className="text-xs font-bold tracking-[0.22em] text-accent-text">
@@ -517,7 +632,7 @@ export default function Home() {
 
           <a
             href="#game-modes"
-            onClick={() => setShowModes(true)}
+            onClick={openModes}
             className="flex items-center gap-2 text-sm font-semibold text-muted transition hover:text-accent-text"
           >
             Ready to draft? <ChevronRight size={16} />
