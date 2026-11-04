@@ -704,7 +704,7 @@ export function MatchCentreView({
         <div>
           <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-accent-text"><Activity size={15} />FutGo match centre</div>
           <h1 className="text-3xl font-black sm:text-5xl">{playbackFinished ? "FULL TIME." : awaitingPenalties ? "PENALTIES NEXT." : penaltyStage === "live" ? "SHOOTOUT." : "THE SHOWDOWN."}</h1>
-          <p className="mt-3 text-sm text-muted">{playbackFinished ? "The final whistle has blown. Explore the match report below." : awaitingPenalties ? "Still level after extra time. Press Start Penalties when you are ready." : penaltyStage === "live" ? "Every kick decides it. Watch the shootout unfold." : "Follow every major moment as your drafted teams battle it out."}</p>
+          <p className="mt-3 text-sm text-muted">{playbackFinished ? "The final whistle has blown. Explore the match report below." : awaitingPenalties ? "Still level after extra time. Press Start Penalties when you are ready." : penaltyStage === "live" ? "Every kick decides it. Watch the shootout unfold." : " "}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={onWatchAgain} disabled={loading || !playbackFinished} className="flex items-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-semibold text-foreground/70 transition hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-40"><RotateCcw size={16} />Watch again</button>
@@ -993,7 +993,7 @@ export function MatchCentreView({
 
       {/* Squads */}
       <div className="mt-8">
-        <SectionHeading eyebrow="Starting elevens" title="Team lineups" icon={<Users size={21} />} description="Your original drafted squads remain unchanged for every rematch. Player ratings appear on each card at full time." />
+        <SectionHeading eyebrow="Starting elevens" title="Team lineups" icon={<Users size={21} />} description=" " />
         <div className="mt-5 grid gap-5 xl:grid-cols-2">
           <SquadPitch name={matchData.player1_name} team={team1} number={1} players={player1Squad} complete ratings={team1Ratings} showRatings={playbackFinished} />
           <SquadPitch name={matchData.player2_name} team={team2} number={2} players={player2Squad} complete ratings={team2Ratings} showRatings={playbackFinished} />

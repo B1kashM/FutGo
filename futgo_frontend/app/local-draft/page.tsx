@@ -29,6 +29,43 @@ import {
   TeamDropdown,
 } from "../_draft/DraftUI";
 
+/**
+ * Mobile: the setup screen is pinned to the viewport, below the site header.
+ * Change `top-[83px]` if your DraftPageShell header is a different height.
+ * The page itself never scrolls; the panel only scrolls internally on very
+ * short screens so the Start button can never become unreachable.
+ */
+const MOBILE_SCREEN =
+  "max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-[83px] max-md:z-30 max-md:overflow-y-auto max-md:overscroll-contain max-md:bg-background max-md:px-4 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
+function useLockMobileScroll(active: boolean) {
+  useEffect(() => {
+    if (!active) return undefined;
+
+    const mq = window.matchMedia("(max-width: 767px)");
+    const html = document.documentElement;
+
+    const apply = () => {
+      const locked = mq.matches;
+      html.style.overflow = locked ? "hidden" : "";
+      document.body.style.overflow = locked ? "hidden" : "";
+      html.style.overscrollBehavior = locked ? "none" : "";
+      document.body.style.overscrollBehavior = locked ? "none" : "";
+    };
+
+    apply();
+    mq.addEventListener("change", apply);
+
+    return () => {
+      mq.removeEventListener("change", apply);
+      html.style.overflow = "";
+      document.body.style.overflow = "";
+      html.style.overscrollBehavior = "";
+      document.body.style.overscrollBehavior = "";
+    };
+  }, [active]);
+}
+
 export default function LocalDraftPage() {
   const [player1Name, setPlayer1Name] = useState("");
   const [player2Name, setPlayer2Name] = useState("");
@@ -53,6 +90,9 @@ export default function LocalDraftPage() {
     showPreviousMatch,
     clearMatches,
   } = useMatchPlayback();
+
+  // Lock page scroll on mobile while the setup screen is showing.
+  useLockMobileScroll(!draft);
 
   useEffect(() => {
     let cancelled = false;
@@ -290,30 +330,34 @@ export default function LocalDraftPage() {
   return (
     <DraftPageShell>
       {!draft ? (
-        <section className="mx-auto max-w-6xl py-8 sm:py-12">
-          <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+        <section
+          className={`${MOBILE_SCREEN} mx-auto max-w-6xl pt-3 sm:py-12`}
+        >
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-4 sm:mb-7">
             <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-accent-text">
+              <div className="mb-3 hidden items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-accent-text sm:inline-flex">
                 <Users size={14} /> Local multiplayer
               </div>
-              <h1 className="text-3xl font-black tracking-tight sm:text-5xl">CREATE YOUR DRAFT</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted sm:text-base hidden sm:block">
+              <h1 className="text-2xl font-black tracking-tight sm:text-5xl">
+                CREATE YOUR DRAFT
+              </h1>
+              <p className="mt-3 hidden max-w-2xl text-sm leading-6 text-muted sm:block sm:text-base">
                 Choose a player pool, name both managers, and assign a different club to each side.
               </p>
             </div>
-            <div className="flex gap-2 text-xs text-muted">
+            <div className="hidden gap-2 text-xs text-muted sm:flex">
               <span className="rounded-full border border-border bg-foreground/[0.03] px-3 py-2">2 managers</span>
               <span className="rounded-full border border-border bg-foreground/[0.03] px-3 py-2">11 rounds</span>
               <span className="rounded-full border border-border bg-foreground/[0.03] px-3 py-2">22 players</span>
             </div>
           </div>
 
-          <form onSubmit={startDraft} className="overflow-visible rounded-[28px] border border-border bg-surface shadow-2xl shadow-black/10 dark:shadow-black/20">
-            <div className="border-b border-border px-5 py-5 sm:px-7">
-              <div className="mb-4 flex items-center justify-between gap-3">
+          <form onSubmit={startDraft} className="overflow-visible rounded-[22px] border border-border bg-surface shadow-2xl shadow-black/10 sm:rounded-[28px] dark:shadow-black/20">
+            <div className="border-b border-border px-4 py-3 sm:px-7 sm:py-5">
+              <div className="mb-2 flex items-center justify-between gap-3 sm:mb-4">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent-text">Step 1</p>
-                  <h2 className="mt-1 text-lg font-black sm:text-xl">Choose your player pool</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-accent-text sm:text-xs">Step 1</p>
+                  <h2 className="mt-0.5 text-base font-black sm:mt-1 sm:text-xl">Choose your player pool</h2>
                 </div>
                 {selectedCategory && (
                   <span className="hidden rounded-full border border-accent/20 bg-accent/[0.06] px-3 py-1.5 text-xs font-bold text-accent-text sm:inline-flex">
@@ -332,17 +376,17 @@ export default function LocalDraftPage() {
             </div>
 
             <div className="grid gap-0 lg:grid-cols-2">
-              <div className="border-b border-border p-5 sm:p-7 lg:border-b-0 lg:border-r">
-                <div className="mb-5 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 font-black text-accent-text">01</div>
+              <div className="border-b border-border p-4 sm:p-7 lg:border-b-0 lg:border-r">
+                <div className="mb-3 flex items-center gap-3 sm:mb-5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10 text-sm font-black text-accent-text sm:h-10 sm:w-10 sm:rounded-xl sm:text-base">01</div>
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Manager one</p>
-                    <h3 className="text-lg font-black">Home side</h3>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted sm:text-xs">Manager one</p>
+                    <h3 className="text-base font-black sm:text-lg">Home side</h3>
                   </div>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">
                   <label className="block min-w-0">
-                    <span className="mb-2 block text-xs font-semibold text-muted">Player name</span>
+                    <span className="mb-1.5 block text-xs font-semibold text-muted sm:mb-2">Player name</span>
                     <input
                       value={player1Name}
                       onChange={(event) => setPlayer1Name(event.target.value)}
@@ -350,11 +394,11 @@ export default function LocalDraftPage() {
                       maxLength={40}
                       required
                       disabled={loading}
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm text-foreground outline-none transition placeholder:text-foreground/30 focus:border-accent-text/70 focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
+                      className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none transition placeholder:text-foreground/30 focus:border-accent-text/70 focus:ring-2 focus:ring-accent/20 disabled:opacity-60 sm:py-3.5"
                     />
                   </label>
                   <label className="block min-w-0">
-                    <span className="mb-2 block text-xs font-semibold text-muted">Football club</span>
+                    <span className="mb-1.5 block text-xs font-semibold text-muted sm:mb-2">Football club</span>
                     <TeamDropdown
                       teams={teams}
                       value={player1TeamId}
@@ -367,7 +411,7 @@ export default function LocalDraftPage() {
                     />
                   </label>
                 </div>
-                <div className="mt-4 min-h-[72px]">
+                <div className="mt-4 hidden min-h-[72px] sm:block">
                   {selectedTeam1 ? (
                     <TeamBadge team={selectedTeam1} />
                   ) : (
@@ -378,17 +422,17 @@ export default function LocalDraftPage() {
                 </div>
               </div>
 
-              <div className="p-5 sm:p-7">
-                <div className="mb-5 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-2/10 font-black text-accent-2-text">02</div>
+              <div className="p-4 sm:p-7">
+                <div className="mb-3 flex items-center gap-3 sm:mb-5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-2/10 text-sm font-black text-accent-2-text sm:h-10 sm:w-10 sm:rounded-xl sm:text-base">02</div>
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Manager two</p>
-                    <h3 className="text-lg font-black">Away side</h3>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted sm:text-xs">Manager two</p>
+                    <h3 className="text-base font-black sm:text-lg">Away side</h3>
                   </div>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">
                   <label className="block min-w-0">
-                    <span className="mb-2 block text-xs font-semibold text-muted">Player name</span>
+                    <span className="mb-1.5 block text-xs font-semibold text-muted sm:mb-2">Player name</span>
                     <input
                       value={player2Name}
                       onChange={(event) => setPlayer2Name(event.target.value)}
@@ -396,11 +440,11 @@ export default function LocalDraftPage() {
                       maxLength={40}
                       required
                       disabled={loading}
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm text-foreground outline-none transition placeholder:text-foreground/30 focus:border-accent-text/70 focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
+                      className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none transition placeholder:text-foreground/30 focus:border-accent-text/70 focus:ring-2 focus:ring-accent/20 disabled:opacity-60 sm:py-3.5"
                     />
                   </label>
                   <label className="block min-w-0">
-                    <span className="mb-2 block text-xs font-semibold text-muted">Football club</span>
+                    <span className="mb-1.5 block text-xs font-semibold text-muted sm:mb-2">Football club</span>
                     <TeamDropdown
                       teams={teams}
                       value={player2TeamId}
@@ -414,7 +458,7 @@ export default function LocalDraftPage() {
                     />
                   </label>
                 </div>
-                <div className="mt-4 min-h-[72px]">
+                <div className="mt-4 hidden min-h-[72px] sm:block">
                   {selectedTeam2 ? (
                     <TeamBadge team={selectedTeam2} />
                   ) : (
@@ -426,7 +470,7 @@ export default function LocalDraftPage() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-4 rounded-b-[28px] border-t border-border bg-foreground/[0.03] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+            <div className="flex flex-col gap-3 rounded-b-[22px] border-t border-border bg-foreground/[0.03] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:rounded-b-[28px] sm:px-7 sm:py-5">
               <div className="min-w-0">
                 {selectedCategory && player1TeamId && player2TeamId && player1TeamId !== player2TeamId ? (
                   <div className="flex items-center gap-2 text-sm font-semibold text-foreground/75">
@@ -457,7 +501,7 @@ export default function LocalDraftPage() {
                   player1TeamId === player2TeamId ||
                   player1Name.trim().toLowerCase() === player2Name.trim().toLowerCase()
                 }
-                className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-7 py-4 font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56"
+                className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-7 py-3 font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56 sm:py-4"
               >
                 {loading ? (
                   <>
@@ -471,7 +515,7 @@ export default function LocalDraftPage() {
               </button>
             </div>
             {error && (
-              <div className="p-5 sm:px-7">
+              <div className="p-3 sm:p-5 sm:px-7">
                 <ErrorMessage message={error} />
               </div>
             )}

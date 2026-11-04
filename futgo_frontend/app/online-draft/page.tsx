@@ -83,6 +83,43 @@ const SESSION_KEY = "futgo_online_session_v1";
 const POLL_MS = 2000;
 const MAX_BACKOFF_MS = 8000;
 
+/**
+ * Mobile: setup screens and the lobby are pinned to the viewport, below the
+ * site header. Change `top-[83px]` if your DraftPageShell header is a
+ * different height. The page itself never scrolls; the panel only scrolls
+ * internally on very short screens so buttons can never become unreachable.
+ */
+const MOBILE_SCREEN =
+  "max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-[83px] max-md:z-30 max-md:overflow-y-auto max-md:overscroll-contain max-md:bg-background max-md:px-4 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
+function useLockMobileScroll(active: boolean) {
+  useEffect(() => {
+    if (!active) return undefined;
+
+    const mq = window.matchMedia("(max-width: 767px)");
+    const html = document.documentElement;
+
+    const apply = () => {
+      const locked = mq.matches;
+      html.style.overflow = locked ? "hidden" : "";
+      document.body.style.overflow = locked ? "hidden" : "";
+      html.style.overscrollBehavior = locked ? "none" : "";
+      document.body.style.overscrollBehavior = locked ? "none" : "";
+    };
+
+    apply();
+    mq.addEventListener("change", apply);
+
+    return () => {
+      mq.removeEventListener("change", apply);
+      html.style.overflow = "";
+      document.body.style.overflow = "";
+      html.style.overscrollBehavior = "";
+      document.body.style.overscrollBehavior = "";
+    };
+  }, [active]);
+}
+
 function loadSession(): Session | null {
   try {
     const raw = window.localStorage.getItem(SESSION_KEY);
@@ -187,6 +224,11 @@ export default function OnlineDraftPage() {
   const failuresRef = useRef(0);
   const knownMatchIds = useRef<Set<number>>(new Set());
   const firstMatchSyncRef = useRef(false);
+
+  // Lock page scroll on mobile for every non-drafting screen
+  // (restoring, landing, create, join and the waiting lobby).
+  const inLobby = view === "room" && (!draft || draft.status === "WAITING");
+  useLockMobileScroll(view !== "room" || inLobby);
 
   /* ----------------------------- state helpers ---------------------- */
 
@@ -852,35 +894,35 @@ export default function OnlineDraftPage() {
     );
   } else if (view === "landing") {
     content = (
-      <section className="mx-auto max-w-5xl py-8 sm:py-12">
-        <div className="mb-8">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-accent-text">
+      <section className={`${MOBILE_SCREEN} mx-auto max-w-5xl pt-4 sm:py-12`}>
+        <div className="mb-4 sm:mb-8">
+          <div className="mb-3 hidden items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-accent-text sm:inline-flex">
             <Users size={14} /> Online multiplayer
           </div>
-          <h1 className="text-3xl font-black tracking-tight sm:text-5xl">PLAY ONLINE</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted sm:text-base hidden sm:block">
+          <h1 className="text-2xl font-black tracking-tight sm:text-5xl">PLAY ONLINE</h1>
+          <p className="mt-3 hidden max-w-2xl text-sm leading-6 text-muted sm:block sm:text-base">
             Create a private room and share the code, or join a friend&apos;s room.
             Same draft, two screens.
           </p>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-3 sm:gap-5 md:grid-cols-2">
           <button
             type="button"
             onClick={() => {
               setError("");
               setView("create");
             }}
-            className="group rounded-[28px] border border-border bg-surface p-6 text-left transition hover:-translate-y-1 hover:border-accent/60 sm:p-8"
+            className="group rounded-[22px] border border-border bg-surface p-4 text-left transition hover:-translate-y-1 hover:border-accent/60 sm:rounded-[28px] sm:p-8"
           >
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 text-accent-text">
-              <Plus size={28} />
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/10 text-accent-text sm:h-14 sm:w-14">
+              <Plus size={26} />
             </div>
-            <h2 className="mt-6 text-2xl font-black">Create room</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
+            <h2 className="mt-3 text-xl font-black sm:mt-6 sm:text-2xl">Create room</h2>
+            <p className="mt-1.5 text-xs leading-5 text-muted sm:mt-2 sm:text-sm sm:leading-6">
               Pick the player pool and your club, then invite a friend with a room code.
             </p>
-            <span className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-muted transition group-hover:text-accent-text">
+            <span className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-muted transition group-hover:text-accent-text sm:mt-6">
               Host a draft <ArrowRight size={16} />
             </span>
           </button>
@@ -891,23 +933,23 @@ export default function OnlineDraftPage() {
               setError("");
               setView("join");
             }}
-            className="group rounded-[28px] border border-border bg-surface p-6 text-left transition hover:-translate-y-1 hover:border-accent-2/60 sm:p-8"
+            className="group rounded-[22px] border border-border bg-surface p-4 text-left transition hover:-translate-y-1 hover:border-accent-2/60 sm:rounded-[28px] sm:p-8"
           >
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-2/10 text-accent-2-text">
-              <LogIn size={28} />
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent-2/10 text-accent-2-text sm:h-14 sm:w-14">
+              <LogIn size={26} />
             </div>
-            <h2 className="mt-6 text-2xl font-black">Join room</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
+            <h2 className="mt-3 text-xl font-black sm:mt-6 sm:text-2xl">Join room</h2>
+            <p className="mt-1.5 text-xs leading-5 text-muted sm:mt-2 sm:text-sm sm:leading-6">
               Enter the room code from your friend and pick your club in the lobby.
             </p>
-            <span className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-muted transition group-hover:text-accent-2-text">
+            <span className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-muted transition group-hover:text-accent-2-text sm:mt-6">
               Enter a code <ArrowRight size={16} />
             </span>
           </button>
         </div>
 
         {error && (
-          <div className="mt-6">
+          <div className="mt-4 sm:mt-6">
             <ErrorMessage message={error} />
           </div>
         )}
@@ -915,23 +957,23 @@ export default function OnlineDraftPage() {
     );
   } else if (view === "create") {
     content = (
-      <section className="mx-auto max-w-4xl py-8 sm:py-12">
+      <section className={`${MOBILE_SCREEN} mx-auto max-w-4xl pt-3 sm:py-12`}>
         <BackButton onClick={() => { setError(""); setView("landing"); }} />
 
-        <div className="mb-7">
-          <h1 className="text-3xl font-black tracking-tight sm:text-5xl">CREATE A ROOM</h1>
-          <p className="mt-3 text-sm leading-6 text-muted sm:text-base">
+        <div className="mb-3 sm:mb-7">
+          <h1 className="text-2xl font-black tracking-tight sm:text-5xl">CREATE A ROOM</h1>
+          <p className="mt-3 hidden text-sm leading-6 text-muted sm:block sm:text-base">
             Choose the player pool and your club. Your opponent picks their club after joining.
           </p>
         </div>
 
         <form
           onSubmit={createRoom}
-          className="overflow-visible rounded-[28px] border border-border bg-surface shadow-2xl shadow-black/10 dark:shadow-black/20"
+          className="overflow-visible rounded-[22px] border border-border bg-surface shadow-2xl shadow-black/10 sm:rounded-[28px] dark:shadow-black/20"
         >
-          <div className="border-b border-border px-5 py-5 sm:px-7">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent-text">Step 1</p>
-            <h2 className="mb-4 mt-1 text-lg font-black sm:text-xl">Choose your player pool</h2>
+          <div className="border-b border-border px-4 py-3 sm:px-7 sm:py-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-accent-text sm:text-xs">Step 1</p>
+            <h2 className="mb-2 mt-0.5 text-base font-black sm:mb-4 sm:mt-1 sm:text-xl">Choose your player pool</h2>
             <CategoryGrid
               value={category}
               disabled={loading}
@@ -942,13 +984,13 @@ export default function OnlineDraftPage() {
             />
           </div>
 
-          <div className="p-5 sm:p-7">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent-text">Step 2</p>
-            <h2 className="mb-5 mt-1 text-lg font-black sm:text-xl">You are the host</h2>
+          <div className="p-4 sm:p-7">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-accent-text sm:text-xs">Step 2</p>
+            <h2 className="mb-3 mt-0.5 text-base font-black sm:mb-5 sm:mt-1 sm:text-xl">You are the host</h2>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">
               <label className="block min-w-0">
-                <span className="mb-2 block text-xs font-semibold text-muted">Your name</span>
+                <span className="mb-1.5 block text-xs font-semibold text-muted sm:mb-2">Your name</span>
                 <input
                   value={hostName}
                   onChange={(event) => setHostName(event.target.value)}
@@ -956,11 +998,11 @@ export default function OnlineDraftPage() {
                   maxLength={40}
                   required
                   disabled={loading}
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm text-foreground outline-none transition placeholder:text-foreground/30 focus:border-accent-text/70 focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none transition placeholder:text-foreground/30 focus:border-accent-text/70 focus:ring-2 focus:ring-accent/20 disabled:opacity-60 sm:py-3.5"
                 />
               </label>
               <label className="block min-w-0">
-                <span className="mb-2 block text-xs font-semibold text-muted">Football club</span>
+                <span className="mb-1.5 block text-xs font-semibold text-muted sm:mb-2">Football club</span>
                 <TeamDropdown
                   teams={teams}
                   value={hostTeamId}
@@ -974,7 +1016,7 @@ export default function OnlineDraftPage() {
               </label>
             </div>
 
-            <div className="mt-4 min-h-[72px]">
+            <div className="mt-4 hidden min-h-[72px] sm:block">
               {selectedHostTeam ? (
                 <TeamBadge team={selectedHostTeam} />
               ) : (
@@ -985,14 +1027,14 @@ export default function OnlineDraftPage() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-b-[28px] border-t border-border bg-foreground/[0.03] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-            <p className="text-xs leading-5 text-muted">
+          <div className="flex flex-col gap-3 rounded-b-[22px] border-t border-border bg-foreground/[0.03] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:rounded-b-[28px] sm:px-7 sm:py-5">
+            <p className="hidden text-xs leading-5 text-muted sm:block">
               You&apos;ll get a room code to share as soon as the room is created.
             </p>
             <button
               type="submit"
               disabled={loading || teamsLoading || !category || !hostName.trim() || !hostTeamId}
-              className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-7 py-4 font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56"
+              className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-7 py-3 font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56 sm:py-4"
             >
               {loading ? (
                 <>
@@ -1007,7 +1049,7 @@ export default function OnlineDraftPage() {
           </div>
 
           {error && (
-            <div className="p-5 sm:px-7">
+            <div className="p-3 sm:p-5 sm:px-7">
               <ErrorMessage message={error} />
             </div>
           )}
@@ -1016,23 +1058,23 @@ export default function OnlineDraftPage() {
     );
   } else if (view === "join") {
     content = (
-      <section className="mx-auto max-w-2xl py-8 sm:py-12">
+      <section className={`${MOBILE_SCREEN} mx-auto max-w-2xl pt-3 sm:py-12`}>
         <BackButton onClick={() => { setError(""); setView("landing"); }} />
 
-        <div className="mb-7">
-          <h1 className="text-3xl font-black tracking-tight sm:text-5xl">JOIN A ROOM</h1>
-          <p className="mt-3 text-sm leading-6 text-muted sm:text-base">
+        <div className="mb-3 sm:mb-7">
+          <h1 className="text-2xl font-black tracking-tight sm:text-5xl">JOIN A ROOM</h1>
+          <p className="mt-2 text-sm leading-6 text-muted sm:mt-3 sm:text-base">
             Enter the room code your friend shared with you.
           </p>
         </div>
 
         <form
           onSubmit={joinRoom}
-          className="overflow-visible rounded-[28px] border border-border bg-surface shadow-2xl shadow-black/10 dark:shadow-black/20"
+          className="overflow-visible rounded-[22px] border border-border bg-surface shadow-2xl shadow-black/10 sm:rounded-[28px] dark:shadow-black/20"
         >
-          <div className="grid gap-5 p-5 sm:p-7">
+          <div className="grid gap-4 p-4 sm:gap-5 sm:p-7">
             <label className="block">
-              <span className="mb-2 block text-xs font-semibold text-muted">Room code</span>
+              <span className="mb-1.5 block text-xs font-semibold text-muted sm:mb-2">Room code</span>
               <input
                 value={joinCode}
                 onChange={(event) =>
@@ -1045,12 +1087,12 @@ export default function OnlineDraftPage() {
                 spellCheck={false}
                 required
                 disabled={loading}
-                className="w-full rounded-xl border border-border bg-background px-4 py-4 text-center text-2xl font-black uppercase tracking-[0.3em] text-foreground outline-none transition placeholder:text-base placeholder:font-semibold placeholder:tracking-normal placeholder:text-foreground/30 focus:border-accent-text/70 focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
+                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-center text-2xl font-black uppercase tracking-[0.3em] text-foreground outline-none transition placeholder:text-base placeholder:font-semibold placeholder:tracking-normal placeholder:text-foreground/30 focus:border-accent-text/70 focus:ring-2 focus:ring-accent/20 disabled:opacity-60 sm:py-4"
               />
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-xs font-semibold text-muted">Your display name</span>
+              <span className="mb-1.5 block text-xs font-semibold text-muted sm:mb-2">Your display name</span>
               <input
                 value={joinName}
                 onChange={(event) => setJoinName(event.target.value)}
@@ -1058,19 +1100,19 @@ export default function OnlineDraftPage() {
                 maxLength={40}
                 required
                 disabled={loading}
-                className="w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm text-foreground outline-none transition placeholder:text-foreground/30 focus:border-accent-text/70 focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none transition placeholder:text-foreground/30 focus:border-accent-text/70 focus:ring-2 focus:ring-accent/20 disabled:opacity-60 sm:py-3.5"
               />
             </label>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-b-[28px] border-t border-border bg-foreground/[0.03] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+          <div className="flex flex-col gap-3 rounded-b-[22px] border-t border-border bg-foreground/[0.03] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:rounded-b-[28px] sm:px-7 sm:py-5">
             <p className="text-xs leading-5 text-muted">
               You&apos;ll choose your football club in the lobby.
             </p>
             <button
               type="submit"
               disabled={loading || joinCode.length < 4 || !joinName.trim()}
-              className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-7 py-4 font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-48"
+              className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-7 py-3 font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-48 sm:py-4"
             >
               {loading ? (
                 <>
@@ -1085,7 +1127,7 @@ export default function OnlineDraftPage() {
           </div>
 
           {error && (
-            <div className="p-5 sm:px-7">
+            <div className="p-3 sm:p-5 sm:px-7">
               <ErrorMessage message={error} />
             </div>
           )}
@@ -1194,18 +1236,30 @@ export default function OnlineDraftPage() {
       );
     }
 
-    content = (
-      <>
-        <RoomBar
-          roomCode={roomCode}
-          connection={connection}
-          name={seat === 1 ? draft?.player1_name : draft?.player2_name}
-          isHost={isHost}
-          onLeave={handleLeave}
-        />
-        {stage}
-      </>
+    const roomBar = (
+      <RoomBar
+        roomCode={roomCode}
+        connection={connection}
+        name={seat === 1 ? draft?.player1_name : draft?.player2_name}
+        isHost={isHost}
+        hideChipOnMobile={draft?.status === "WAITING"}
+        onLeave={handleLeave}
+      />
     );
+
+    // The waiting lobby is pinned to the viewport on mobile (room bar included).
+    content =
+      draft && session && draft.status === "WAITING" ? (
+        <div className={MOBILE_SCREEN}>
+          {roomBar}
+          {stage}
+        </div>
+      ) : (
+        <>
+          {roomBar}
+          {stage}
+        </>
+      );
   }
 
   return <DraftPageShell>{content}</DraftPageShell>;
@@ -1220,7 +1274,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="mb-6 flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted transition hover:border-accent-text/50 hover:text-foreground"
+      className="mb-3 flex items-center gap-2 rounded-full border border-border px-4 py-1.5 text-sm text-muted transition hover:border-accent-text/50 hover:text-foreground sm:mb-6 sm:py-2"
     >
       <ArrowLeft size={16} /> Back
     </button>
@@ -1264,16 +1318,18 @@ function RoomBar({
   connection,
   name,
   isHost,
+  hideChipOnMobile = false,
   onLeave,
 }: {
   roomCode: string;
   connection: ConnectionStatus;
   name?: string;
   isHost: boolean;
+  hideChipOnMobile?: boolean;
   onLeave: () => void;
 }) {
   return (
-    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-surface px-3 py-2 sm:mt-5 sm:gap-3 sm:px-4 sm:py-3">
       <div className="flex min-w-0 flex-wrap items-center gap-3">
         <span className="rounded-lg bg-foreground/[0.06] px-3 py-1.5 text-xs font-black tracking-[0.2em] text-foreground/80">
           ROOM {roomCode || "—"}
@@ -1289,7 +1345,9 @@ function RoomBar({
       </div>
 
       <div className="flex items-center gap-3">
-        <ConnectionChip status={connection} />
+        <span className={hideChipOnMobile ? "hidden sm:block" : ""}>
+          <ConnectionChip status={connection} />
+        </span>
         <button
           type="button"
           onClick={onLeave}
@@ -1329,14 +1387,14 @@ function SeatCard({
 }) {
   return (
     <div
-      className={`rounded-[24px] border p-5 sm:p-6 ${
+      className={`rounded-[20px] border p-4 sm:rounded-[24px] sm:p-6 ${
         isMe ? "border-accent/40 bg-accent/[0.04]" : "border-border bg-surface"
       }`}
     >
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
         <div className="flex min-w-0 items-center gap-3">
           <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10 ${
               isHost
                 ? "bg-accent/10 text-accent-text"
                 : "bg-accent-2/10 text-accent-2-text"
@@ -1345,14 +1403,14 @@ function SeatCard({
             {isHost ? <Crown size={20} /> : <Users size={20} />}
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{title}</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted sm:text-xs">{title}</p>
             {joined ? (
-              <h3 className="truncate text-lg font-black">
+              <h3 className="truncate text-base font-black sm:text-lg">
                 {name}
                 {isMe && <span className="ml-2 text-xs font-bold text-accent-text">You</span>}
               </h3>
             ) : (
-              <h3 className="text-lg font-black text-muted">Waiting for player...</h3>
+              <h3 className="text-base font-black text-muted sm:text-lg">Waiting for player...</h3>
             )}
           </div>
         </div>
@@ -1369,11 +1427,11 @@ function SeatCard({
       </div>
 
       {!joined ? (
-        <div className="flex h-[72px] items-center gap-3 rounded-xl border border-dashed border-border px-4 text-sm text-muted">
+        <div className="flex h-[56px] items-center gap-3 rounded-xl border border-dashed border-border px-4 text-sm text-muted sm:h-[72px]">
           <Link2 size={18} /> Share the room code to invite a player
         </div>
       ) : canEditTeam ? (
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           <TeamDropdown
             teams={teams}
             value={team ? String(team.id) : ""}
@@ -1389,7 +1447,7 @@ function SeatCard({
       ) : team ? (
         <TeamBadge team={team} />
       ) : (
-        <div className="flex h-[72px] items-center gap-3 rounded-xl border border-dashed border-border px-4 text-sm text-muted">
+        <div className="flex h-[56px] items-center gap-3 rounded-xl border border-dashed border-border px-4 text-sm text-muted sm:h-[72px]">
           <Shield size={18} /> Choosing a club...
         </div>
       )}
@@ -1445,33 +1503,33 @@ function Lobby({
   }
 
   return (
-    <section className="mx-auto max-w-5xl py-8 sm:py-12">
-      <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+    <section className="mx-auto max-w-5xl pb-2 pt-3 sm:py-12">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3 sm:mb-7 sm:gap-4">
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-accent-text">
+          <div className="mb-3 hidden items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-accent-text sm:inline-flex">
             <Users size={14} /> Waiting lobby
           </div>
-          <h1 className="text-3xl font-black tracking-tight sm:text-5xl">
+          <h1 className="text-2xl font-black tracking-tight sm:text-5xl">
             {guestJoined ? "READY TO DRAFT." : "WAITING FOR PLAYER."}
           </h1>
-          <p className="mt-3 text-sm leading-6 text-muted sm:text-base">{hint}</p>
+          <p className="mt-3 hidden text-sm leading-6 text-muted sm:block sm:text-base">{hint}</p>
         </div>
-        <span className="rounded-full border border-border bg-foreground/[0.03] px-3 py-2 text-xs text-muted">
+        <span className="rounded-full border border-border bg-foreground/[0.03] px-3 py-1.5 text-xs text-muted sm:py-2">
           {categoryLabel}
         </span>
       </div>
 
-      <div className="mb-5 rounded-[24px] border border-border bg-surface p-5 sm:p-7">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">Room code</p>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
-          <span className="select-all text-4xl font-black tracking-[0.3em] text-accent-text sm:text-5xl">
+      <div className="mb-3 rounded-[20px] border border-border bg-surface p-4 sm:mb-5 sm:rounded-[24px] sm:p-7">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted sm:text-xs">Room code</p>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3 sm:mt-3 sm:gap-4">
+          <span className="select-all text-3xl font-black tracking-[0.3em] text-accent-text sm:text-5xl">
             {roomCode || "········"}
           </span>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={onCopyCode}
-              className="flex items-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-black text-accent-ink transition hover:brightness-110"
+              className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-black text-accent-ink transition hover:brightness-110 sm:py-3"
             >
               {copied === "code" ? <Check size={16} /> : <Copy size={16} />}
               {copied === "code" ? "Copied" : "Copy code"}
@@ -1479,7 +1537,7 @@ function Lobby({
             <button
               type="button"
               onClick={onCopyLink}
-              className="flex items-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-semibold text-foreground/75 transition hover:bg-foreground/5"
+              className="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground/75 transition hover:bg-foreground/5 sm:py-3"
             >
               {copied === "link" ? <Check size={16} /> : <Link2 size={16} />}
               {copied === "link" ? "Copied" : "Copy invite link"}
@@ -1488,7 +1546,7 @@ function Lobby({
         </div>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2">
+      <div className="grid gap-3 sm:gap-5 md:grid-cols-2">
         <SeatCard
           title="Host"
           isHost
@@ -1517,7 +1575,7 @@ function Lobby({
         />
       </div>
 
-      <div className="mt-6 flex flex-col gap-4 rounded-[24px] border border-border bg-foreground/[0.03] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      <div className="mt-3 flex flex-col gap-3 rounded-[20px] border border-border bg-foreground/[0.03] p-4 sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:rounded-[24px] sm:p-6">
         <div className="flex flex-wrap items-center gap-3">
           <ConnectionChip status={connection} />
           <span className="text-xs text-muted">{hint}</span>
@@ -1528,7 +1586,7 @@ function Lobby({
             type="button"
             onClick={onStart}
             disabled={!canStart || loading}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-7 py-4 font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-7 py-3 font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56 sm:py-4"
           >
             {loading ? (
               <>
@@ -1541,7 +1599,7 @@ function Lobby({
             )}
           </button>
         ) : (
-          <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-accent/25 bg-accent/[0.06] px-6 py-4 text-sm font-bold text-accent-text sm:w-auto">
+          <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-accent/25 bg-accent/[0.06] px-6 py-3 text-sm font-bold text-accent-text sm:w-auto sm:py-4">
             <LoaderCircle size={17} className="animate-spin" />
             Waiting for the host to start
           </div>
@@ -1549,7 +1607,7 @@ function Lobby({
       </div>
 
       {error && (
-        <div className="mt-5">
+        <div className="mt-3 sm:mt-5">
           <ErrorMessage message={error} />
         </div>
       )}

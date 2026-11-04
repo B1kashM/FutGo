@@ -88,26 +88,74 @@ export default function Home() {
     }
   };
 
-  // Lock page scrolling on mobile so nothing can be dragged or scrolled.
+  // Hard-lock the page on mobile. `position: fixed` on <body> is what actually
+  // stops iOS/Android from scrolling or rubber-banding the background.
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
     const html = document.documentElement;
-    const apply = () => {
-      const locked = mq.matches;
-      html.style.overflow = locked ? "hidden" : "";
-      document.body.style.overflow = locked ? "hidden" : "";
-      html.style.overscrollBehavior = locked ? "none" : "";
-      document.body.style.overscrollBehavior = locked ? "none" : "";
+    const body = document.body;
+
+    const reset = () => {
+      html.style.overflow = "";
+      html.style.height = "";
+      html.style.overscrollBehavior = "";
+      body.style.position = "";
+      body.style.inset = "";
+      body.style.width = "";
+      body.style.height = "";
+      body.style.overflow = "";
+      body.style.overscrollBehavior = "";
     };
+
+    const apply = () => {
+      if (!mq.matches) {
+        reset();
+        return;
+      }
+      html.style.overflow = "hidden";
+      html.style.height = "100%";
+      html.style.overscrollBehavior = "none";
+      body.style.position = "fixed";
+      body.style.inset = "0";
+      body.style.width = "100%";
+      body.style.height = "100%";
+      body.style.overflow = "hidden";
+      body.style.overscrollBehavior = "none";
+    };
+
     apply();
     mq.addEventListener("change", apply);
     return () => {
       mq.removeEventListener("change", apply);
-      html.style.overflow = "";
-      document.body.style.overflow = "";
-      html.style.overscrollBehavior = "";
-      document.body.style.overscrollBehavior = "";
+      reset();
     };
+  }, []);
+
+  // Keep the browser's status-bar / notch colour in sync with the page
+  // background (follows the light/dark toggle and the club theme).
+  useEffect(() => {
+    let meta = document.querySelector<HTMLMetaElement>(
+      'meta[name="theme-color"]',
+    );
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "theme-color";
+      document.head.appendChild(meta);
+    }
+    const tag = meta;
+
+    const sync = () => {
+      const colour = getComputedStyle(document.body).backgroundColor;
+      if (colour) tag.content = colour;
+    };
+
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme", "data-club", "style"],
+    });
+    return () => observer.disconnect();
   }, []);
 
   return (
@@ -347,7 +395,7 @@ export default function Home() {
       <section
         className={`${
           showModes ? "flex" : "hidden"
-        } fixed inset-0 z-50 h-[100dvh] flex-col overflow-hidden overscroll-none bg-surface px-5 pb-5 pt-[max(1rem,env(safe-area-inset-top))] md:hidden`}
+        } fixed inset-0 z-50 flex-col overflow-hidden overscroll-none touch-none bg-surface px-5 pb-5 pt-[max(1rem,env(safe-area-inset-top))] md:hidden`}
       >
         <button
           type="button"
@@ -437,7 +485,7 @@ export default function Home() {
       <section
         className={`${
           showHow ? "flex" : "hidden"
-        } fixed inset-0 z-50 h-[100dvh] flex-col overflow-hidden overscroll-none bg-surface px-5 pb-5 pt-[max(1rem,env(safe-area-inset-top))] md:hidden`}
+        } fixed inset-0 z-50 flex-col overflow-hidden overscroll-none touch-none bg-surface px-5 pb-5 pt-[max(1rem,env(safe-area-inset-top))] md:hidden`}
       >
         <button
           type="button"
