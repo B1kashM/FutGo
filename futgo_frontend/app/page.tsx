@@ -58,10 +58,11 @@ const pitchPlayers = [
 
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showModes, setShowModes] = useState(false);
   const { club } = useClub();
 
   return (
-    <main className="min-h-screen overflow-hidden bg-background text-foreground">
+    <main className="h-[100dvh] overflow-hidden bg-background text-foreground md:h-auto md:min-h-screen md:overflow-visible">
       {/* Club colour bar */}
       <div className="brand-bar h-1.5 w-full" />
 
@@ -91,6 +92,7 @@ export default function Home() {
             </a>
             <a
               href="#game-modes"
+              onClick={() => setShowModes(true)}
               className="text-sm text-muted transition hover:text-foreground"
             >
               Matchday
@@ -110,6 +112,7 @@ export default function Home() {
 
             <a
               href="#game-modes"
+              onClick={() => setShowModes(true)}
               className="hidden items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-accent-ink transition hover:brightness-110 sm:flex"
             >
               Play now <ArrowUpRight size={16} />
@@ -130,7 +133,13 @@ export default function Home() {
             <a href="#how-it-works" onClick={() => setMenuOpen(false)}>
               How to play
             </a>
-            <a href="#game-modes" onClick={() => setMenuOpen(false)}>
+            <a
+              href="#game-modes"
+              onClick={() => {
+                setMenuOpen(false);
+                setShowModes(true);
+              }}
+            >
               Matchday
             </a>
             <a href="#about" onClick={() => setMenuOpen(false)}>
@@ -141,18 +150,18 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className="relative">
+      <section className={`relative h-[calc(100dvh-83px)] overflow-hidden md:h-auto md:overflow-visible ${showModes ? "hidden md:block" : "block"}`}>
         <div className="pointer-events-none absolute left-1/4 top-0 h-[500px] w-[600px] -translate-x-1/2 rounded-full bg-accent/20 blur-[130px]" />
         <div className="pointer-events-none absolute right-0 top-20 h-[420px] w-[520px] rounded-full bg-accent-2/20 blur-[130px]" />
 
-        <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-5 pb-20 pt-16 sm:px-8 sm:pt-24 lg:grid-cols-[1.05fr_0.95fr] lg:px-12 lg:pb-28 lg:pt-28">
+        <div className="relative mx-auto grid h-full max-w-7xl content-center items-center gap-5 overflow-hidden px-5 py-5 sm:px-8 sm:py-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12 lg:px-12 lg:py-28">
           <div>
-            <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-trim/40 bg-trim/10 px-4 py-2 text-xs font-semibold text-accent-text">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-trim/40 bg-trim/10 px-4 py-2 text-xs font-semibold text-accent-text">
               <Sparkles size={14} />
               {club.badge}
             </div>
 
-            <h1 className="max-w-2xl text-5xl font-black leading-[1.05] tracking-[-0.055em] sm:text-6xl lg:text-[76px]">
+            <h1 className="max-w-2xl text-[clamp(2.35rem,10vw,3.4rem)] font-black leading-[1.02] tracking-[-0.055em] sm:text-6xl lg:text-[76px]">
               {club.headline[0]}
               <br />
               {club.headline[1]}
@@ -166,10 +175,11 @@ export default function Home() {
               {club.blurb}
             </p> */}
 
-            <div className="mt-9 flex flex-wrap gap-3">
+            <div className="mt-6 flex flex-wrap gap-3">
               <a
                 href="#game-modes"
-                className="group inline-flex items-center gap-3 rounded-xl bg-accent px-6 py-4 font-bold text-accent-ink shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:brightness-110"
+                onClick={() => setShowModes(true)}
+                className="group inline-flex items-center gap-3 rounded-xl bg-accent px-5 py-3.5 text-sm font-bold text-accent-ink shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:brightness-110"
               >
                 Start drafting
                 <ArrowRight
@@ -179,7 +189,7 @@ export default function Home() {
               </a>
               <a
                 href="#how-it-works"
-                className="inline-flex items-center gap-2 rounded-xl border border-border px-6 py-4 font-semibold text-foreground/80 transition hover:border-accent-2 hover:bg-accent-2/10"
+                className="inline-flex items-center gap-2 rounded-xl border border-border px-5 py-3.5 text-sm font-semibold text-foreground/80 transition hover:border-accent-2 hover:bg-accent-2/10"
               >
                 <CircleHelp size={18} />
                 How to play
@@ -199,7 +209,7 @@ export default function Home() {
           </div>
 
           {/* Dream XI preview: every colour here follows the selected club */}
-          <div className="relative mx-auto w-full max-w-[510px]">
+          <div className="relative mx-auto hidden w-full max-w-[510px] md:block">
             <div className="absolute inset-8 rounded-full bg-accent-2/25 blur-3xl" />
 
             <div className="relative overflow-hidden rounded-[28px] border border-accent/30 bg-surface-2 p-4 shadow-2xl shadow-accent/15 sm:p-6">
@@ -254,6 +264,88 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Mobile game mode screen */}
+      <section
+        className={`${showModes ? "flex" : "hidden"} fixed inset-x-0 bottom-0 top-[83px] z-10 flex-col overflow-hidden bg-surface px-5 pb-6 pt-5 md:hidden`}
+      >
+        <button
+          type="button"
+          onClick={() => setShowModes(false)}
+          className="mb-5 flex w-fit items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-muted"
+        >
+          <ChevronRight className="rotate-180" size={16} />
+          Back to home
+        </button>
+
+        <div className="mb-5">
+          <div className="text-[10px] font-bold tracking-[0.22em] text-accent-text">
+            CHOOSE YOUR MATCHDAY
+          </div>
+          <h2 className="mt-2 text-2xl font-black tracking-tight">
+            HOW DO YOU WANT TO PLAY?
+          </h2>
+          <p className="mt-2 text-sm leading-5 text-muted">
+            Same beautiful game. Two ways to build your dream team.
+          </p>
+        </div>
+
+        <div className="grid min-h-0 flex-1 grid-rows-2 gap-4">
+          <Link
+            href="/local-draft"
+            className="group relative flex min-h-0 flex-col justify-between overflow-hidden rounded-3xl border border-border bg-surface-2 p-5"
+          >
+            <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-accent/20 blur-2xl" />
+            <div className="relative">
+              <div className="flex items-center justify-between">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent-text">
+                  <Gamepad2 size={25} />
+                </div>
+                <span className="rounded-full border border-border px-3 py-1.5 text-[9px] font-bold tracking-wider text-muted">
+                  SAME DEVICE
+                </span>
+              </div>
+              <h3 className="mt-4 text-xl font-black">Local Draft</h3>
+              <p className="mt-2 max-w-xs text-sm leading-5 text-muted">
+                Play with a friend on the same device. Take turns picking players and build two legendary squads.
+              </p>
+            </div>
+            <div className="relative flex items-center justify-between">
+              <span className="text-sm font-bold text-accent-text">Play locally</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-accent-ink">
+                <ArrowRight size={19} />
+              </span>
+            </div>
+          </Link>
+
+          <Link
+            href="/online-draft"
+            className="group relative flex min-h-0 flex-col justify-between overflow-hidden rounded-3xl border border-border bg-surface-2 p-5"
+          >
+            <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-accent-2/20 blur-2xl" />
+            <div className="relative">
+              <div className="flex items-center justify-between">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-2/15 text-accent-2-text">
+                  <Globe2 size={25} />
+                </div>
+                <span className="rounded-full border border-accent-2/40 bg-accent-2/10 px-3 py-1.5 text-[9px] font-bold tracking-wider text-accent-2-text">
+                  ONLINE
+                </span>
+              </div>
+              <h3 className="mt-4 text-xl font-black">Online Draft</h3>
+              <p className="mt-2 max-w-xs text-sm leading-5 text-muted">
+                Challenge a friend anywhere. Create a private room, share your code, and compete pick by pick.
+              </p>
+            </div>
+            <div className="relative flex items-center justify-between">
+              <span className="text-sm font-bold text-accent-2-text">Challenge a friend</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-2 text-accent-2-ink">
+                <ArrowRight size={19} />
+              </span>
+            </div>
+          </Link>
         </div>
       </section>
 
@@ -383,7 +475,7 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer id="about" className="border-t border-border">
+      <footer id="about" className="hidden border-t border-border md:block">
         <div className="brand-bar h-1 w-full" />
         <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-8 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-12">
           <Link href="/" className="flex items-center gap-2.5">
@@ -401,6 +493,7 @@ export default function Home() {
 
           <a
             href="#game-modes"
+            onClick={() => setShowModes(true)}
             className="flex items-center gap-2 text-sm font-semibold text-muted transition hover:text-accent-text"
           >
             Ready to draft? <ChevronRight size={16} />

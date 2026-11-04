@@ -1250,3 +1250,28 @@ button {
     transform: translateX(290%);
   }
 }
+
+/* ---------- Mobile viewport safeguards ---------- */
+
+html,
+body {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+@media (max-width: 767px) {
+  html {
+    min-height: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    min-height: 100dvh;
+    overscroll-behavior-x: none;
+  }
+
+  /* Keep touch scrolling available inside draft and match pages. */
+  #game-modes {
+    overscroll-behavior: contain;
+  }
+}

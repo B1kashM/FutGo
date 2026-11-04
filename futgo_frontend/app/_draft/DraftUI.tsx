@@ -160,7 +160,7 @@ export function DraftingView({
   const [popupOpen, setPopupOpen] = useState(true);
   useEffect(() => { setPopupOpen(true); }, [offerKey]);
 
-  const showPopup = popupOpen && canPick && offered.length > 0;
+  const showPopup = popupOpen && offered.length > 0;
 
   useEffect(() => {
     if (!showPopup) return undefined;
@@ -177,6 +177,9 @@ export function DraftingView({
   }, [showPopup, loading]);
 
   const handlePick = (player: Player) => {
+    // Both managers can preview the offered cards, but only the active
+    // manager is allowed to submit a pick.
+    if (!canPick || loading) return;
     setPopupOpen(false);
     onPick(player);
   };
@@ -215,8 +218,17 @@ export function DraftingView({
           </div>
         ) : (
           <div className="mb-6 rounded-2xl border border-border bg-surface p-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="flex items-center gap-2 text-sm font-bold text-muted"><span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent-text" />Waiting for {currentName} to choose...</span>
+              {!showPopup && (
+                <button
+                  type="button"
+                  onClick={() => setPopupOpen(true)}
+                  className="flex items-center gap-2 rounded-xl border border-accent/30 px-4 py-2 text-xs font-bold text-accent-text transition hover:bg-accent/10"
+                >
+                  <Users size={15} />View player options
+                </button>
+              )}
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               {offered.map((player) => (
@@ -262,7 +274,9 @@ export function DraftingView({
             <div className="mb-5 flex items-start justify-between gap-4 text-white lg:mb-6">
               <div>
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-accent-text"><Zap size={14} />Round {round} of 11</div>
-                <h2 className="mt-2 text-2xl font-black sm:text-4xl lg:text-[2.75rem] lg:leading-tight">{promptLabel ?? `${currentName}, choose your footballer`}</h2>
+                <h2 className="mt-2 text-2xl font-black sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
+                  {promptLabel ?? (canPick ? `${currentName}, choose your footballer` : `${currentName} is choosing their footballer`)}
+                </h2>
                 <br />
               </div>
               <button type="button" onClick={() => setPopupOpen(false)} disabled={loading} aria-label="Close and view squads" title="Close and view squads"
@@ -273,9 +287,10 @@ export function DraftingView({
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:gap-8">
               {offered.map((player, index) => (
-                <button key={player.id} type="button" disabled={loading}
+                <button key={player.id} type="button" disabled={!canPick || loading}
                   onClick={() => handlePick(player)}
-                  className={`${index === 0 ? "fut-pick-card-1" : "fut-pick-card-2"} group relative overflow-hidden rounded-3xl border border-foreground/20 bg-surface/75 p-5 text-left text-foreground shadow-xl shadow-black/30 backdrop-blur-xl transition duration-200 hover:-translate-y-1.5 hover:border-accent-text/70 hover:bg-accent/15 hover:shadow-accent/20 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40 disabled:cursor-wait disabled:opacity-60 sm:p-7 lg:p-9`}>
+                  aria-label={canPick ? `Draft ${player.name}` : `Preview ${player.name}; waiting for opponent`}
+                  className={`${index === 0 ? "fut-pick-card-1" : "fut-pick-card-2"} group relative overflow-hidden rounded-3xl border border-foreground/20 bg-surface/75 p-5 text-left text-foreground shadow-xl shadow-black/30 backdrop-blur-xl transition duration-200 ${canPick ? "hover:-translate-y-1.5 hover:border-accent-text/70 hover:bg-accent/15 hover:shadow-accent/20" : "cursor-default"} focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40 disabled:opacity-100 sm:p-7 lg:p-9`}>
                   <div className="absolute right-0 top-0 h-44 w-44 rounded-full bg-accent/10 blur-3xl transition group-hover:bg-accent/25" />
                   <div className="relative flex items-start justify-between gap-3">
                     <span className="rounded-full border border-border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted lg:text-xs">Option {index + 1}</span>
@@ -292,17 +307,23 @@ export function DraftingView({
                     </div>
                   </div>
                   <div className="relative mt-6 flex items-center justify-between border-t border-border pt-4 lg:mt-8">
-                    <span className="text-sm font-bold text-muted transition group-hover:text-accent-text lg:text-lg">Draft this player</span>
-                    {loading
+                    <span className={`text-sm font-bold lg:text-lg ${canPick ? "text-muted transition group-hover:text-accent-text" : "text-muted"}`}>
+                      {canPick ? "Draft this player" : "Opponent's option"}
+                    </span>
+                    {canPick && loading
                       ? <LoaderCircle size={19} className="animate-spin text-accent-text" />
-                      : <span className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/10 transition group-hover:bg-accent group-hover:text-accent-ink lg:h-11 lg:w-11"><ChevronRight size={17} /></span>}
+                      : <span className={`flex h-9 w-9 items-center justify-center rounded-full bg-foreground/10 lg:h-11 lg:w-11 ${canPick ? "transition group-hover:bg-accent group-hover:text-accent-ink" : "text-muted"}`}>
+                          {canPick ? <ChevronRight size={17} /> : <Users size={16} />}
+                        </span>}
                   </div>
                 </button>
               ))}
             </div>
 
             {error && <div className="mt-5"><ErrorMessage message={error} /></div>}
-            <p className="mt-5 text-center text-xs text-white/40">Pick one player to continue. Press Esc to close and view the squads.</p>
+            <p className="mt-5 text-center text-xs text-white/40">
+              {canPick ? "Pick one player to continue. Press Esc to close and view the squads." : "Previewing the two options. Only the active manager can make the pick."}
+            </p>
           </div>
         </div>
       )}
