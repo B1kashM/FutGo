@@ -13,6 +13,7 @@ import {
 import ThemeToggle from "../components/ThemeToggle";
 import ClubPicker from "../components/ClubPicker";
 import { useClub } from "../_theme/useClub";
+import { useLockBodyScroll } from "./useLockBodyScroll";
 import {
   DRAFT_CATEGORIES,
   EXTRA_TIME_END,
@@ -162,18 +163,16 @@ export function DraftingView({
 
   const showPopup = popupOpen && offered.length > 0;
 
+  // Freeze the page behind the popup (works on iOS and Android too).
+  useLockBodyScroll(showPopup);
+
   useEffect(() => {
     if (!showPopup) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !loading) setPopupOpen(false);
     };
     window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener("keydown", onKey);
   }, [showPopup, loading]);
 
   const handlePick = (player: Player) => {
@@ -257,7 +256,7 @@ export function DraftingView({
           role="dialog"
           aria-modal="true"
           aria-label={`${currentName}, choose your footballer`}
-          className="fut-pick-backdrop fixed inset-0 z-[150] flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-md lg:p-8"
+          className="fut-pick-backdrop fixed inset-0 z-[150] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/60 p-4 backdrop-blur-md lg:p-8"
         >
           <style>{`
             @keyframes fut-pick-fade { from { opacity: 0 } to { opacity: 1 } }
@@ -354,7 +353,6 @@ export function DraftCompleteView({
         <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/10 text-accent-text"><Crown size={32} /></div>
         <p className="text-xs font-bold uppercase tracking-[0.22em] text-accent-text">Draft complete</p>
         <h1 className="mt-3 text-4xl font-black sm:text-6xl">SQUADS LOCKED.</h1>
-        <p className="mt-4 text-muted">{draft.player1_name} and {draft.player2_name} have drafted their teams. Ready to see who wins on the pitch?</p>
         <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.06] px-4 py-2 text-sm font-semibold text-accent-text"><Trophy size={15} />{categoryLabel}</div>
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
@@ -1180,6 +1178,9 @@ export function WinnerCelebration({
   penaltyLine: string | null;
   onClose: () => void;
 }) {
+  // Freeze the page behind the celebration overlay.
+  useLockBodyScroll(true);
+
   // Restrained palette: gold, white and the winning club's own colours.
   const palette = useMemo(
     () => [GOLD, GOLD_LIGHT, "#ffffff", team?.primary_color, team?.secondary_color].filter(Boolean) as string[],
@@ -1482,13 +1483,12 @@ export function SquadPitch({
           <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-black ${active ? "bg-accent text-accent-ink" : "bg-foreground/5 text-muted"}`}>{number}</div>
           <div className="min-w-0">
             <h3 className="truncate font-bold">{name}</h3>
-            <p className="mt-0.5 text-xs text-muted">{players.length} / 11 players · 4–3–3</p>
             {team && <p className="mt-1 truncate text-xs font-semibold text-accent-text">{team.name}</p>}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {team?.logo_url && <img src={team.logo_url} alt={`${team.name} logo`} className="h-8 w-8 object-contain" />}
-          {complete ? <span className="flex items-center gap-1 text-xs font-bold text-accent-text"><Check size={14} />Complete</span> : active ? <span className="rounded-full bg-accent/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-accent-text">Picking</span> : <span className="text-xs text-muted">Waiting</span>}
+          {complete ? <span> </span> : active ? <span className="rounded-full bg-accent/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-accent-text">Picking</span> : <span className="text-xs text-muted">Waiting</span>}
         </div>
       </div>
 

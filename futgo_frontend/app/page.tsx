@@ -42,17 +42,17 @@ const stepMeta = [
 ];
 
 const pitchPlayers = [
-  { x: "50%", y: "9%", name: "GK", number: "01" },
-  { x: "17%", y: "29%", name: "LB", number: "02" },
-  { x: "39%", y: "29%", name: "CB", number: "03" },
-  { x: "61%", y: "29%", name: "CB", number: "04" },
-  { x: "83%", y: "29%", name: "RB", number: "05" },
-  { x: "25%", y: "49%", name: "CM", number: "06" },
-  { x: "50%", y: "49%", name: "DM", number: "07" },
-  { x: "75%", y: "49%", name: "AM", number: "08" },
-  { x: "20%", y: "72%", name: "LW", number: "09" },
-  { x: "50%", y: "79%", name: "ST", number: "10" },
-  { x: "80%", y: "72%", name: "RW", number: "11" },
+  { x: "50%", y: "11%", name: "GK", number: "01" },
+  { x: "17%", y: "31%", name: "LB", number: "02" },
+  { x: "39%", y: "31%", name: "CB", number: "03" },
+  { x: "61%", y: "31%", name: "CB", number: "04" },
+  { x: "83%", y: "31%", name: "RB", number: "05" },
+  { x: "25%", y: "51%", name: "CM", number: "06" },
+  { x: "50%", y: "51%", name: "DM", number: "07" },
+  { x: "75%", y: "51%", name: "AM", number: "08" },
+  { x: "20%", y: "74%", name: "LW", number: "09" },
+  { x: "50%", y: "81%", name: "ST", number: "10" },
+  { x: "80%", y: "74%", name: "RW", number: "11" },
 ];
 
 const mobileChips = [
@@ -423,9 +423,6 @@ export default function Home() {
           <h2 className="mt-2 text-2xl font-black tracking-tight">
             HOW DO YOU WANT TO PLAY?
           </h2>
-          <p className="mt-2 text-sm leading-5 text-muted">
-            Same beautiful game. Two ways to build your dream team.
-          </p>
         </div>
 
         <div className="grid min-h-0 flex-1 grid-rows-2 gap-3 overflow-hidden">
@@ -489,8 +486,9 @@ export default function Home() {
             </div>
           </Link>
         </div>
+        <br /><br />
       </section>
-
+      
       {/* Mobile how-to-play screen */}
       <section
         className={`${
@@ -558,9 +556,6 @@ export default function Home() {
                 HOW DO YOU WANT TO PLAY?
               </h2>
             </div>
-            <p className="max-w-sm text-sm leading-6 text-muted">
-              Same beautiful game. Two ways to build your dream team.
-            </p>
           </div>
 
           <div className="grid gap-5 md:grid-cols-2">

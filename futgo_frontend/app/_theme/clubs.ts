@@ -73,7 +73,7 @@ export const CLUBS: Club[] = [
     swatch: ["#da291c", "#fbe122"],
     brandTag: "THE RED DEVILS DRAFT",
     badge: "GLORY GLORY. YOUR PICKS. YOUR LEGACY.",
-    headline: ["Glory", "glory,", "Man United."],
+    headline: ["Glory", "Glory,", "Man United."],
     blurb: "Build your ultimate Red Devils XI. Prove who really knows football.",
     formation: "RED DEVILS 4–3–3",
     stepTitles: ["Build your Red Devils XI", "Outplay your rival", "Win the Derby"],
