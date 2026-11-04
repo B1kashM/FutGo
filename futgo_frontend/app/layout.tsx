@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+
 import { CLUB_IDS, DEFAULT_CLUB } from "./_theme/clubs";
 import InitialLoader from "./components/InitialLoader";
 
@@ -50,11 +52,35 @@ export const viewport: Viewport = {
   themeColor: "#000000",
 };
 
-const themeScript = `(function(){try{var d=document.documentElement;var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}var c=localStorage.getItem('club');if(${JSON.stringify(
-  CLUB_IDS,
-)}.indexOf(c)<0){c=${JSON.stringify(DEFAULT_CLUB)}}d.dataset.theme=t;d.dataset.club=c}catch(e){}})()`;
+// Initialize theme and club before the page becomes interactive.
+const themeScript = `
+(function () {
+  try {
+    var d = document.documentElement;
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+    var t = localStorage.getItem("theme");
+
+    if (t !== "light" && t !== "dark") {
+      t = matchMedia("(prefers-color-scheme: light)").matches
+        ? "light"
+        : "dark";
+    }
+
+    var c = localStorage.getItem("club");
+
+    if (${JSON.stringify(CLUB_IDS)}.indexOf(c) < 0) {
+      c = ${JSON.stringify(DEFAULT_CLUB)};
+    }
+
+    d.dataset.theme = t;
+    d.dataset.club = c;
+  } catch (e) {}
+})();
+`;
+
+export default function RootLayout({
+  children,
+}: LayoutProps<"/">) {
   return (
     <html
       lang="en"
@@ -67,7 +93,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           href="/icons/image.png"
           sizes="512x512"
         />
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+
+        {/* Initialize theme before hydration */}
+        <Script
+          id="futgo-theme-initializer"
+          strategy="beforeInteractive"
+        >
+          {themeScript}
+        </Script>
       </head>
 
       <body className="min-h-full flex flex-col">
@@ -89,6 +122,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </div>
 
         <InitialLoader />
+
         {children}
       </body>
     </html>

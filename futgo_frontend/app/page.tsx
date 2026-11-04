@@ -62,7 +62,7 @@ export default function Home() {
   const { club } = useClub();
 
   return (
-    <main className="h-[100dvh] overflow-hidden bg-background text-foreground md:h-auto md:min-h-screen md:overflow-visible">
+    <main className="relative h-[100svh] overflow-hidden bg-background text-foreground md:h-auto md:min-h-screen md:overflow-visible">
       {/* Club colour bar */}
       <div className="brand-bar h-1.5 w-full" />
 
@@ -150,18 +150,18 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className={`relative h-[calc(100dvh-83px)] overflow-hidden md:h-auto md:overflow-visible ${showModes ? "hidden md:block" : "block"}`}>
+      <section className={`relative h-[calc(100svh-83px)] overflow-hidden md:h-auto md:overflow-visible ${showModes ? "hidden md:block" : "block"}`}>
         <div className="pointer-events-none absolute left-1/4 top-0 h-[500px] w-[600px] -translate-x-1/2 rounded-full bg-accent/20 blur-[130px]" />
         <div className="pointer-events-none absolute right-0 top-20 h-[420px] w-[520px] rounded-full bg-accent-2/20 blur-[130px]" />
 
-        <div className="relative mx-auto grid h-full max-w-7xl content-center items-center gap-5 overflow-hidden px-5 py-5 sm:px-8 sm:py-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12 lg:px-12 lg:py-28">
+        <div className="relative mx-auto grid h-full max-w-7xl content-center items-center gap-3 overflow-hidden px-5 py-3 sm:px-8 sm:py-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12 lg:px-12 lg:py-28">
           <div>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-trim/40 bg-trim/10 px-4 py-2 text-xs font-semibold text-accent-text">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-trim/40 bg-trim/10 px-4 py-1.5 text-[10px] font-semibold text-accent-text sm:mb-4 sm:px-4 sm:py-2 sm:text-xs">
               <Sparkles size={14} />
               {club.badge}
             </div>
 
-            <h1 className="max-w-2xl text-[clamp(2.35rem,10vw,3.4rem)] font-black leading-[1.02] tracking-[-0.055em] sm:text-6xl lg:text-[76px]">
+            <h1 className="max-w-2xl text-[clamp(2rem,8.8vw,3.15rem)] font-black leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-[76px]">
               {club.headline[0]}
               <br />
               {club.headline[1]}
@@ -175,7 +175,7 @@ export default function Home() {
               {club.blurb}
             </p> */}
 
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-4 flex flex-wrap gap-2.5 sm:mt-6 sm:gap-3">
               <a
                 href="#game-modes"
                 onClick={() => setShowModes(true)}
@@ -195,7 +195,7 @@ export default function Home() {
                 How to play
               </a>
             </div>
-            <br /><br />
+
             {/* <div className="mt-11 flex flex-wrap gap-x-7 gap-y-3 text-xs font-medium text-muted sm:text-sm">
               <span className="flex items-center gap-2">
                 <Check size={15} className="text-accent-text" />
@@ -206,6 +206,30 @@ export default function Home() {
                 Position-by-position picks
               </span>
             </div> */}
+            {/* Vertical football pitch for the mobile landing screen */}
+            <div className="mt-4 flex justify-center md:hidden">
+              <div className="relative h-[clamp(180px,30svh,235px)] w-[min(52vw,170px)] overflow-hidden rounded-2xl border border-accent/30 shadow-lg shadow-accent/10">
+                <div className="pitch-club absolute inset-0" />
+                <div className="pitch-line absolute left-0 right-0 top-1/2 border-t" />
+                <div className="pitch-line absolute left-1/2 top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border" />
+                <div className="pitch-line absolute left-1/2 top-0 h-7 w-14 -translate-x-1/2 rounded-b-lg border-x border-b" />
+                <div className="pitch-line absolute bottom-0 left-1/2 h-7 w-14 -translate-x-1/2 rounded-t-lg border-x border-t" />
+                {pitchPlayers.map((player) => (
+                  <div
+                    key={`mobile-${player.number}`}
+                    className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+                    style={{ left: player.x, top: player.y }}
+                  >
+                    <div className="shirt flex h-5 w-5 items-center justify-center rounded-full border text-[7px] font-black shadow">
+                      {player.number}
+                    </div>
+                    <span className="rounded bg-black/60 px-1 text-[6px] font-bold leading-3 text-white">
+                      {player.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Dream XI preview: every colour here follows the selected club */}
@@ -269,18 +293,18 @@ export default function Home() {
 
       {/* Mobile game mode screen */}
       <section
-        className={`${showModes ? "flex" : "hidden"} fixed inset-x-0 bottom-0 top-[83px] z-10 flex-col overflow-hidden bg-surface px-5 pb-6 pt-5 md:hidden`}
+        className={`${showModes ? "flex" : "hidden"} fixed inset-0 z-50 flex-col overflow-hidden bg-surface px-5 pb-5 pt-[max(1rem,env(safe-area-inset-top))] md:hidden`}
       >
         <button
           type="button"
           onClick={() => setShowModes(false)}
-          className="mb-5 flex w-fit items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-muted"
+          className="mb-4 flex w-fit shrink-0 items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-muted"
         >
           <ChevronRight className="rotate-180" size={16} />
           Back to home
         </button>
 
-        <div className="mb-5">
+        <div className="mb-4 shrink-0">
           <div className="text-[10px] font-bold tracking-[0.22em] text-accent-text">
             CHOOSE YOUR MATCHDAY
           </div>
@@ -292,10 +316,10 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-rows-2 gap-4">
+        <div className="grid min-h-0 flex-1 grid-rows-2 gap-3 overflow-hidden">
           <Link
             href="/local-draft"
-            className="group relative flex min-h-0 flex-col justify-between overflow-hidden rounded-3xl border border-border bg-surface-2 p-5"
+            className="group relative flex min-h-0 flex-col justify-between overflow-hidden rounded-3xl border border-border bg-surface-2 p-4"
           >
             <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-accent/20 blur-2xl" />
             <div className="relative">
@@ -307,8 +331,8 @@ export default function Home() {
                   SAME DEVICE
                 </span>
               </div>
-              <h3 className="mt-4 text-xl font-black">Local Draft</h3>
-              <p className="mt-2 max-w-xs text-sm leading-5 text-muted">
+              <h3 className="mt-3 text-lg font-black">Local Draft</h3>
+              <p className="mt-1.5 max-w-xs text-xs leading-4 text-muted">
                 Play with a friend on the same device. Take turns picking players and build two legendary squads.
               </p>
             </div>
@@ -322,7 +346,7 @@ export default function Home() {
 
           <Link
             href="/online-draft"
-            className="group relative flex min-h-0 flex-col justify-between overflow-hidden rounded-3xl border border-border bg-surface-2 p-5"
+            className="group relative flex min-h-0 flex-col justify-between overflow-hidden rounded-3xl border border-border bg-surface-2 p-4"
           >
             <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-accent-2/20 blur-2xl" />
             <div className="relative">
@@ -334,8 +358,8 @@ export default function Home() {
                   ONLINE
                 </span>
               </div>
-              <h3 className="mt-4 text-xl font-black">Online Draft</h3>
-              <p className="mt-2 max-w-xs text-sm leading-5 text-muted">
+              <h3 className="mt-3 text-lg font-black">Online Draft</h3>
+              <p className="mt-1.5 max-w-xs text-xs leading-4 text-muted">
                 Challenge a friend anywhere. Create a private room, share your code, and compete pick by pick.
               </p>
             </div>
