@@ -90,7 +90,7 @@ export default function RootLayout({
       <head>
         <link
           rel="apple-touch-icon"
-          href="/icons/image.png"
+          href="/icons/newapp.png"
           sizes="512x512"
         />
 
@@ -108,7 +108,7 @@ export default function RootLayout({
         <div id="initial-loader" className="initial-loader">
           <div className="loader-content">
             <img
-              src="/icons/image.png"
+              src="/icons/newapp.png"
               alt="FutGo"
               className="loader-logo"
             />
