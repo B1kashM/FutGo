@@ -286,14 +286,14 @@ export default function Home() {
               </div>
 
               {/* Mobile pitch: fixed size, raised above the headline */}
-              <div className="relative -mt-11 h-[184px] w-[130px] shrink-0 self-start rotate-[-6deg] overflow-hidden rounded-2xl border border-accent/35 shadow-xl shadow-accent/15 transition-transform duration-500 md:hidden">
+              <div className="relative -mt-11 h-[188px] w-[133px] shrink-0 self-start rotate-[-6deg] overflow-hidden rounded-2xl border border-accent/35 shadow-xl shadow-accent/15 transition-transform duration-500 md:hidden">
                 {/* Stripes fill the whole pitch, alternating the club's two colours */}
                 <div className="absolute inset-0 flex flex-col bg-surface-2">
-                  {Array.from({ length: 8 }).map((_, i) => (
+                  {Array.from({ length: 11 }).map((_, i) => (
                     <div
                       key={i}
                       className={`flex-1 ${
-                        i % 2 === 0 ? "bg-accent" : "bg-accent-2"
+                        i % 2 === 0 ? "bg-accent dark:brightness-75" : "bg-accent-2 dark:brightness-75"
                       }`}
                     />
                   ))}

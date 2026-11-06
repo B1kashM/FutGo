@@ -47,7 +47,7 @@ export const CLUBS: Club[] = [
     swatch: ["#a50044", "#004d98"],
     brandTag: "THE BLAUGRANA DRAFT",
     badge: "VISCA EL FUTBOL. YOUR PICKS. YOUR LEGACY.",
-    headline: ["Més", "que un Club", "Barça."],
+    headline: ["Més", "que un", "Club."],
     blurb: "Build your ultimate Blaugrana XI. Prove who really knows football.",
     formation: "TIKI-TAKA 4–3–3",
     stepTitles: ["Build your Blaugrana XI", "Outplay your rival", "Win the Clásico"],
