@@ -108,7 +108,7 @@ export default function RootLayout({
         <div id="initial-loader" className="initial-loader">
           <div className="loader-content">
             <img
-              src="/icons/newapp.png"
+              src="/icons/image.png"
               alt="FutGo"
               className="loader-logo"
             />

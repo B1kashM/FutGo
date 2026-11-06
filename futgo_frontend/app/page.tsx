@@ -486,7 +486,7 @@ export default function Home() {
             </div>
           </Link>
         </div>
-        <br /><br />
+        <br />
       </section>
       
       {/* Mobile how-to-play screen */}
