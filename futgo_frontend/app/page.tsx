@@ -41,7 +41,7 @@ const stepMeta = [
 ];
 
 const pitchPlayers = [
-  { x: "50%", y: "11%", name: "GK", number: "01" },
+  { x: "50%", y: "15%", name: "GK", number: "01" },
   { x: "17%", y: "31%", name: "LB", number: "02" },
   { x: "39%", y: "31%", name: "CB", number: "03" },
   { x: "61%", y: "31%", name: "CB", number: "04" },
@@ -260,7 +260,7 @@ export default function Home() {
             {/* Mobile: text left, pitch right. Desktop: normal block */}
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 md:block">
               <div>
-                <h1 className="max-w-2xl text-[clamp(2.45rem,11.3vw,3.6rem)] font-black leading-[0.96] tracking-[-0.055em] sm:text-6xl lg:text-[76px]">
+                <h1 className="max-w-2xl text-[clamp(2.75rem,12.5vw,4rem)] font-black leading-[0.96] tracking-[-0.055em] sm:text-6xl lg:text-[76px]">
                   {club.headline[0]}
                   <br />
                   {club.headline[1]}
@@ -293,7 +293,7 @@ export default function Home() {
                     <div
                       key={i}
                       className={`flex-1 ${
-                        i % 2 === 0 ? "bg-accent/35" : "bg-accent-2/35"
+                        i % 2 === 0 ? "bg-accent" : "bg-accent-2"
                       }`}
                     />
                   ))}
