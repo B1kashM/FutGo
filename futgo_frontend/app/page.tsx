@@ -5,7 +5,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   ChevronRight,
-  CircleHelp,
   Crown,
   Gamepad2,
   Globe2,
@@ -261,7 +260,7 @@ export default function Home() {
             {/* Mobile: text left, pitch right. Desktop: normal block */}
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 md:block">
               <div>
-                <h1 className="max-w-2xl text-[clamp(2.2rem,10.5vw,3.2rem)] font-black leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-[76px]">
+                <h1 className="max-w-2xl text-[clamp(2.45rem,11.3vw,3.6rem)] font-black leading-[0.96] tracking-[-0.055em] sm:text-6xl lg:text-[76px]">
                   {club.headline[0]}
                   <br />
                   {club.headline[1]}
@@ -271,11 +270,11 @@ export default function Home() {
                   </span>
                 </h1>
 
-                <div className="mt-6 flex flex-col gap-2.5 md:mt-6 md:flex-row md:flex-wrap md:gap-3">
+                <div className="mt-6 flex flex-col items-center gap-2.5 md:mt-6 md:flex-row md:flex-wrap md:items-start md:gap-3">
                   <a
                     href="#game-modes"
                     onClick={openModes}
-                    className="group inline-flex w-full items-center justify-center gap-3 rounded-xl bg-accent px-5 py-3.5 text-sm font-bold text-accent-ink shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:brightness-110 md:w-auto"
+                    className="group inline-flex w-full max-w-[260px] items-center justify-center gap-3 rounded-xl bg-accent px-6 py-4 text-base font-extrabold text-accent-ink shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:brightness-110 md:w-auto md:max-w-none md:px-5 md:py-3.5 md:text-sm md:font-bold"
                   >
                     Start drafting
                     <ArrowRight
@@ -283,19 +282,11 @@ export default function Home() {
                       className="transition group-hover:translate-x-1"
                     />
                   </a>
-                  <a
-                    href="#how-it-works"
-                    onClick={openHow}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-5 py-3.5 text-sm font-semibold text-foreground/80 transition hover:border-accent-2 hover:bg-accent-2/10 md:w-auto"
-                  >
-                    <CircleHelp size={18} />
-                    How to play
-                  </a>
                 </div>
               </div>
 
               {/* Mobile pitch: fixed size, raised above the headline */}
-              <div className="relative -mt-8 h-[210px] w-[150px] shrink-0 self-start overflow-hidden rounded-2xl border border-accent/30 shadow-lg shadow-accent/10 md:hidden">
+              <div className="relative -mt-11 h-[184px] w-[130px] shrink-0 self-start rotate-[-6deg] overflow-hidden rounded-2xl border border-accent/35 shadow-xl shadow-accent/15 transition-transform duration-500 md:hidden">
                 {/* Stripes fill the whole pitch, alternating the club's two colours */}
                 <div className="absolute inset-0 flex flex-col bg-surface-2">
                   {Array.from({ length: 8 }).map((_, i) => (
@@ -329,13 +320,13 @@ export default function Home() {
             </div>
 
             {/* Mobile-only info chips fill the lower space */}
-            <div className="mt-7 flex flex-wrap justify-center gap-2 md:hidden">
+            <div className="mt-6 flex flex-wrap justify-center gap-2.5 md:hidden">
               {mobileChips.map(({ icon: Icon, label }) => (
                 <span
                   key={label}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2/60 px-3.5 py-2 text-[11px] font-semibold text-muted"
+                  className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2/60 px-4 py-2.5 text-xs font-semibold text-muted"
                 >
-                  <Icon size={13} className="text-accent-text" />
+                  <Icon size={14} className="text-accent-text" />
                   {label}
                 </span>
               ))}
