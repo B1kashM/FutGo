@@ -161,7 +161,7 @@ export const CLUBS: Club[] = [
     id: "inter",
     name: "Inter Milan",
     short: "INT",
-    swatch: ["#0068A8", "#000000"],
+    swatch: ["#011ea0", "#000000"],
     brandTag: "THE NERAZZURRI DRAFT",
     badge: "NON SMETTERE MAI. YOUR PICKS. YOUR LEGACY.",
     headline: ["Forza", "Inter!",""],

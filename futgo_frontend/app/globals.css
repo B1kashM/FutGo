@@ -426,46 +426,48 @@
 
 /* ---------- Inter Milan ---------- */
 :root[data-club="inter"] {
-  --background: #050b16;
-  --foreground: #ffffff;
-  --surface: #0b1628;
-  --surface-2: #12233b;
+  --background: #05070D;
+  --foreground: #FFFFFF;
+  --surface: #0B111C;
+  --surface-2: #141E2D;
   --border: rgba(255, 255, 255, 0.11);
   --muted: rgba(255, 255, 255, 0.62);
 
-  --accent: #0068a8;
-  --accent-ink: #ffffff;
-  --accent-text: #55b9f5;
-  --accent-2: #000000;
-  --accent-2-ink: #ffffff;
-  --accent-2-text: #aeb9c8;
-  --trim: #0068a8;
+  --accent: #011EA0;
+  --accent-ink: #FFFFFF;
+  --accent-text: #6685FF;
+  --accent-2: #050505;
+  --accent-2-ink: #FFFFFF;
+  --accent-2-text: #B8C2D0;
+  --trim: #011EA0;
 
-  --shirt-bg: #0068a8;
-  --shirt-ink: #ffffff;
-  --bar-bg: linear-gradient(90deg, #0068a8 0 50%, #000000 50%);
+  --shirt-bg: #011EA0;
+  --shirt-ink: #FFFFFF;
+  --bar-bg: linear-gradient(90deg, #011EA0 0 50%, #050505 50%);
 
   --field-a: #092c4b;
   --field-b: #103d62;
 }
+
 :root[data-club="inter"][data-theme="light"] {
-  --background: #f1f7fc;
-  --foreground: #071526;
-  --surface: #ffffff;
-  --surface-2: #e4eff8;
-  --border: rgba(7, 21, 38, 0.12);
-  --muted: rgba(7, 21, 38, 0.64);
+  --background: #F1F5FA;
+  --foreground: #101827;
+  --surface: #FFFFFF;
+  --surface-2: #E5ECF5;
+  --border: rgba(16, 24, 39, 0.12);
+  --muted: rgba(16, 24, 39, 0.64);
 
-  --accent: #0068a8;
-  --accent-ink: #ffffff;
-  --accent-text: #00558c;
+  --accent: #011EA0;
+  --accent-ink: #FFFFFF;
+  --accent-text: #011EA0;
   --accent-2: #111111;
-  --accent-2-ink: #ffffff;
+  --accent-2-ink: #FFFFFF;
   --accent-2-text: #333333;
-  --trim: #0068a8;
+  --trim: #011EA0;
 
-  --shirt-bg: #0068a8;
-  --shirt-ink: #ffffff;
+  --shirt-bg: #011EA0;
+  --shirt-ink: #FFFFFF;
+  --bar-bg: linear-gradient(90deg, #011EA0 0 50%, #050505 50%);
 
   --field-a: #3b80b4;
   --field-b: #5795c5;
