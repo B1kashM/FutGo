@@ -9,6 +9,7 @@ import {
   Gamepad2,
   Globe2,
   Goal,
+  Layers,
   Menu,
   Shield,
   Sparkles,
@@ -282,6 +283,13 @@ export default function Home() {
                       className="transition group-hover:translate-x-1"
                     />
                   </a>
+                  <Link
+                    href="/cards"
+                    className="inline-flex w-full max-w-[260px] items-center justify-center gap-3 rounded-xl border border-border bg-surface-2/60 px-6 py-4 text-base font-extrabold text-foreground transition hover:-translate-y-0.5 hover:border-accent/60 md:w-auto md:max-w-none md:px-5 md:py-3.5 md:text-sm md:font-bold"
+                  >
+                    <Layers size={19} className="text-accent-text" />
+                    Play Cards
+                  </Link>
                 </div>
               </div>
 
@@ -416,7 +424,7 @@ export default function Home() {
           </h2>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-rows-2 gap-3 overflow-hidden">
+        <div className="grid min-h-0 flex-1 grid-rows-3 gap-3 overflow-hidden">
           <Link
             href="/local-draft"
             className="group relative flex min-h-0 flex-col justify-between overflow-hidden rounded-3xl border border-border bg-surface-2 p-4"
@@ -472,6 +480,33 @@ export default function Home() {
                 Challenge a friend
               </span>
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-2 text-accent-2-ink">
+                <ArrowRight size={19} />
+              </span>
+            </div>
+          </Link>
+
+          <Link
+            href="/cards"
+            className="group relative flex min-h-0 flex-col justify-between overflow-hidden rounded-3xl border border-border bg-surface-2 p-4"
+          >
+            <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-accent/20 blur-2xl" />
+            <div className="relative flex items-center justify-between">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent-text">
+                <Layers size={25} />
+              </div>
+              <span className="rounded-full border border-border px-3 py-1.5 text-[9px] font-bold tracking-wider text-muted">
+                CARD BATTLE
+              </span>
+            </div>
+            <div className="relative">
+              <h3 className="text-lg font-black">Play Cards</h3>
+              <p className="mt-1 text-xs leading-4 text-muted">
+                Lock your best stat and win your rival&apos;s cards.
+              </p>
+            </div>
+            <div className="relative flex items-center justify-between">
+              <span className="text-sm font-bold text-accent-text">Start a battle</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-accent-ink">
                 <ArrowRight size={19} />
               </span>
             </div>
@@ -607,6 +642,31 @@ export default function Home() {
                     <ArrowRight size={19} />
                   </span>
                 </div>
+              </div>
+            </Link>
+
+            <Link
+              href="/cards"
+              className="group relative overflow-hidden rounded-3xl border border-border bg-surface-2 p-7 transition duration-300 hover:-translate-y-1 hover:border-accent/60 sm:p-9 md:col-span-2"
+            >
+              <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-accent/20 blur-2xl transition group-hover:bg-accent/35" />
+              <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-5">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-accent-text">
+                    <Layers size={28} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black">Play Cards</h3>
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
+                      A 1v1 card battle. Each manager gets a hidden deck: lock your
+                      best stat, make your rival reveal their card, and the higher
+                      stat wins both.
+                    </p>
+                  </div>
+                </div>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink transition group-hover:translate-x-1">
+                  <ArrowRight size={19} />
+                </span>
               </div>
             </Link>
           </div>
