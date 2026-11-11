@@ -1286,7 +1286,7 @@ body {
     opacity: 0;
   }
   100% {
-    transform: perspective(900px) rotateY(0deg) scale(1);
+    transform: none;
     opacity: 1;
   }
 }
@@ -1301,8 +1301,17 @@ body {
     opacity: 1;
   }
   100% {
-    transform: scale(1);
+    transform: none;
+    opacity: 1;
   }
+}
+
+.card-flip-in {
+  animation: card-flip-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+.card-pop {
+  animation: card-pop 0.4s ease-out backwards;
 }
 
 @keyframes card-shine {
@@ -1339,4 +1348,193 @@ body {
   );
   background-size: 200% 100%;
   animation: card-shine 3.2s linear infinite;
+}
+
+
+/* ---------- Play Cards: colourful surfaces ---------- */
+
+/* Tinted panels (follow the club colours, light and dark) */
+.cards-panel {
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--accent) 26%, var(--surface)) 0%,
+    color-mix(in srgb, var(--accent-2) 16%, var(--surface)) 100%
+  );
+  border: 2px solid color-mix(in srgb, var(--accent) 55%, var(--surface));
+  box-shadow: 0 10px 30px -12px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.cards-panel-soft {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+}
+
+/* Buttons: solid, with a pressed-down 3D edge */
+.cards-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  border-radius: 14px;
+  padding: 1rem 1.5rem;
+  font-weight: 900;
+  color: var(--accent-ink);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent), #fff 18%),
+    var(--accent)
+  );
+  border: 2px solid color-mix(in srgb, var(--accent), #000 25%);
+  box-shadow:
+    0 5px 0 color-mix(in srgb, var(--accent), #000 40%),
+    0 12px 22px -10px color-mix(in srgb, var(--accent) 70%, transparent);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+.cards-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+.cards-btn:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent), #000 40%);
+}
+.cards-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--accent), #000 40%);
+}
+
+.cards-btn-alt {
+  color: var(--accent-2-ink);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent-2), #fff 18%),
+    var(--accent-2)
+  );
+  border-color: color-mix(in srgb, var(--accent-2), #000 25%);
+  box-shadow:
+    0 5px 0 color-mix(in srgb, var(--accent-2), #000 40%),
+    0 12px 22px -10px color-mix(in srgb, var(--accent-2) 70%, transparent);
+}
+.cards-btn-alt:active:not(:disabled) {
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent-2), #000 40%);
+}
+.cards-btn-alt:disabled {
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--accent-2), #000 40%);
+}
+
+.cards-btn-ghost {
+  color: var(--foreground);
+  background: var(--surface-2);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--surface-2));
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 30%, var(--surface-2));
+}
+.cards-btn-ghost:active:not(:disabled) {
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 30%, var(--surface-2));
+}
+
+.cards-btn-sm {
+  width: auto;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  border-radius: 12px;
+}
+
+/* Tabs and chips */
+.cards-chip {
+  background: var(--surface-2);
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, var(--surface-2));
+  color: var(--foreground);
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.cards-chip:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.cards-chip-active {
+  background: var(--accent);
+  border-color: color-mix(in srgb, var(--accent), #000 25%);
+  color: var(--accent-ink);
+  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+/* Player card */
+.pcard {
+  color: #fff;
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--accent) 78%, #05060f) 0%,
+    color-mix(in srgb, var(--accent-2) 62%, #05060f) 100%
+  );
+  border: 3px solid #fbbf24;
+  box-shadow: 0 18px 40px -16px color-mix(in srgb, var(--accent) 70%, #000);
+}
+.pcard-photo {
+  background: radial-gradient(
+    circle at 50% 78%,
+    color-mix(in srgb, #fbbf24 55%, transparent),
+    transparent 62%
+  );
+}
+.pcard-win {
+  border-color: #34d399;
+  box-shadow: 0 0 0 4px #10b981, 0 0 32px 4px rgba(16, 185, 129, 0.55);
+}
+.pcard-lose {
+  border-color: #f87171;
+  filter: saturate(0.55) brightness(0.88);
+}
+.pcard-tie {
+  border-color: #fbbf24;
+  box-shadow: 0 0 0 4px #f59e0b, 0 0 28px 4px rgba(245, 158, 11, 0.5);
+}
+
+/* Stat tiles: colour = rating tier */
+.stat-tile {
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
+}
+.stat-elite {
+  color: #1c1300;
+  background: linear-gradient(135deg, #fcd34d, #f59e0b);
+}
+.stat-great {
+  color: #fff;
+  background: linear-gradient(135deg, #10b981, #047857);
+}
+.stat-good {
+  color: #fff;
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
+}
+.stat-low {
+  color: #e5e7eb;
+  background: #3b4256;
+}
+.stat-track {
+  background: rgba(0, 0, 0, 0.28);
+}
+.stat-fill {
+  background: rgba(255, 255, 255, 0.9);
+}
+.stat-elite .stat-fill {
+  background: rgba(28, 19, 0, 0.75);
+}
+.stat-pick {
+  cursor: pointer;
+}
+.stat-pick:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.12);
+}
+.stat-selected {
+  border-color: #fff;
+  transform: scale(1.04);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6);
+}
+.stat-locked {
+  border-color: #fff;
+  transform: scale(1.04);
+  box-shadow: 0 0 0 4px #fff, 0 0 20px 4px #fbbf24;
 }

@@ -52,10 +52,7 @@ const POLL_MS = 2000;
 const MAX_BACKOFF_MS = 8000;
 
 const INPUT_CLASS =
-  "w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-foreground/30 focus:border-accent-text/70 focus:ring-2 focus:ring-accent/20 disabled:opacity-60";
-
-const PRIMARY_BTN =
-  "flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-4 font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50";
+  "w-full rounded-xl border-2 border-accent/30 bg-surface-2 px-4 py-3 text-sm font-semibold text-foreground outline-none transition placeholder:text-foreground/35 focus:border-accent focus:ring-2 focus:ring-accent/25 disabled:opacity-60";
 
 /* ------------------------------------------------------------------ */
 /* Small presentational pieces                                         */
@@ -85,35 +82,52 @@ function ScoreBar({
   pot: number;
   challengerSeat: Seat;
 }) {
-  const side = (info: SideInfo, align: "left" | "right") => (
-    <div className={`min-w-0 flex-1 ${align === "right" ? "text-right" : ""}`}>
-      <p className="truncate text-sm font-black">{info.name}</p>
-      <p className="text-xs text-muted">
-        <span className="text-xl font-black text-foreground">
+  const side = (info: SideInfo, align: "left" | "right") => {
+    const pill =
+      align === "left"
+        ? "bg-accent text-accent-ink"
+        : "bg-accent-2 text-accent-2-ink";
+
+    return (
+      <div
+        className={`flex min-w-0 flex-1 items-center gap-3 ${
+          align === "right" ? "flex-row-reverse text-right" : ""
+        }`}
+      >
+        <span
+          className={`flex h-12 min-w-12 shrink-0 items-center justify-center rounded-xl px-2 text-2xl font-black shadow-md ${pill}`}
+        >
           {info.cards_left}
-        </span>{" "}
-        cards
-        {info.seat === challengerSeat && (
-          <span className="ml-1.5 font-bold text-accent-text">· challenging</span>
-        )}
-      </p>
-    </div>
-  );
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black">{info.name}</p>
+          <p className="text-[11px] font-semibold text-muted">
+            cards
+            {info.seat === challengerSeat && (
+              <span className="ml-1.5 font-black text-accent-text">· challenging</span>
+            )}
+          </p>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="mb-5 flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
-      {side(left, "left")}
-      <div className="shrink-0 text-center">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted">
-          Round {round}
-        </p>
-        {pot > 0 && (
-          <p className="mt-0.5 text-[11px] font-bold text-amber-600 dark:text-amber-300">
-            Pot: {pot}
+    <div className="cards-panel mb-5 overflow-hidden rounded-2xl">
+      <div className="flex items-center gap-3 px-4 py-3">
+        {side(left, "left")}
+        <div className="shrink-0 text-center">
+          <p className="rounded-full bg-foreground px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-background">
+            Round {round}
           </p>
-        )}
+          {pot > 0 && (
+            <p className="mt-1.5 rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-black text-slate-900">
+              Pot: {pot}
+            </p>
+          )}
+        </div>
+        {side(right, "right")}
       </div>
-      {side(right, "right")}
     </div>
   );
 }
@@ -552,14 +566,10 @@ export default function CardsPage() {
   const lobby = (
     <section className="mx-auto max-w-3xl py-6 sm:py-12">
       <div className="mb-6">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-accent-text">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-accent px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-accent-ink shadow-md">
           <Layers size={14} /> Card battle
         </div>
         <h1 className="text-3xl font-black tracking-tight sm:text-5xl">PLAY CARDS</h1>
-        <p className="mt-3 text-sm leading-6 text-muted sm:text-base">
-          Each manager gets a hidden deck. Lock your best stat, make your rival
-          reveal their card, and the higher stat takes both. Last one with cards wins.
-        </p>
       </div>
 
       <div className="mb-4 grid grid-cols-3 gap-2">
@@ -571,10 +581,8 @@ export default function CardsPage() {
               setTab(item.key);
               setError("");
             }}
-            className={`flex items-center justify-center gap-2 rounded-xl border px-2 py-3 text-xs font-bold transition sm:text-sm ${
-              tab === item.key
-                ? "border-accent bg-accent/15 text-accent-text"
-                : "border-border text-muted hover:border-accent/50"
+            className={`cards-chip flex items-center justify-center gap-2 rounded-xl px-2 py-3 text-xs font-black sm:text-sm ${
+              tab === item.key ? "cards-chip-active" : ""
             }`}
           >
             {item.icon}
@@ -583,15 +591,16 @@ export default function CardsPage() {
         ))}
       </div>
 
-      <form
-        onSubmit={submitLobby}
-        className="overflow-hidden rounded-[24px] border border-border bg-surface shadow-2xl shadow-black/10 dark:shadow-black/20"
-      >
-        <div className="grid gap-4 p-5 sm:p-7">
+      <form onSubmit={submitLobby} className="cards-panel overflow-hidden rounded-[24px]">
+        <div className="brand-bar h-1.5 w-full" />
+
+        <div className="grid gap-5 p-5 sm:p-7">
           {tab === "JOIN" ? (
             <>
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold text-muted">Room code</span>
+                <span className="mb-2 block text-xs font-black uppercase tracking-wider text-foreground/70">
+                  Room code
+                </span>
                 <input
                   value={joinCode}
                   onChange={(e) =>
@@ -607,7 +616,9 @@ export default function CardsPage() {
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold text-muted">Your display name</span>
+                <span className="mb-2 block text-xs font-black uppercase tracking-wider text-foreground/70">
+                  Your display name
+                </span>
                 <input
                   value={joinName}
                   onChange={(e) => setJoinName(e.target.value)}
@@ -622,7 +633,7 @@ export default function CardsPage() {
             <>
               <div className={`grid gap-4 ${tab === "LOCAL" ? "sm:grid-cols-2" : ""}`}>
                 <label className="block">
-                  <span className="mb-2 block text-xs font-semibold text-muted">
+                  <span className="mb-2 block text-xs font-black uppercase tracking-wider text-foreground/70">
                     {tab === "LOCAL" ? "Player 1" : "Your name"}
                   </span>
                   <input
@@ -636,7 +647,9 @@ export default function CardsPage() {
                 </label>
                 {tab === "LOCAL" && (
                   <label className="block">
-                    <span className="mb-2 block text-xs font-semibold text-muted">Player 2</span>
+                    <span className="mb-2 block text-xs font-black uppercase tracking-wider text-foreground/70">
+                      Player 2
+                    </span>
                     <input
                       value={name2}
                       onChange={(e) => setName2(e.target.value)}
@@ -650,7 +663,9 @@ export default function CardsPage() {
               </div>
 
               <div>
-                <span className="mb-2 block text-xs font-semibold text-muted">Card pool</span>
+                <span className="mb-2 block text-xs font-black uppercase tracking-wider text-foreground/70">
+                  Card pool
+                </span>
                 {poolsLoading ? (
                   <p className="text-sm text-muted">Loading pools...</p>
                 ) : (
@@ -663,13 +678,11 @@ export default function CardsPage() {
                           type="button"
                           disabled={tooSmall || busy}
                           onClick={() => setPoolKey(pool.key)}
-                          className={`rounded-full border px-3 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                            poolKey === pool.key
-                              ? "border-accent bg-accent/15 text-accent-text"
-                              : "border-border text-muted hover:border-accent/50"
+                          className={`cards-chip rounded-full px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-40 ${
+                            poolKey === pool.key ? "cards-chip-active" : ""
                           }`}
                         >
-                          {pool.label} <span className="opacity-60">· {pool.count}</span>
+                          {pool.label}
                         </button>
                       );
                     })}
@@ -678,7 +691,9 @@ export default function CardsPage() {
               </div>
 
               <div>
-                <span className="mb-2 block text-xs font-semibold text-muted">Cards each</span>
+                <span className="mb-2 block text-xs font-black uppercase tracking-wider text-foreground/70">
+                  Cards each
+                </span>
                 <div className="flex flex-wrap gap-2">
                   {DECK_OPTIONS.map((n) => {
                     const disabled = !deckChoices.includes(n);
@@ -688,10 +703,8 @@ export default function CardsPage() {
                         type="button"
                         disabled={disabled || busy}
                         onClick={() => setDeckSize(n)}
-                        className={`min-w-14 rounded-full border px-4 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                          deckSize === n && !disabled
-                            ? "border-accent bg-accent/15 text-accent-text"
-                            : "border-border text-muted hover:border-accent/50"
+                        className={`cards-chip min-w-14 rounded-full px-4 py-2 text-sm font-black disabled:cursor-not-allowed disabled:opacity-40 ${
+                          deckSize === n && !disabled ? "cards-chip-active" : ""
                         }`}
                       >
                         {n}
@@ -704,8 +717,8 @@ export default function CardsPage() {
           )}
         </div>
 
-        <div className="border-t border-border bg-foreground/[0.03] p-5 sm:px-7">
-          <button type="submit" disabled={busy || poolsLoading} className={PRIMARY_BTN}>
+        <div className="p-5 sm:px-7">
+          <button type="submit" disabled={busy || poolsLoading} className="cards-btn">
             {busy ? (
               <>
                 <LoaderCircle size={19} className="animate-spin" /> Working...
@@ -759,39 +772,40 @@ export default function CardsPage() {
 
       stage = (
         <StageWrap>
-          <div className="rounded-[24px] border border-border bg-surface p-6 text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">Room code</p>
-            <p className="mt-3 select-all text-5xl font-black tracking-[0.3em] text-accent-text">
-              {game.room_code}
-            </p>
-            <div className="mt-5 flex flex-wrap justify-center gap-2">
-              <button
-                type="button"
-                onClick={() => void copyText(game.room_code, "code")}
-                className="flex items-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-black text-accent-ink transition hover:brightness-110"
-              >
-                {copied === "code" ? <Check size={16} /> : <Copy size={16} />}
-                {copied === "code" ? "Copied" : "Copy code"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void copyText(link, "link")}
-                className="flex items-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-semibold text-foreground/75 transition hover:bg-foreground/5"
-              >
-                {copied === "link" ? <Check size={16} /> : <Copy size={16} />}
-                {copied === "link" ? "Copied" : "Copy invite link"}
-              </button>
+          <div className="cards-panel overflow-hidden rounded-[24px] text-center">
+            <div className="brand-bar h-1.5 w-full" />
+            <div className="p-6">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-foreground/70">
+                Room code
+              </p>
+              <p className="mt-3 select-all rounded-2xl bg-accent px-4 py-3 text-5xl font-black tracking-[0.3em] text-accent-ink shadow-lg">
+                {game.room_code}
+              </p>
+              <div className="mt-5 flex flex-wrap justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void copyText(game.room_code, "code")}
+                  className="cards-btn cards-btn-sm"
+                >
+                  {copied === "code" ? <Check size={16} /> : <Copy size={16} />}
+                  {copied === "code" ? "Copied" : "Copy code"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void copyText(link, "link")}
+                  className="cards-btn cards-btn-alt cards-btn-sm"
+                >
+                  {copied === "link" ? <Check size={16} /> : <Copy size={16} />}
+                  {copied === "link" ? "Copied" : "Copy invite link"}
+                </button>
+              </div>
+              <p className="mt-6 flex items-center justify-center gap-2 text-sm font-semibold text-foreground/75">
+                <LoaderCircle size={16} className="animate-spin" />
+                Waiting for your opponent to join...
+              </p>
             </div>
-            <p className="mt-6 flex items-center justify-center gap-2 text-sm text-muted">
-              <LoaderCircle size={16} className="animate-spin" />
-              Waiting for your opponent to join...
-            </p>
           </div>
-          <button
-            type="button"
-            onClick={leaveGame}
-            className="mt-4 w-full rounded-xl border border-border px-6 py-3 text-sm font-semibold text-muted transition hover:bg-foreground/5"
-          >
+          <button type="button" onClick={leaveGame} className="cards-btn cards-btn-ghost mt-5">
             Cancel room
           </button>
         </StageWrap>
@@ -799,6 +813,19 @@ export default function CardsPage() {
     } else if (game.status === "FINISHED") {
       const winnerName = game.winner_seat ? nameOf(game.winner_seat) : "";
       const loserName = game.winner_seat ? nameOf(otherSeat(game.winner_seat)) : "";
+
+      const outcome = !game.winner_seat
+        ? "draw"
+        : isLocal || game.you_won
+          ? "win"
+          : "lose";
+
+      const panelColor =
+        outcome === "win"
+          ? "border-emerald-300 bg-emerald-600 text-white"
+          : outcome === "lose"
+            ? "border-red-300 bg-red-600 text-white"
+            : "border-amber-200 bg-amber-400 text-slate-900";
 
       const headline = !game.winner_seat
         ? "It's a draw!"
@@ -815,22 +842,21 @@ export default function CardsPage() {
 
       stage = (
         <StageWrap>
-          <div className="card-pop rounded-[24px] border border-accent/40 bg-accent/10 p-8 text-center">
-            <Trophy size={44} className="mx-auto text-amber-500 dark:text-amber-300" />
+          <div
+            className={`card-pop rounded-[24px] border-2 p-8 text-center shadow-xl ${panelColor}`}
+          >
+            <Trophy size={48} className="mx-auto" />
             <h2 className="mt-4 text-3xl font-black">{headline}</h2>
-            <p className="mt-2 text-sm text-muted">{reason}</p>
-            <p className="mt-5 text-sm font-bold">
-              {left.name} {left.cards_left} <span className="text-muted">:</span>{" "}
+            <p className="mt-2 text-sm font-semibold opacity-85">{reason}</p>
+            <p className="mt-5 rounded-xl bg-black/25 px-4 py-2 text-sm font-black">
+              {left.name} {left.cards_left} <span className="opacity-70">:</span>{" "}
               {right.cards_left} {right.name}
             </p>
           </div>
-          <button type="button" onClick={leaveGame} className={`${PRIMARY_BTN} mt-4`}>
+          <button type="button" onClick={leaveGame} className="cards-btn mt-5">
             <RotateCcw size={18} /> Play again
           </button>
-          <Link
-            href="/"
-            className="mt-3 block rounded-xl border border-border px-6 py-3 text-center text-sm font-semibold text-muted transition hover:bg-foreground/5"
-          >
+          <Link href="/" className="cards-btn cards-btn-ghost mt-4">
             Back to home
           </Link>
         </StageWrap>
@@ -862,23 +888,23 @@ export default function CardsPage() {
 
       const bannerColor =
         lr.winner === "tie"
-          ? "text-amber-600 dark:text-amber-300"
+          ? "bg-amber-400 text-slate-900"
           : !isLocal && lr.winner === "opponent"
-            ? "text-red-600 dark:text-red-300"
-            : "text-emerald-600 dark:text-emerald-400";
+            ? "bg-red-600 text-white"
+            : "bg-emerald-600 text-white";
 
       stage = (
         <div className="mx-auto w-full max-w-3xl">
-          <div className="card-pop mb-5 rounded-2xl border border-border bg-surface p-5 text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">
+          <div className={`card-pop mb-5 rounded-2xl p-5 text-center shadow-lg ${bannerColor}`}>
+            <p className="text-xs font-black uppercase tracking-[0.18em] opacity-80">
               Round {lr.number} · {STAT_META[lr.stat].label}
             </p>
             <p className="mt-2 flex items-center justify-center gap-4 text-4xl font-black">
               <span>{challengerValue}</span>
-              <span className="text-base font-bold text-muted">vs</span>
+              <span className="text-base font-bold opacity-70">vs</span>
               <span>{responderValue}</span>
             </p>
-            <p className={`mt-2 text-lg font-black ${bannerColor}`}>{bannerText}</p>
+            <p className="mt-2 text-lg font-black">{bannerText}</p>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
@@ -907,7 +933,7 @@ export default function CardsPage() {
             type="button"
             onClick={continueGame}
             disabled={busy}
-            className={`${PRIMARY_BTN} mx-auto mt-6 max-w-sm`}
+            className="cards-btn mx-auto mt-6 max-w-sm"
           >
             {busy ? <LoaderCircle size={18} className="animate-spin" /> : <ArrowRight size={18} />}
             Next round
@@ -923,7 +949,7 @@ export default function CardsPage() {
             <button
               type="button"
               onClick={() => setHolderSeat(challengerSeat)}
-              className={`${PRIMARY_BTN} mt-4`}
+              className="cards-btn mt-5"
             >
               <Eye size={18} /> I&apos;m {challengerName}: show my card
             </button>
@@ -932,7 +958,7 @@ export default function CardsPage() {
       } else if (game.you_are_challenger && game.my_card) {
         stage = (
           <StageWrap>
-            <p className="mb-3 text-center text-sm font-bold text-muted">
+            <p className="mb-3 text-center text-sm font-black text-foreground/80">
               {isLocal ? `${challengerName}, ` : ""}pick your strongest stat
             </p>
             <PlayerCard
@@ -946,7 +972,7 @@ export default function CardsPage() {
               type="button"
               onClick={lockStat}
               disabled={!selectedStat || busy}
-              className={`${PRIMARY_BTN} mt-4`}
+              className="cards-btn mt-5"
             >
               {busy ? <LoaderCircle size={18} className="animate-spin" /> : <Lock size={18} />}
               {selectedStat ? `Lock ${STAT_META[selectedStat].label}` : "Select a stat to lock"}
@@ -960,7 +986,7 @@ export default function CardsPage() {
               title={`${challengerName.toUpperCase()}'S CARD`}
               subtitle="Choosing a stat..."
             />
-            <p className="mt-4 flex items-center justify-center gap-2 text-sm text-muted">
+            <p className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-foreground/75">
               <LoaderCircle size={16} className="animate-spin" />
               Waiting for {challengerName} to lock a stat
             </p>
@@ -973,11 +999,11 @@ export default function CardsPage() {
       if (canReveal) {
         stage = (
           <StageWrap>
-            <div className="mb-4 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3 text-center">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">
+            <div className="mb-4 rounded-2xl bg-accent px-4 py-3 text-center text-accent-ink shadow-lg">
+              <p className="text-xs font-black uppercase tracking-[0.18em] opacity-80">
                 {challengerName} locked
               </p>
-              <p className="mt-1 text-2xl font-black text-accent-text">{lockedLabel}</p>
+              <p className="mt-1 text-2xl font-black">{lockedLabel}</p>
             </div>
             <CardBack
               title={`${responderName.toUpperCase()}'S CARD`}
@@ -987,7 +1013,7 @@ export default function CardsPage() {
               type="button"
               onClick={revealCard}
               disabled={busy}
-              className={`${PRIMARY_BTN} mt-4`}
+              className="cards-btn cards-btn-alt mt-5"
             >
               {busy ? <LoaderCircle size={18} className="animate-spin" /> : <Eye size={18} />}
               {isLocal ? `${responderName}: reveal my card` : "Reveal my card"}
@@ -997,14 +1023,14 @@ export default function CardsPage() {
       } else {
         stage = (
           <StageWrap>
-            <div className="mb-4 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3 text-center">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">
+            <div className="mb-4 rounded-2xl bg-accent px-4 py-3 text-center text-accent-ink shadow-lg">
+              <p className="text-xs font-black uppercase tracking-[0.18em] opacity-80">
                 You locked
               </p>
-              <p className="mt-1 text-2xl font-black text-accent-text">{lockedLabel}</p>
+              <p className="mt-1 text-2xl font-black">{lockedLabel}</p>
             </div>
             {game.my_card && <PlayerCard player={game.my_card} lockedStat={game.locked_stat} />}
-            <p className="mt-4 flex items-center justify-center gap-2 text-sm text-muted">
+            <p className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-foreground/75">
               <LoaderCircle size={16} className="animate-spin" />
               Waiting for {responderName} to reveal their card
             </p>
@@ -1039,14 +1065,14 @@ export default function CardsPage() {
         )}
 
         {showConcede && (
-          <div className="mt-8 text-center">
+          <div className="mt-8 flex justify-center">
             <button
               type="button"
               onClick={concede}
               disabled={busy}
-              className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-xs font-semibold text-muted transition hover:border-red-400/40 hover:text-red-600 disabled:opacity-50 dark:hover:text-red-300"
+              className="cards-btn cards-btn-ghost cards-btn-sm"
             >
-              <Flag size={13} /> Concede
+              <Flag size={14} /> Concede
             </button>
           </div>
         )}
