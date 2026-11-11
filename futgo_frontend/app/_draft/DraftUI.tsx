@@ -78,6 +78,90 @@ function usePopupFlag(active: boolean) {
 }
 
 /* ================================================================== */
+/* Online room presence                                                */
+/* ================================================================== */
+
+export type RoomParticipant = {
+  seat_number: number | null;
+  display_name: string;
+  connected: boolean;
+};
+
+export type RoomInfo = {
+  players_in_room: number;
+  max_players: number;
+  participants: RoomParticipant[];
+  is_closed: boolean;
+  closed_reason: string;
+  message: string;
+};
+
+export type RoomPresence = {
+  room: RoomInfo | null;
+  /** The host or opponent left and the backend closed the room. */
+  closed: boolean;
+  /** This player was dropped from the room (e.g. their connection died). */
+  removed: boolean;
+};
+
+/** "2/2 players in room" bar, plus the closed / removed banners. */
+export function RoomPresenceBar({
+  presence, mySeat = null,
+}: {
+  presence?: RoomPresence;
+  mySeat?: number | null;
+}) {
+  if (!presence) return null;
+  const { room, removed } = presence;
+
+  if (removed) {
+    return (
+      <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-red-500/50 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-300">
+        <span className="flex items-center gap-2 font-bold"><CircleAlert size={18} />You were disconnected from this room.</span>
+        <Link href="/" className="rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-bold transition hover:bg-red-500/10">Back home</Link>
+      </div>
+    );
+  }
+
+  if (!room) return null;
+
+  if (room.is_closed) {
+    return (
+      <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-red-500/50 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-300">
+        <span className="flex items-center gap-2 font-bold"><CircleAlert size={18} />{room.message || "This room has been closed."}</span>
+        <Link href="/" className="rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-bold transition hover:bg-red-500/10">Back home</Link>
+      </div>
+    );
+  }
+
+  const opponentOffline = room.participants.some((item) => item.seat_number !== mySeat && !item.connected);
+  const waitingForOpponent = room.participants.length < room.max_players;
+
+  return (
+    <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-foreground/20 bg-surface px-4 py-3">
+      <span className="flex items-center gap-2 text-sm font-black text-foreground">
+        <Users size={16} className="text-accent-text" />
+        {room.players_in_room}/{room.max_players} players in room
+      </span>
+      <div className="flex flex-wrap items-center gap-2">
+        {room.participants.map((item) => (
+          <span key={`${item.seat_number}-${item.display_name}`} className="flex items-center gap-2 rounded-full border border-foreground/20 bg-surface-2 px-3 py-1 text-xs font-semibold text-foreground">
+            <span className={`h-2 w-2 rounded-full ${item.connected ? "bg-emerald-500" : "bg-foreground/30"}`} />
+            {item.display_name}{mySeat === item.seat_number && <span className="text-foreground/60"> (You)</span>}
+          </span>
+        ))}
+        {waitingForOpponent && (
+          <span className="flex items-center gap-2 rounded-full border border-dashed border-foreground/30 px-3 py-1 text-xs font-semibold text-foreground/70">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-accent-text" />Waiting for opponent...
+          </span>
+        )}
+      </div>
+      {opponentOffline && <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">Your opponent seems offline. Waiting for them to reconnect...</span>}
+    </div>
+  );
+}
+
+/* ================================================================== */
 /* Page shell                                                          */
 /* ================================================================== */
 
@@ -164,15 +248,16 @@ export function CategoryGrid({
 
 export function DraftingView({
   draft, modeLabel, categoryLabel, loading, error, onPick, onRefresh,
-  canPick = true, headline = "MAKE YOUR PICK.",
+  canPick: canPickProp = true, headline = "MAKE YOUR PICK.",
   subline = "Choose one player. The other joins your rival's squad.",
   promptLabel, footerNote = "Picks saved to your draft", mySeat = null,
+  presence,
 }: {
   draft: DraftState; modeLabel: string; categoryLabel: string;
   loading: boolean; error: string; onPick: (player: Player) => void;
   onRefresh: () => void; canPick?: boolean; headline?: string;
   subline?: string; promptLabel?: string; footerNote?: string;
-  mySeat?: number | null;
+  mySeat?: number | null; presence?: RoomPresence;
 }) {
   const player1Squad = useMemo(() => squadPlayers(draft.squads?.player1), [draft]);
   const player2Squad = useMemo(() => squadPlayers(draft.squads?.player2), [draft]);
@@ -180,6 +265,9 @@ export function DraftingView({
   const currentName = activePlayer === 1 ? draft.player1_name : draft.player2_name;
   const round = draft.current_event?.event_number ?? 11;
   const offered = draft.current_event?.offered_players ?? [];
+  // When the host or opponent leaves, the room is closed: no more picking.
+  const roomEnded = Boolean(presence?.closed || presence?.removed);
+  const canPick = canPickProp && !roomEnded;
   const seatName = (seat: number, name: string) => mySeat === seat ? `${name} (You)` : name;
 
   // The popup is rendered in a portal on document.body so nothing in the page
@@ -193,7 +281,7 @@ export function DraftingView({
   const [popupOpen, setPopupOpen] = useState(true);
   useEffect(() => { setPopupOpen(true); }, [offerKey]);
 
-  const showPopup = popupOpen && offered.length > 0;
+  const showPopup = popupOpen && offered.length > 0 && !roomEnded;
 
   // Freeze the page behind the popup (works on iOS and Android too).
   useLockBodyScroll(showPopup);
@@ -295,6 +383,7 @@ export function DraftingView({
 
   return (
     <section className="py-8 sm:py-10">
+      <RoomPresenceBar presence={presence} mySeat={mySeat} />
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-accent-text"><Zap size={15} />{modeLabel} · Round {round} of 11</div>
@@ -373,12 +462,14 @@ export function DraftingView({
 export function DraftCompleteView({
   draft, categoryLabel, loading, error, onStartMatch, onReset,
   resetLabel = "Play another draft", canStartMatch = true,
-  waitingText, mySeat = null,
+  waitingText, mySeat = null, presence,
 }: {
   draft: DraftState; categoryLabel: string; loading: boolean; error: string;
   onStartMatch: () => void; onReset: () => void; resetLabel?: string;
   canStartMatch?: boolean; waitingText?: string; mySeat?: number | null;
+  presence?: RoomPresence;
 }) {
+  const roomEnded = Boolean(presence?.closed || presence?.removed);
   const player1Squad = useMemo(() => squadPlayers(draft.squads?.player1), [draft]);
   const player2Squad = useMemo(() => squadPlayers(draft.squads?.player2), [draft]);
   const seatName = (seat: number, name: string) => mySeat === seat ? `${name} (You)` : name;
@@ -392,6 +483,7 @@ export function DraftCompleteView({
 
   return (
     <section className="mx-auto max-w-6xl py-12 sm:py-16">
+      <RoomPresenceBar presence={presence} mySeat={mySeat} />
       <div className="mx-auto mb-10 max-w-2xl text-center">
         <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent text-accent-ink"><Crown size={32} /></div>
         <p className="text-xs font-bold uppercase tracking-[0.22em] text-accent-text">Draft complete</p>
@@ -404,7 +496,7 @@ export function DraftCompleteView({
       </div>
       {error && <div className="mx-auto mt-6 max-w-2xl"><ErrorMessage message={error} /></div>}
       <div className="mt-8 flex flex-wrap justify-center gap-3">
-        {canStartMatch ? <button onClick={handleStartMatch} disabled={loading || player1Squad.length !== 11 || player2Squad.length !== 11} className="flex min-w-48 items-center justify-center gap-2 rounded-xl bg-accent px-7 py-4 font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">{loading ? <><LoaderCircle size={19} className="animate-spin" />Preparing match...</> : <><Play size={18} fill="currentColor" />Start Match<ArrowRight size={18} /></>}</button> : <div className="flex min-w-48 items-center justify-center gap-2 rounded-xl border-2 border-accent-text/40 bg-surface px-6 py-4 text-sm font-bold text-foreground"><LoaderCircle size={17} className="animate-spin text-accent-text" />{waitingText || "Waiting for the host to start the match..."}</div>}
+        {roomEnded ? <div className="flex min-w-48 items-center justify-center gap-2 rounded-xl border-2 border-red-500/50 bg-red-500/10 px-6 py-4 text-sm font-bold text-red-700 dark:text-red-300"><CircleAlert size={17} />Room closed</div> : canStartMatch ? <button onClick={handleStartMatch} disabled={loading || player1Squad.length !== 11 || player2Squad.length !== 11} className="flex min-w-48 items-center justify-center gap-2 rounded-xl bg-accent px-7 py-4 font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">{loading ? <><LoaderCircle size={19} className="animate-spin" />Preparing match...</> : <><Play size={18} fill="currentColor" />Start Match<ArrowRight size={18} /></>}</button> : <div className="flex min-w-48 items-center justify-center gap-2 rounded-xl border-2 border-accent-text/40 bg-surface px-6 py-4 text-sm font-bold text-foreground"><LoaderCircle size={17} className="animate-spin text-accent-text" />{waitingText || "Waiting for the host to start the match..."}</div>}
         <button onClick={onReset} disabled={loading} className="flex items-center gap-2 rounded-xl border border-foreground/25 bg-surface px-6 py-3 font-semibold text-foreground/80 transition hover:bg-foreground/5 disabled:opacity-50"><RotateCcw size={17} />{resetLabel}</button>
         <Link href="/" className="rounded-xl border border-foreground/25 bg-surface px-6 py-3 font-semibold text-foreground/80 transition hover:bg-foreground/5">Back home</Link>
       </div>
@@ -420,15 +512,22 @@ export function DraftCompleteView({
 export function MatchCentreView({
   matchData, draft, matchMinute, matchFinished, matchHistory, loading,
   error, onWatchAgain, onRematch, onReset, onShowPrevious,
-  resetLabel = "Draft new teams", canControl = true, controlNote, mySeat = null,
+  resetLabel = "Draft new teams", canControl: canControlProp = true, controlNote, mySeat = null,
+  presence,
 }: {
   matchData: MatchResult; draft: DraftState; matchMinute: number;
   matchFinished: boolean; matchHistory: MatchResult[]; loading: boolean;
   error: string; onWatchAgain: () => void; onRematch: () => void;
   onReset: () => void; onShowPrevious: (match: MatchResult) => void;
   resetLabel?: string; canControl?: boolean; controlNote?: string;
-  mySeat?: number | null;
+  mySeat?: number | null; presence?: RoomPresence;
 }) {
+  // When the host or opponent leaves, the room is closed: no rematch.
+  const roomEnded = Boolean(presence?.closed || presence?.removed);
+  const canControl = canControlProp && !roomEnded;
+  const effectiveNote = roomEnded
+    ? (presence?.room?.message || "This room has been closed.")
+    : controlNote;
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const stickToEndRef = useRef(true);
   const programmaticScrollRef = useRef(false);
@@ -777,6 +876,7 @@ export function MatchCentreView({
 
   return (
     <section className="mx-auto max-w-7xl py-8 sm:py-12">
+      <RoomPresenceBar presence={presence} mySeat={mySeat} />
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-accent-text"><Activity size={15} />FutGo match centre</div>
@@ -1122,7 +1222,7 @@ export function MatchCentreView({
 
       {playbackFinished && (
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          {canControl ? <button onClick={onRematch} disabled={loading} className="flex items-center gap-2 rounded-xl bg-accent px-6 py-4 font-black text-accent-ink transition hover:brightness-110 disabled:opacity-50">{loading ? <LoaderCircle size={18} className="animate-spin" /> : <RefreshCw size={17} />}Play rematch · Same squads</button> : controlNote && <div className="flex items-center gap-2 rounded-xl border border-foreground/20 bg-surface px-6 py-4 text-sm text-foreground/75"><Clock3 size={16} className="text-accent-text" />{controlNote}</div>}
+          {canControl ? <button onClick={onRematch} disabled={loading} className="flex items-center gap-2 rounded-xl bg-accent px-6 py-4 font-black text-accent-ink transition hover:brightness-110 disabled:opacity-50">{loading ? <LoaderCircle size={18} className="animate-spin" /> : <RefreshCw size={17} />}Play rematch · Same squads</button> : effectiveNote && <div className="flex items-center gap-2 rounded-xl border border-foreground/20 bg-surface px-6 py-4 text-sm text-foreground/75"><Clock3 size={16} className="text-accent-text" />{effectiveNote}</div>}
           <button onClick={onReset} disabled={loading} className="flex items-center gap-2 rounded-xl border border-foreground/25 bg-surface px-6 py-4 font-semibold text-foreground/80 transition hover:bg-foreground/5 disabled:opacity-50"><RotateCcw size={17} />{resetLabel}</button>
           <Link href="/" className="rounded-xl border border-foreground/25 bg-surface px-6 py-4 font-semibold text-foreground/80 transition hover:bg-foreground/5">Back home</Link>
         </div>

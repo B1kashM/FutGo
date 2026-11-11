@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 from players.models import Player
 
 from .models import (
+    PRESENCE_TIMEOUT,
     Draft,
     DraftEvent,
     DraftParticipant,
@@ -41,6 +42,8 @@ POSITION_SEQUENCE = [
 
 MAX_NAME_LENGTH = 50
 
+MAX_ROOM_PLAYERS = 2
+
 # Events that carry the RESULT of a single shootout kick.
 PENALTY_EVENT_TYPES = {
     "PENALTY_GOAL",
@@ -50,6 +53,11 @@ PENALTY_EVENT_TYPES = {
 
 # Event shown just before the result ("<player> steps up...").
 PENALTY_KICK_SETUP_TYPE = "PENALTY_KICK"
+
+CLOSE_MESSAGES = {
+    "HOST_LEFT": "The host left, so this room has been closed.",
+    "GUEST_LEFT": "Your opponent left, so this room has been closed.",
+}
 
 
 # ============================================================
@@ -104,6 +112,145 @@ def serialize_draft_teams(draft):
     }
 
 
+# ------------------------------------------------------------
+# Room presence
+# ------------------------------------------------------------
+
+def room_payload(draft):
+    """
+    Who is in an online room right now.
+
+    `connected` is True only for a participant who has not left and whose
+    browser has contacted the server recently (heartbeat). Local drafts
+    have no room, so None is returned.
+    """
+    if draft.mode != "ONLINE":
+        return None
+
+    now = timezone.now()
+
+    participants = [
+        {
+            "seat_number": participant.seat_number,
+            "display_name": participant.display_name,
+            "connected": participant.is_online(now),
+        }
+        for participant in (
+            DraftParticipant.objects
+            .filter(draft=draft)
+            .order_by("seat_number")
+        )
+    ]
+
+    return {
+        "players_in_room": sum(1 for item in participants if item["connected"]),
+        "max_players": MAX_ROOM_PLAYERS,
+        "participants": participants,
+        "is_closed": draft.is_closed,
+        "closed_reason": draft.closed_reason,
+        "message": CLOSE_MESSAGES.get(draft.closed_reason, ""),
+    }
+
+
+def closed_response(draft):
+    """Returns a 410 response if the room was closed, otherwise None."""
+    if not draft.is_closed:
+        return None
+
+    return Response(
+        {
+            "detail": CLOSE_MESSAGES.get(
+                draft.closed_reason,
+                "This room has been closed.",
+            ),
+            "room_closed": True,
+            "closed_reason": draft.closed_reason,
+        },
+        status=status.HTTP_410_GONE,
+    )
+
+
+def close_room(draft, reason):
+    draft.closed_at = timezone.now()
+    draft.closed_reason = reason
+    draft.save(update_fields=["closed_at", "closed_reason"])
+
+
+def handle_departure(draft, participant):
+    """
+    A participant left (explicitly or by timing out).
+
+    Call inside a transaction with the draft row locked.
+
+    - Host leaves  -> the room is closed.
+    - Guest leaves before the draft starts -> the seat is freed so
+      someone else can join, and the guest's club choice is cleared.
+    - Guest leaves after the draft started -> the room is closed.
+    """
+    if draft.is_closed:
+        return
+
+    now = timezone.now()
+
+    if participant.seat_number == 1:
+        DraftParticipant.objects.filter(pk=participant.pk).update(left_at=now)
+        close_room(draft, "HOST_LEFT")
+        return
+
+    if draft.status == "WAITING":
+        participant.delete()
+        draft.player2_name = ""
+        draft.player2_team = None
+        draft.save(update_fields=["player2_name", "player2_team"])
+        return
+
+    DraftParticipant.objects.filter(pk=participant.pk).update(left_at=now)
+    close_room(draft, "GUEST_LEFT")
+
+
+def _expire_stale_locked(draft):
+    """
+    Treats participants who stopped sending heartbeats as having left.
+
+    Call inside a transaction with the draft row locked. After the match
+    has been drafted (COMPLETED) nobody is expired automatically, because
+    players may sit on the results screen; they leave explicitly instead.
+    """
+    if draft.mode != "ONLINE" or draft.is_closed:
+        return
+
+    if draft.status == "COMPLETED":
+        return
+
+    cutoff = timezone.now() - PRESENCE_TIMEOUT
+
+    stale = list(
+        DraftParticipant.objects
+        .filter(
+            draft=draft,
+            left_at__isnull=True,
+            last_seen__lt=cutoff,
+        )
+        .order_by("seat_number")
+    )
+
+    for participant in stale:
+        handle_departure(draft, participant)
+
+
+def expire_stale_participants(draft_id):
+    with transaction.atomic():
+        draft = (
+            Draft.objects
+            .select_for_update(of=("self",))
+            .filter(pk=draft_id)
+            .first()
+        )
+
+        if draft is not None:
+            _expire_stale_locked(draft)
+
+
 def participant_response(draft, participant, token=None):
     data = {
         "draft_id": draft.id,
@@ -114,6 +261,7 @@ def participant_response(draft, participant, token=None):
             "seat_number": participant.seat_number,
             "display_name": participant.display_name,
         },
+        "room": room_payload(draft),
         **serialize_draft_teams(draft),
     }
 
@@ -129,10 +277,24 @@ def get_token_participant(request, draft):
     if not token:
         return None
 
-    return DraftParticipant.objects.filter(
+    participant = DraftParticipant.objects.filter(
         draft=draft,
         token_hash=hash_token(token),
     ).first()
+
+    # Any authenticated request counts as a sign of life.
+    if (
+        participant is not None
+        and participant.left_at is None
+        and not draft.is_closed
+    ):
+        now = timezone.now()
+        DraftParticipant.objects.filter(pk=participant.pk).update(
+            last_seen=now,
+        )
+        participant.last_seen = now
+
+    return participant
 
 
 def team_selection_error(draft, team, seat_number):
@@ -324,6 +486,9 @@ def serialize_draft_state(draft):
             else None
         ),
         "completed_at": getattr(draft, "completed_at", None),
+        "closed_at": draft.closed_at,
+        "closed_reason": draft.closed_reason,
+        "room": room_payload(draft),
     }
 
 
@@ -420,6 +585,11 @@ class SelectDraftTeamAPIView(APIView):
                 Draft.objects.select_for_update(),
                 pk=draft_id,
             )
+
+            closed = closed_response(draft)
+
+            if closed is not None:
+                return closed
 
             if draft.status != "WAITING":
                 return Response(
@@ -570,6 +740,16 @@ class JoinDraftAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # Drop players who vanished without leaving (closed tab, lost
+            # connection). A dead host closes the room; a dead guest frees
+            # the seat.
+            _expire_stale_locked(draft)
+
+            closed = closed_response(draft)
+
+            if closed is not None:
+                return closed
+
             if draft.status != "WAITING":
                 return Response(
                     {"detail": "This draft is no longer accepting players."},
@@ -655,6 +835,23 @@ class ReconnectDraftAPIView(APIView):
 
         draft = participant.draft
 
+        if (
+            draft.mode == "ONLINE"
+            and participant.left_at is None
+            and not draft.is_closed
+        ):
+            DraftParticipant.objects.filter(pk=participant.pk).update(
+                last_seen=timezone.now(),
+            )
+
+            expire_stale_participants(draft.pk)
+
+            draft = (
+                Draft.objects
+                .select_related("player1_team", "player2_team")
+                .get(pk=draft.pk)
+            )
+
         return Response({
             **participant_response(draft, participant),
             "draft_state": serialize_draft_state(draft),
@@ -672,6 +869,16 @@ class StartDraftAPIView(APIView):
                 Draft.objects.select_for_update(),
                 pk=draft_id,
             )
+
+            if draft.mode == "ONLINE":
+                # A guest who silently disappeared must not be started
+                # against.
+                _expire_stale_locked(draft)
+
+            closed = closed_response(draft)
+
+            if closed is not None:
+                return closed
 
             if draft.status != "WAITING":
                 return Response(
@@ -773,10 +980,16 @@ class StartDraftAPIView(APIView):
 
 
 # ============================================================
-# GET DRAFT STATE
+# GET DRAFT STATE / LEAVE ROOM
 # ============================================================
 
 class DraftStateAPIView(APIView):
+    """
+    GET    /drafts/<id>/              full draft state (also a heartbeat)
+    GET    /drafts/<id>/?presence=1   lightweight heartbeat: room info only
+    DELETE /drafts/<id>/              leave the room
+    """
+
     def get(self, request, draft_id):
         draft = get_object_or_404(
             Draft.objects.select_related(
@@ -795,10 +1008,73 @@ class DraftStateAPIView(APIView):
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 
+            # The caller was just marked as seen, so only the OTHER player
+            # can be timed out here.
+            expire_stale_participants(draft.pk)
+
+            draft = get_object_or_404(
+                Draft.objects.select_related(
+                    "player1_team",
+                    "player2_team",
+                ),
+                pk=draft_id,
+            )
+
+        if request.query_params.get("presence"):
+            return Response(
+                {
+                    "draft_id": draft.id,
+                    "status": draft.status,
+                    "closed_at": draft.closed_at,
+                    "closed_reason": draft.closed_reason,
+                    "room": room_payload(draft),
+                },
+                status=status.HTTP_200_OK,
+            )
+
         return Response(
             serialize_draft_state(draft),
             status=status.HTTP_200_OK,
         )
+
+    def delete(self, request, draft_id):
+        with transaction.atomic():
+            draft = get_object_or_404(
+                Draft.objects.select_for_update(of=("self",)),
+                pk=draft_id,
+            )
+
+            if draft.mode != "ONLINE":
+                return Response(
+                    {"detail": "Only online rooms can be left."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            participant = get_token_participant(request, draft)
+
+            if participant is None:
+                return Response(
+                    {"detail": "A valid participant token is required."},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+
+            handle_departure(draft, participant)
+
+            draft = (
+                Draft.objects
+                .select_related("player1_team", "player2_team")
+                .get(pk=draft.pk)
+            )
+
+            response_data = {
+                "left": True,
+                "draft_id": draft.id,
+                "closed_at": draft.closed_at,
+                "closed_reason": draft.closed_reason,
+                "room": room_payload(draft),
+            }
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 # ============================================================
@@ -820,6 +1096,11 @@ class SubmitDraftPickAPIView(APIView):
                 Draft.objects.select_for_update(),
                 pk=draft_id,
             )
+
+            closed = closed_response(draft)
+
+            if closed is not None:
+                return closed
 
             if draft.status != "ACTIVE":
                 return Response(
@@ -1180,6 +1461,9 @@ def _match_payload(match):
         "events": serialized_events,
         "team_statistics": team_statistics,
         "player_ratings": player_ratings,
+
+        # Lets the match screen show "2/2 players" / "opponent left".
+        "room": room_payload(draft),
     }
 
 
@@ -1250,6 +1534,11 @@ class SimulateMatchAPIView(APIView):
                 ),
                 pk=draft_id,
             )
+
+            closed = closed_response(draft)
+
+            if closed is not None:
+                return closed
 
             if draft.mode == "ONLINE":
                 participant = get_token_participant(request, draft)

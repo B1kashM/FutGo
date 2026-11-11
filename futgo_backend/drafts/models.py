@@ -1,12 +1,21 @@
-
 import secrets
 import string
+from datetime import timedelta
 from decimal import Decimal
 
 import django
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F, Q
+from django.utils import timezone
+
+
+# A participant whose browser has not contacted the server for this long is
+# treated as having left the room. The online page polls the draft state every
+# couple of seconds (which counts as a heartbeat), so this leaves room for slow
+# networks and throttled background tabs while still noticing closed tabs.
+PRESENCE_TIMEOUT_SECONDS = 60
+PRESENCE_TIMEOUT = timedelta(seconds=PRESENCE_TIMEOUT_SECONDS)
 
 
 def generate_room_code():
@@ -52,6 +61,11 @@ class Draft(models.Model):
         ("WAITING", "Waiting for player"),
         ("ACTIVE", "Active"),
         ("COMPLETED", "Completed"),
+    ]
+
+    CLOSE_REASON_CHOICES = [
+        ("HOST_LEFT", "Host left the room"),
+        ("GUEST_LEFT", "Guest left the room"),
     ]
 
     CATEGORY_CHOICES = [
@@ -109,6 +123,17 @@ class Draft(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
+    # Set when an online room is closed because a player left. The draft's
+    # own `status` is left untouched so existing screens keep working; clients
+    # read `closed_at` / `closed_reason` to show "room closed".
+    closed_at = models.DateTimeField(null=True, blank=True)
+    closed_reason = models.CharField(
+        max_length=12,
+        choices=CLOSE_REASON_CHOICES,
+        blank=True,
+        default="",
+    )
+
     class Meta:
         constraints = [
             _check_constraint(
@@ -118,6 +143,10 @@ class Draft(models.Model):
                 "draft_teams_must_be_different",
             ),
         ]
+
+    @property
+    def is_closed(self):
+        return self.closed_at is not None
 
     def clean(self):
         super().clean()
@@ -144,9 +173,10 @@ class Draft(models.Model):
         return super().save(*args, **kwargs)
 
     def __str__(self):
+        closed = " [closed]" if self.closed_at else ""
         return (
             f"Draft {self.id} "
-            f"({self.mode}, {self.category}) - {self.status}"
+            f"({self.mode}, {self.category}) - {self.status}{closed}"
         )
 
 
@@ -254,6 +284,12 @@ class DraftParticipant(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Presence. `last_seen` is refreshed by every authenticated request this
+    # participant makes (including the frontend heartbeat). `left_at` is set
+    # when the participant explicitly leaves or is timed out.
+    last_seen = models.DateTimeField(default=timezone.now)
+    left_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -261,6 +297,13 @@ class DraftParticipant(models.Model):
                 name="unique_participant_seat_per_draft",
             ),
         ]
+
+    def is_online(self, now=None):
+        if self.left_at is not None:
+            return False
+
+        now = now or timezone.now()
+        return now - self.last_seen <= PRESENCE_TIMEOUT
 
     def __str__(self):
         return f"{self.display_name} - Draft {self.draft_id}"

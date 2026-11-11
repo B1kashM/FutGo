@@ -30,6 +30,7 @@ class TeamAdmin(admin.ModelAdmin):
 class DraftAdmin(admin.ModelAdmin):
     list_display = (
         "id",
+        "room_code",
         "player1_name",
         "player2_name",
         "player1_team",
@@ -37,9 +38,11 @@ class DraftAdmin(admin.ModelAdmin):
         "mode",
         "category",
         "status",
+        "closed_reason",
+        "closed_at",
         "created_at",
     )
-    list_filter = ("mode", "category", "status")
+    list_filter = ("mode", "category", "status", "closed_reason")
     search_fields = (
         "player1_name",
         "player2_name",
@@ -47,7 +50,7 @@ class DraftAdmin(admin.ModelAdmin):
         "player1_team__name",
         "player2_team__name",
     )
-    readonly_fields = ("created_at", "completed_at")
+    readonly_fields = ("created_at", "completed_at", "closed_at")
 
 
 @admin.register(DraftEvent)
@@ -77,9 +80,12 @@ class DraftParticipantAdmin(admin.ModelAdmin):
         "draft",
         "seat_number",
         "display_name",
+        "last_seen",
+        "left_at",
     )
     list_filter = ("seat_number",)
     search_fields = ("display_name", "draft__room_code")
+    readonly_fields = ("created_at", "last_seen", "left_at")
 
 
 @admin.register(DraftPick)

@@ -42,9 +42,11 @@ import {
   DraftingView,
   ErrorMessage,
   MatchCentreView,
+  RoomPresenceBar,
   TeamBadge,
   TeamDropdown,
 } from "../_draft/DraftUI";
+import type { RoomInfo, RoomPresence } from "../_draft/DraftUI";
 
 /* ------------------------------------------------------------------ */
 /* Types and constants                                                 */
@@ -166,6 +168,12 @@ function authHeaders(token: string): Record<string, string> {
   return { "X-Participant-Token": token };
 }
 
+/** Who is in the room, as reported by the backend with every draft state. */
+function getRoom(draft: DraftState | null): RoomInfo | null {
+  const room = (draft as unknown as { room?: RoomInfo | null } | null)?.room;
+  return room ?? null;
+}
+
 /** Monotonic progress score: stops a slow, older poll from overwriting newer state. */
 function draftProgress(draft: DraftState): number {
   const rank = draft.status === "COMPLETED" ? 2 : draft.status === "ACTIVE" ? 1 : 0;
@@ -240,6 +248,16 @@ export default function OnlineDraftPage() {
       previous.draft_id === next.draft_id &&
       draftProgress(next) < draftProgress(previous)
     ) {
+      // Older progress: ignore the draft itself, but still take the newest
+      // room info so "opponent left" is never missed.
+      const nextRoom = getRoom(next);
+
+      if (nextRoom && getRoom(previous) !== nextRoom) {
+        const merged = { ...previous, room: nextRoom } as unknown as DraftState;
+        draftRef.current = merged;
+        setDraft(merged);
+      }
+
       return;
     }
 
@@ -269,6 +287,18 @@ export default function OnlineDraftPage() {
 
   const leaveRoom = useCallback(
     (message = "") => {
+      // Tell the server first so the other player sees that you left.
+      // (Host leaving closes the room; a guest leaving frees their seat.)
+      const leaving = sessionRef.current;
+
+      if (leaving) {
+        void apiRequest(`/api/drafts/${leaving.draftId}/state/`, {
+          method: "DELETE",
+          headers: authHeaders(leaving.token),
+          keepalive: true,
+        }).catch(() => undefined);
+      }
+
       clearSession();
       sessionRef.current = null;
       draftRef.current = null;
@@ -311,7 +341,7 @@ export default function OnlineDraftPage() {
       if (sessionRef.current?.draftId !== current.draftId) return;
 
       if (err instanceof ApiError && (err.status === 401 || err.status === 404)) {
-        leaveRoom("This room is no longer available.");
+        leaveRoom("You were disconnected from this room.");
         return;
       }
 
@@ -357,7 +387,7 @@ export default function OnlineDraftPage() {
       if (sessionRef.current?.draftId !== current.draftId) return;
 
       if (err instanceof ApiError && err.status === 401) {
-        leaveRoom("This room is no longer available.");
+        leaveRoom("You were disconnected from this room.");
         return;
       }
 
@@ -383,7 +413,18 @@ export default function OnlineDraftPage() {
       if (cancelled || running) return;
       running = true;
 
-      if (!document.hidden && !busyRef.current) {
+      if (document.hidden) {
+        // Keep the heartbeat alive while the tab is in the background, so the
+        // other player does not see you as having left.
+        const current = sessionRef.current;
+
+        if (current) {
+          await apiRequest(
+            `/api/drafts/${current.draftId}/state/?presence=1`,
+            { headers: authHeaders(current.token) },
+          ).catch(() => undefined);
+        }
+      } else if (!busyRef.current) {
         await syncState();
 
         if (!cancelled && draftRef.current?.status === "COMPLETED") {
@@ -806,8 +847,11 @@ export default function OnlineDraftPage() {
   };
 
   const handleLeave = () => {
+    const room = getRoom(draft);
+
     if (
       draft?.status === "ACTIVE" &&
+      !room?.is_closed &&
       !window.confirm(
         "Leave this room? The draft is in progress and you will not be able to rejoin.",
       )
@@ -858,6 +902,14 @@ export default function OnlineDraftPage() {
   );
 
   const roomCode = draft?.room_code || session?.roomCode || "";
+
+  // Room presence comes with every draft-state poll, so the "players in
+  // room" bar and the "opponent left / room closed" banner stay live.
+  const room = getRoom(draft);
+  const presence = useMemo<RoomPresence>(
+    () => ({ room, closed: Boolean(room?.is_closed), removed: false }),
+    [room],
+  );
 
   /* ----------------------------- render ----------------------------- */
 
@@ -1149,26 +1201,32 @@ export default function OnlineDraftPage() {
       );
     } else if (draft.status === "WAITING") {
       stage = (
-        <Lobby
-          draft={draft}
-          seat={session.seat}
-          teams={teams}
-          loading={loading}
-          error={error}
-          connection={connection}
-          copied={copied}
-          categoryLabel={categoryLabel}
-          roomCode={roomCode}
-          onCopyCode={() => void copyText(roomCode, "code")}
-          onCopyLink={() =>
-            void copyText(
-              `${window.location.origin}${window.location.pathname}?room=${roomCode}`,
-              "link",
-            )
-          }
-          onSelectClub={(id) => void selectClub(id)}
-          onStart={() => void startDraft()}
-        />
+        <>
+          <div className="mt-3 sm:mt-5">
+            <RoomPresenceBar presence={presence} mySeat={seat} />
+          </div>
+          <Lobby
+            draft={draft}
+            seat={session.seat}
+            teams={teams}
+            loading={loading}
+            error={error}
+            connection={connection}
+            copied={copied}
+            categoryLabel={categoryLabel}
+            roomCode={roomCode}
+            roomClosed={presence.closed}
+            onCopyCode={() => void copyText(roomCode, "code")}
+            onCopyLink={() =>
+              void copyText(
+                `${window.location.origin}${window.location.pathname}?room=${roomCode}`,
+                "link",
+              )
+            }
+            onSelectClub={(id) => void selectClub(id)}
+            onStart={() => void startDraft()}
+          />
+        </>
       );
     } else if (draft.status === "ACTIVE" && draft.current_event) {
       stage = (
@@ -1180,6 +1238,7 @@ export default function OnlineDraftPage() {
           error={error}
           canPick={isMyTurn}
           mySeat={seat}
+          presence={presence}
           headline={isMyTurn ? "MAKE YOUR PICK." : "OPPONENT'S TURN."}
           subline={
             isMyTurn
@@ -1207,6 +1266,7 @@ export default function OnlineDraftPage() {
           loading={loading}
           error={error}
           mySeat={seat}
+          presence={presence}
           canControl={isHost}
           controlNote={`Only ${hostDisplay} can start a rematch.`}
           resetLabel="Leave room"
@@ -1227,6 +1287,7 @@ export default function OnlineDraftPage() {
           loading={loading}
           error={error}
           mySeat={seat}
+          presence={presence}
           canStartMatch={isHost}
           waitingText={`Waiting for ${hostDisplay} to start the match...`}
           resetLabel="Leave room"
@@ -1465,6 +1526,7 @@ function Lobby({
   copied,
   categoryLabel,
   roomCode,
+  roomClosed,
   onCopyCode,
   onCopyLink,
   onSelectClub,
@@ -1479,6 +1541,7 @@ function Lobby({
   copied: "code" | "link" | null;
   categoryLabel: string;
   roomCode: string;
+  roomClosed: boolean;
   onCopyCode: () => void;
   onCopyLink: () => void;
   onSelectClub: (id: string) => void;
@@ -1487,11 +1550,14 @@ function Lobby({
   const isHost = seat === 1;
   const guestJoined = !!cleanName(draft.player2_name);
   const bothTeams = !!draft.player1_team && !!draft.player2_team;
-  const canStart = isHost && guestJoined && bothTeams && connection !== "offline";
+  const canStart =
+    isHost && guestJoined && bothTeams && connection !== "offline" && !roomClosed;
 
   let hint = "";
 
-  if (isHost) {
+  if (roomClosed) {
+    hint = "This room has been closed. Leave to start a new one.";
+  } else if (isHost) {
     if (!guestJoined) hint = "Waiting for a second player to join...";
     else if (!draft.player2_team) hint = `Waiting for ${draft.player2_name} to choose a club...`;
     else if (!draft.player1_team) hint = "Choose your club to continue.";
@@ -1554,7 +1620,7 @@ function Lobby({
           joined
           team={draft.player1_team}
           isMe={seat === 1}
-          canEditTeam={seat === 1}
+          canEditTeam={seat === 1 && !roomClosed}
           teams={teams}
           otherTeamId={draft.player2_team ? String(draft.player2_team.id) : ""}
           loading={loading}
@@ -1567,7 +1633,7 @@ function Lobby({
           joined={guestJoined}
           team={draft.player2_team}
           isMe={seat === 2}
-          canEditTeam={seat === 2}
+          canEditTeam={seat === 2 && !roomClosed}
           teams={teams}
           otherTeamId={draft.player1_team ? String(draft.player1_team.id) : ""}
           loading={loading}
