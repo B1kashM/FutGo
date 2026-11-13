@@ -1538,3 +1538,71 @@ body {
   transform: scale(1.04);
   box-shadow: 0 0 0 4px #fff, 0 0 20px 4px #fbbf24;
 }
+
+/* ---------- Play Cards: reveal prompt + mobile compact ---------- */
+
+@keyframes reveal-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px #fbbf24, 0 0 18px 2px rgba(251, 191, 36, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 5px #ffffff, 0 0 42px 10px rgba(251, 191, 36, 0.9);
+  }
+}
+
+@keyframes reveal-orb {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes reveal-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+.cardback-ready {
+  animation: reveal-glow 1.4s ease-in-out infinite;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.cardback-ready:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.reveal-orb {
+  position: relative;
+  animation: reveal-orb 1.4s ease-in-out infinite;
+}
+.reveal-orb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 3px solid #fbbf24;
+  animation: reveal-ring 1.4s ease-out infinite;
+}
+
+/* Smaller stat tiles on phones so a whole card fits the screen */
+@media (max-width: 639px) {
+  .stat-tile {
+    padding: 0.3rem 0.5rem;
+  }
+  .stat-tile-mini {
+    padding: 0.15rem 0.45rem;
+  }
+  .stat-tile-mini .stat-track {
+    display: none;
+  }
+}

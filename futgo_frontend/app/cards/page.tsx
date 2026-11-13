@@ -160,6 +160,7 @@ export default function CardsPage() {
   const [holderSeat, setHolderSeat] = useState<Seat | null>(null);
 
   const [busy, setBusy] = useState(false);
+  const [isCardFlipping, setIsCardFlipping] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState<"code" | "link" | null>(null);
 
@@ -477,6 +478,15 @@ export default function CardsPage() {
       setSelectedStat(null);
       return next;
     });
+  };
+
+  const handleRevealCard = () => {
+    if (busy || isCardFlipping) return;
+    setIsCardFlipping(true);
+    // Start the reveal as the card turns edge-on, so the new card face
+    // replaces the card back naturally rather than appearing abruptly.
+    window.setTimeout(revealCard, 220);
+    window.setTimeout(() => setIsCardFlipping(false), 700);
   };
 
   const revealCard = () => {
@@ -1005,18 +1015,24 @@ export default function CardsPage() {
               </p>
               <p className="mt-1 text-2xl font-black">{lockedLabel}</p>
             </div>
-            <CardBack
-              title={`${responderName.toUpperCase()}'S CARD`}
-              subtitle="Face down"
-            />
             <button
               type="button"
-              onClick={revealCard}
-              disabled={busy}
-              className="cards-btn cards-btn-alt mt-5"
+              onClick={handleRevealCard}
+              disabled={busy || isCardFlipping}
+              aria-label={isLocal ? `${responderName}: reveal card` : "Reveal card"}
+              className="block w-full rounded-3xl text-left outline-none ring-4 ring-lime-400/80 shadow-[0_0_26px_8px_rgba(163,230,53,0.4)] transition-shadow duration-300 hover:shadow-[0_0_32px_10px_rgba(163,230,53,0.48)] focus-visible:ring-lime-300 disabled:cursor-wait"
+              style={{
+                transform: isCardFlipping ? "perspective(1000px) rotateY(90deg) scale(0.97)" : "perspective(1000px) rotateY(0deg) scale(1)",
+                transformStyle: "preserve-3d",
+                transition: "transform 420ms cubic-bezier(0.2, 0.75, 0.25, 1), box-shadow 300ms ease",
+              }}
             >
-              {busy ? <LoaderCircle size={18} className="animate-spin" /> : <Eye size={18} />}
-              {isLocal ? `${responderName}: reveal my card` : "Reveal my card"}
+              <div className="pointer-events-none overflow-hidden rounded-3xl">
+                <CardBack
+                  title="REVEAL CARD"
+                  subtitle={busy || isCardFlipping ? "Revealing..." : ""}
+                />
+              </div>
             </button>
           </StageWrap>
         );
