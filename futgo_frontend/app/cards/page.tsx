@@ -480,16 +480,9 @@ export default function CardsPage() {
     });
   };
 
-  const handleRevealCard = () => {
-    if (busy || isCardFlipping) return;
-    setIsCardFlipping(true);
-    // Start the reveal as the card turns edge-on, so the new card face
-    // replaces the card back naturally rather than appearing abruptly.
-    window.setTimeout(revealCard, 220);
-    window.setTimeout(() => setIsCardFlipping(false), 700);
-  };
+  const handleRevealCard = async () => {
+    if (busyRef.current || isCardFlipping) return;
 
-  const revealCard = () => {
     const sess = sessionRef.current;
     const current = gameRef.current;
     if (!sess || !current) return;
@@ -499,11 +492,30 @@ export default function CardsPage() {
     const token = sess.tokens[seat];
     if (!token) return;
 
-    void run(async () => {
+    // Finish the server reveal first. Do not flip the back away while the
+    // request is still loading, otherwise the card face appears late.
+    busyRef.current = true;
+    setBusy(true);
+    setError("");
+
+    try {
       const next = await cardsApi.reveal(sess.roomCode, token);
-      if (sess.mode === "LOCAL") setHolderSeat(seat); // the device is now with the responder
-      return next;
-    });
+      if (sess.mode === "LOCAL") setHolderSeat(seat);
+
+      // Begin the flip only when the revealed card data is ready, then swap
+      // faces at the edge of the turn so the player card appears immediately.
+      setIsCardFlipping(true);
+      window.setTimeout(() => {
+        applyGame(next);
+        window.setTimeout(() => setIsCardFlipping(false), 220);
+      }, 210);
+    } catch (err) {
+      setError(errorText(err, "Unable to reveal the card. Please try again."));
+      await resync().catch(() => undefined);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
   };
 
   const continueGame = () => {
@@ -1009,12 +1021,6 @@ export default function CardsPage() {
       if (canReveal) {
         stage = (
           <StageWrap>
-            <div className="mb-4 rounded-2xl bg-accent px-4 py-3 text-center text-accent-ink shadow-lg">
-              <p className="text-xs font-black uppercase tracking-[0.18em] opacity-80">
-                {challengerName} locked
-              </p>
-              <p className="mt-1 text-2xl font-black">{lockedLabel}</p>
-            </div>
             <button
               type="button"
               onClick={handleRevealCard}
@@ -1039,12 +1045,6 @@ export default function CardsPage() {
       } else {
         stage = (
           <StageWrap>
-            <div className="mb-4 rounded-2xl bg-accent px-4 py-3 text-center text-accent-ink shadow-lg">
-              <p className="text-xs font-black uppercase tracking-[0.18em] opacity-80">
-                You locked
-              </p>
-              <p className="mt-1 text-2xl font-black">{lockedLabel}</p>
-            </div>
             {game.my_card && <PlayerCard player={game.my_card} lockedStat={game.locked_stat} />}
             <p className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-foreground/75">
               <LoaderCircle size={16} className="animate-spin" />
@@ -1063,13 +1063,22 @@ export default function CardsPage() {
     gameView = (
       <section className="mx-auto max-w-4xl py-4 sm:py-8">
         {showScore && (
-          <ScoreBar
-            left={left}
-            right={right}
-            round={game.round_number}
-            pot={game.pot_count}
-            challengerSeat={challengerSeat}
-          />
+          game.phase === "LOCKED" ? (
+            <div className="mb-5 flex h-[72px] flex-col items-center justify-center rounded-2xl bg-accent px-4 py-2 text-center text-accent-ink shadow-lg">
+              <p className="text-[10px] font-black uppercase leading-3 tracking-[0.18em] opacity-80">
+                {challengerName} locked
+              </p>
+              <p className="mt-1 text-xl font-black leading-7">{lockedLabel}</p>
+            </div>
+          ) : (
+            <ScoreBar
+              left={left}
+              right={right}
+              round={game.round_number}
+              pot={game.pot_count}
+              challengerSeat={challengerSeat}
+            />
+          )
         )}
 
         {stage}
