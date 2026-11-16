@@ -1743,9 +1743,6 @@ export default function Home() {
               <div className="text-xl font-black tracking-[0.18em]">
                 FUT<span className="text-accent-text">GO</span>
               </div>
-              <div className="text-[9px] font-semibold tracking-[0.28em] text-muted">
-                {club.brandTag}
-              </div>
             </div>
           </Link>
 
