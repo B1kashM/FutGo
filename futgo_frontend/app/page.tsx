@@ -1824,7 +1824,7 @@ export default function Home() {
           </ModeCard>
         </div>
 
-        <p className="relative shrink-0 text-center text-xs text-muted md:block">
+        <p className="relative shrink-0 text-center !text-[10px] !leading-3 text-muted opacity-40 md:block">
           Built by Bikash, The PesGoalPoacher. {club.footerCheer}
         </p>
       </div>
