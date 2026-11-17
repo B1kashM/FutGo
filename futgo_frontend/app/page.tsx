@@ -1764,7 +1764,7 @@ export default function Home() {
       </header>
 
       {/* Content: always fits one screen */}
-      <div className="relative mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col justify-center gap-5 px-6 py-6 sm:px-12 lg:gap-8 lg:px-20 lg:py-10">
+      <div className="relative mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col justify-center gap-5 px-6 pt-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-12 sm:pb-6 lg:gap-8 lg:px-20 lg:py-10">
         <div className="pointer-events-none absolute left-1/4 top-0 h-[300px] w-[420px] -translate-x-1/2 rounded-full bg-accent/15 blur-[120px]" />
         <div className="pointer-events-none absolute right-0 top-10 h-[260px] w-[360px] rounded-full bg-accent-2/15 blur-[120px]" />
 
