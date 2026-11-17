@@ -36,7 +36,7 @@ import {
  * short screens so the Start button can never become unreachable.
  */
 const MOBILE_SCREEN =
-  "max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-[83px] max-md:z-30 max-md:overflow-y-auto max-md:overscroll-contain max-md:bg-background max-md:px-4 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+  "max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-[20px] max-md:z-30 max-md:overflow-y-auto max-md:overscroll-contain max-md:bg-background max-md:px-4 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 function useLockMobileScroll(active: boolean) {
   useEffect(() => {
