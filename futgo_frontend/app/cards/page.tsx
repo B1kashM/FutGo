@@ -53,8 +53,34 @@ type LobbyTab = "LOCAL" | "CREATE" | "JOIN";
 const POLL_MS = 2000;
 const MAX_BACKOFF_MS = 8000;
 
+/* ------------------------------------------------------------------ */
+/* Design tokens (all colours come from the selected club theme)       */
+/* ------------------------------------------------------------------ */
+
 const INPUT_CLASS =
-  "w-full rounded-xl border-2 border-accent/30 bg-surface-2 px-4 py-3 text-sm font-semibold text-foreground outline-none transition placeholder:text-foreground/35 focus:border-accent focus:ring-2 focus:ring-accent/25 disabled:opacity-60";
+  "w-full rounded-2xl border-2 border-border bg-background px-4 py-3.5 text-sm font-bold text-foreground outline-none transition placeholder:font-semibold placeholder:text-foreground/35 hover:border-accent/50 focus:border-accent focus:ring-4 focus:ring-accent/20 disabled:opacity-60";
+
+const BTN_BASE =
+  "flex w-full items-center justify-center gap-2 font-black uppercase tracking-wide transition disabled:cursor-not-allowed disabled:opacity-50";
+
+/** Chunky "game" buttons with a pressed-down effect. */
+function btn(variant: "primary" | "alt" | "ghost", small = false) {
+  const size = small
+    ? "rounded-xl px-4 py-2.5 text-xs"
+    : "rounded-2xl px-6 py-4 text-sm sm:text-base";
+
+  const press =
+    "shadow-[0_5px_0_0_rgba(0,0,0,0.3)] hover:brightness-110 active:translate-y-[3px] active:shadow-[0_2px_0_0_rgba(0,0,0,0.3)] disabled:shadow-none";
+
+  const tone =
+    variant === "primary"
+      ? `bg-accent text-accent-ink ${press}`
+      : variant === "alt"
+        ? `bg-accent-2 text-accent-2-ink ${press}`
+        : "border-2 border-border bg-surface text-foreground/80 hover:border-accent/60 hover:text-foreground";
+
+  return `${BTN_BASE} ${size} ${tone}`;
+}
 
 /* ------------------------------------------------------------------ */
 /* Small presentational pieces                                         */
@@ -75,11 +101,39 @@ function StageWrap({ children }: { children: ReactNode }) {
   return <div className="mx-auto w-full max-w-sm">{children}</div>;
 }
 
+/** Diagonal club-colour bands and glows behind a screen. */
+function Backdrop() {
+  return (
+    <div className="pointer-events-none absolute inset-x-[-2rem] -top-6 bottom-0 overflow-hidden">
+      <div className="absolute -left-10 top-6 h-40 w-[140%] -rotate-6 bg-accent/10" />
+      <div className="absolute -left-10 top-52 h-24 w-[140%] -rotate-6 bg-accent-2/10" />
+      <div className="absolute -left-10 top-4 h-56 w-56 rounded-full bg-accent/25 blur-3xl" />
+      <div className="absolute -right-10 top-40 h-52 w-52 rounded-full bg-accent-2/25 blur-3xl" />
+    </div>
+  );
+}
+
+/** Three fanned mini cards used as the lobby emblem. */
+function CardFan() {
+  return (
+    <div className="relative h-14 w-28 shrink-0" aria-hidden="true">
+      <div className="absolute left-0 top-4 h-20 w-14 -rotate-[14deg] rounded-xl border-2 border-white/80 bg-accent-2 shadow-lg" />
+      <div className="absolute right-0 top-4 h-20 w-14 rotate-[14deg] rounded-xl border-2 border-white/80 bg-accent shadow-lg" />
+      <div className="absolute left-1/2 top-0 flex h-20 w-14 -translate-x-1/2 items-center justify-center rounded-xl border-2 border-white/90 bg-gradient-to-br from-accent to-accent-2 text-accent-ink shadow-xl">
+        <Layers size={22} />
+      </div>
+    </div>
+  );
+}
+
 // A quiet one-line status ("Waiting...")
 function Hint({ children }: { children: ReactNode }) {
   return (
-    <p className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-muted">
-      <LoaderCircle size={15} className="animate-spin" />
+    <p className="mx-auto mt-5 flex w-fit items-center justify-center gap-2 rounded-full border-2 border-accent/30 bg-accent/10 px-4 py-2 text-sm font-black text-accent-text">
+      <span className="relative flex h-2.5 w-2.5">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-70" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-accent" />
+      </span>
       {children}
     </p>
   );
@@ -87,9 +141,36 @@ function Hint({ children }: { children: ReactNode }) {
 
 function FieldLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.18em] text-muted">
+    <span className="mb-2.5 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-muted">
+      <span className="h-px flex-1 bg-border" />
       {children}
+      <span className="h-px flex-1 bg-border" />
     </span>
+  );
+}
+
+/** Text input with a coloured player badge on the left. */
+function NameField({
+  badge,
+  tone,
+  ...props
+}: {
+  badge: string;
+  tone: "a" | "b";
+} & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <div className="relative">
+      <span
+        className={`absolute left-2.5 top-1/2 flex h-8 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-[11px] font-black ${
+          tone === "a"
+            ? "bg-accent text-accent-ink"
+            : "bg-accent-2 text-accent-2-ink"
+        }`}
+      >
+        {badge}
+      </span>
+      <input {...props} className={`${INPUT_CLASS} pl-14`} />
+    </div>
   );
 }
 
@@ -106,45 +187,46 @@ function ScoreBar({
   pot: number;
   challengerSeat: Seat;
 }) {
-  const side = (info: SideInfo, align: "left" | "right") => {
-    const pill =
-      align === "left"
-        ? "bg-accent text-accent-ink"
-        : "bg-accent-2 text-accent-2-ink";
-
-    return (
-      <div
-        className={`flex min-w-0 flex-1 items-center gap-2.5 ${
-          align === "right" ? "flex-row-reverse text-right" : ""
+  const side = (info: SideInfo, align: "left" | "right") => (
+    <div
+      className={`flex min-w-0 flex-col justify-center px-4 py-3 ${
+        align === "left"
+          ? "items-start bg-accent text-accent-ink"
+          : "items-end bg-accent-2 text-accent-2-ink"
+      }`}
+    >
+      <span
+        className={`flex max-w-full items-center gap-1 text-[11px] font-black uppercase tracking-wider opacity-85 ${
+          align === "right" ? "flex-row-reverse" : ""
         }`}
       >
-        <span
-          className={`flex h-11 min-w-11 shrink-0 items-center justify-center rounded-xl px-2 text-xl font-black shadow-md ${pill}`}
-        >
-          {info.cards_left}
-        </span>
-        <p className="flex min-w-0 items-center gap-1.5 text-sm font-black">
-          <span className="truncate">{info.name}</span>
-          {info.seat === challengerSeat && (
-            <Swords size={14} className="shrink-0 text-accent-text" />
-          )}
-        </p>
-      </div>
-    );
-  };
+        <span className="truncate">{info.name}</span>
+        {info.seat === challengerSeat && (
+          <Swords size={12} className="shrink-0" />
+        )}
+      </span>
+      <span className="text-4xl font-black leading-none tabular-nums">
+        {info.cards_left}
+      </span>
+      <span className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-70">
+        cards
+      </span>
+    </div>
+  );
 
   return (
-    <div className="cards-panel mb-5 overflow-hidden rounded-2xl">
-      <div className="flex items-center gap-3 px-4 py-3">
+    <div className="relative mb-5 overflow-hidden rounded-3xl border-2 border-border bg-surface shadow-xl shadow-black/10">
+      <div className="grid grid-cols-[1fr_auto_1fr]">
         {side(left, "left")}
-        <div className="shrink-0 text-center">
-          <p className="rounded-full bg-foreground px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-background">
-            Round {round}
-          </p>
+        <div className="flex min-w-[76px] flex-col items-center justify-center gap-1 bg-surface px-2 py-3">
+          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted">
+            Round
+          </span>
+          <span className="text-3xl font-black leading-none">{round}</span>
           {pot > 0 && (
-            <p className="mt-1.5 rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-black text-slate-900">
+            <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-black text-background">
               Pot {pot}
-            </p>
+            </span>
           )}
         </div>
         {side(right, "right")}
@@ -596,177 +678,204 @@ export default function CardsPage() {
 
   /* ----------------------------- render: lobby ---------------------- */
 
-  const tabs: { key: LobbyTab; label: string; icon: ReactNode }[] = [
-    { key: "LOCAL", label: "Local", icon: <Gamepad2 size={16} /> },
-    { key: "CREATE", label: "Create", icon: <Globe2 size={16} /> },
-    { key: "JOIN", label: "Join", icon: <LogIn size={16} /> },
+  const tabs: { key: LobbyTab; label: string; sub: string; icon: ReactNode }[] = [
+    { key: "LOCAL", label: "Local", sub: "1 device", icon: <Gamepad2 size={22} /> },
+    { key: "CREATE", label: "Create", sub: "Host room", icon: <Globe2 size={22} /> },
+    { key: "JOIN", label: "Join", sub: "Use code", icon: <LogIn size={22} /> },
   ];
 
   const submitLabel =
-    tab === "JOIN" ? "Join" : tab === "CREATE" ? "Create room" : "Play";
+    tab === "JOIN" ? "Join game" : tab === "CREATE" ? "Create room" : "Kick off";
 
   const lobby = (
-    <section className="mx-auto w-full max-w-md pb-6 pt-2 sm:pb-10 sm:pt-3">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight sm:text-4xl">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-accent-ink shadow-md">
-            <Layers size={22} />
-          </span>
-          Play Cards
-        </h1>
-        <BackButton />
-      </div>
+    <section className="relative mx-auto w-full max-w-md pb-8 pt-1 sm:pt-3">
+      <Backdrop />
 
-      <form onSubmit={submitLobby} className="cards-panel overflow-hidden rounded-[24px]">
-        <div className="brand-bar h-1.5 w-full" />
+      <div className="relative">
+        <div className="mb-8 mt-2 flex justify-end">
+          <BackButton />
+        </div>
 
-        <div className="grid gap-5 p-5 sm:p-6">
-          {/* Mode */}
-          <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-foreground/[0.06] p-1.5">
-            {tabs.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => {
-                  setTab(item.key);
-                  setError("");
-                }}
-                className={`flex items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-xs font-black transition sm:text-sm ${
-                  tab === item.key
-                    ? "bg-accent text-accent-ink shadow"
-                    : "text-muted hover:text-foreground"
-                }`}
-              >
-                {item.icon}
-                {item.label}
-              </button>
-            ))}
-          </div>
+        <form
+          onSubmit={submitLobby}
+          className="overflow-hidden rounded-[28px] border-2 border-border bg-surface shadow-2xl shadow-accent/15"
+        >
+          <div className="brand-bar h-2 w-full" />
 
-          {tab === "JOIN" ? (
-            <>
-              <input
-                value={joinCode}
-                onChange={(e) =>
-                  setJoinCode(
-                    e.target.value
-                      .toUpperCase()
-                      .replace(/[^A-Z0-9]/g, "")
-                      .slice(0, 6),
-                  )
-                }
-                placeholder="CODE"
-                aria-label="Room code"
-                maxLength={6}
-                autoCapitalize="characters"
-                autoComplete="off"
-                spellCheck={false}
-                disabled={busy}
-                className={`${INPUT_CLASS} text-center text-2xl font-black uppercase tracking-[0.3em]`}
-              />
-              <input
-                value={joinName}
-                onChange={(e) => setJoinName(e.target.value)}
-                placeholder="Your name"
-                aria-label="Your name"
-                maxLength={40}
-                disabled={busy}
-                className={INPUT_CLASS}
-              />
-            </>
-          ) : (
-            <>
-              <div className={`grid gap-3 ${tab === "LOCAL" ? "sm:grid-cols-2" : ""}`}>
+          <div className="grid gap-5 p-5 sm:p-6">
+            {/* Mode tiles */}
+            <div className="grid grid-cols-3 gap-2">
+              {tabs.map((item) => {
+                const active = tab === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => {
+                      setTab(item.key);
+                      setError("");
+                    }}
+                    className={`flex flex-col items-center gap-1 rounded-2xl border-2 px-2 py-3 transition ${
+                      active
+                        ? "-translate-y-0.5 border-accent bg-accent text-accent-ink shadow-lg shadow-accent/40"
+                        : "border-border bg-background text-muted hover:border-accent/50 hover:text-foreground"
+                    }`}
+                  >
+                    {item.icon}
+                    <span className="text-sm font-black">{item.label}</span>
+                    <span
+                      className={`text-[10px] font-bold ${
+                        active ? "opacity-75" : "opacity-60"
+                      }`}
+                    >
+                      {item.sub}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {tab === "JOIN" ? (
+              <>
                 <input
-                  value={name1}
-                  onChange={(e) => setName1(e.target.value)}
-                  placeholder={tab === "LOCAL" ? "Player 1" : "Your name"}
-                  aria-label={tab === "LOCAL" ? "Player 1" : "Your name"}
+                  value={joinCode}
+                  onChange={(e) =>
+                    setJoinCode(
+                      e.target.value
+                        .toUpperCase()
+                        .replace(/[^A-Z0-9]/g, "")
+                        .slice(0, 6),
+                    )
+                  }
+                  placeholder="CODE"
+                  aria-label="Room code"
+                  maxLength={6}
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  spellCheck={false}
+                  disabled={busy}
+                  className={`${INPUT_CLASS} border-accent/40 bg-accent/[0.06] py-4 text-center text-3xl font-black uppercase tracking-[0.35em]`}
+                />
+                <NameField
+                  badge="YOU"
+                  tone="b"
+                  value={joinName}
+                  onChange={(e) => setJoinName(e.target.value)}
+                  placeholder="Your name"
+                  aria-label="Your name"
                   maxLength={40}
                   disabled={busy}
-                  className={INPUT_CLASS}
                 />
-                {tab === "LOCAL" && (
-                  <input
-                    value={name2}
-                    onChange={(e) => setName2(e.target.value)}
-                    placeholder="Player 2"
-                    aria-label="Player 2"
+              </>
+            ) : (
+              <>
+                <div className="grid gap-3">
+                  <NameField
+                    badge={tab === "LOCAL" ? "P1" : "YOU"}
+                    tone="a"
+                    value={name1}
+                    onChange={(e) => setName1(e.target.value)}
+                    placeholder={tab === "LOCAL" ? "Player 1" : "Your name"}
+                    aria-label={tab === "LOCAL" ? "Player 1" : "Your name"}
                     maxLength={40}
                     disabled={busy}
-                    className={INPUT_CLASS}
                   />
-                )}
-              </div>
+                  {tab === "LOCAL" && (
+                    <NameField
+                      badge="P2"
+                      tone="b"
+                      value={name2}
+                      onChange={(e) => setName2(e.target.value)}
+                      placeholder="Player 2"
+                      aria-label="Player 2"
+                      maxLength={40}
+                      disabled={busy}
+                    />
+                  )}
+                </div>
 
-              <div>
-                <FieldLabel>Pool</FieldLabel>
-                {poolsLoading ? (
-                  <LoaderCircle size={18} className="animate-spin text-muted" />
-                ) : (
+                <div>
+                  <FieldLabel>Pool</FieldLabel>
+                  {poolsLoading ? (
+                    <div className="flex justify-center py-2">
+                      <LoaderCircle size={18} className="animate-spin text-muted" />
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {pools.map((pool) => {
+                        const tooSmall = pool.count < DECK_OPTIONS[0] * 2;
+                        const active = poolKey === pool.key;
+                        return (
+                          <button
+                            key={pool.key}
+                            type="button"
+                            disabled={tooSmall || busy}
+                            onClick={() => setPoolKey(pool.key)}
+                            className={`rounded-xl border-2 px-3.5 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                              active
+                                ? "border-accent bg-accent text-accent-ink shadow-md shadow-accent/30"
+                                : "border-border bg-background text-foreground/80 hover:border-accent/60"
+                            }`}
+                          >
+                            {pool.label}
+                            <span className="ml-1.5 opacity-60">{pool.count}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <FieldLabel>Cards each</FieldLabel>
                   <div className="flex flex-wrap gap-2">
-                    {pools.map((pool) => {
-                      const tooSmall = pool.count < DECK_OPTIONS[0] * 2;
+                    {DECK_OPTIONS.map((n) => {
+                      const disabled = !deckChoices.includes(n);
+                      const active = deckSize === n && !disabled;
                       return (
                         <button
-                          key={pool.key}
+                          key={n}
                           type="button"
-                          disabled={tooSmall || busy}
-                          onClick={() => setPoolKey(pool.key)}
-                          className={`cards-chip rounded-full px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-40 ${
-                            poolKey === pool.key ? "cards-chip-active" : ""
+                          disabled={disabled || busy}
+                          onClick={() => setDeckSize(n)}
+                          className={`min-w-16 flex-1 rounded-xl border-2 px-4 py-2.5 text-lg font-black tabular-nums transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                            active
+                              ? "border-accent-2 bg-accent-2 text-accent-2-ink shadow-md shadow-accent-2/30"
+                              : "border-border bg-background text-foreground/80 hover:border-accent-2/60"
                           }`}
                         >
-                          {pool.label}
+                          {n}
                         </button>
                       );
                     })}
                   </div>
-                )}
-              </div>
-
-              <div>
-                <FieldLabel>Cards</FieldLabel>
-                <div className="flex flex-wrap gap-2">
-                  {DECK_OPTIONS.map((n) => {
-                    const disabled = !deckChoices.includes(n);
-                    return (
-                      <button
-                        key={n}
-                        type="button"
-                        disabled={disabled || busy}
-                        onClick={() => setDeckSize(n)}
-                        className={`cards-chip min-w-14 rounded-full px-4 py-2 text-sm font-black disabled:cursor-not-allowed disabled:opacity-40 ${
-                          deckSize === n && !disabled ? "cards-chip-active" : ""
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    );
-                  })}
                 </div>
-              </div>
-            </>
-          )}
-
-          <div>
-            <button type="submit" disabled={busy || poolsLoading} className="cards-btn">
-              {busy ? (
-                <LoaderCircle size={19} className="animate-spin" />
-              ) : (
-                <>
-                  {submitLabel} <ArrowRight size={19} />
-                </>
-              )}
-            </button>
-            {error && (
-              <div className="mt-4">
-                <ErrorMessage message={error} />
-              </div>
+              </>
             )}
+
+            <div>
+              <button
+                type="submit"
+                disabled={busy || poolsLoading}
+                className={btn("primary")}
+              >
+                {busy ? (
+                  <LoaderCircle size={20} className="animate-spin" />
+                ) : (
+                  <>
+                    {submitLabel} <ArrowRight size={20} />
+                  </>
+                )}
+              </button>
+              {error && (
+                <div className="mt-4">
+                  <ErrorMessage message={error} />
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </section>
   );
 
@@ -795,34 +904,52 @@ export default function CardsPage() {
 
       stage = (
         <StageWrap>
-          <div className="cards-panel overflow-hidden rounded-[24px] text-center">
-            <div className="brand-bar h-1.5 w-full" />
+          <div className="overflow-hidden rounded-[28px] border-2 border-border bg-surface text-center shadow-2xl shadow-accent/15">
+            <div className="brand-bar h-2 w-full" />
             <div className="p-6">
-              <p className="select-all rounded-2xl bg-accent px-4 py-3 text-5xl font-black tracking-[0.3em] text-accent-ink shadow-lg">
-                {game.room_code}
+              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.3em] text-muted">
+                Room code
               </p>
-              <div className="mt-4 grid grid-cols-2 gap-3">
+              <div
+                className="flex select-all justify-center gap-1.5"
+                aria-label={`Room code ${game.room_code}`}
+              >
+                {game.room_code.split("").map((ch, i) => (
+                  <span
+                    key={`${ch}-${i}`}
+                    className={`flex h-16 w-11 items-center justify-center rounded-xl text-3xl font-black shadow-[0_4px_0_0_rgba(0,0,0,0.28)] ${
+                      i % 2 === 0
+                        ? "bg-accent text-accent-ink"
+                        : "bg-accent-2 text-accent-2-ink"
+                    }`}
+                  >
+                    {ch}
+                  </span>
+                ))}
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => void copyText(game.room_code, "code")}
-                  className="cards-btn cards-btn-sm"
+                  className={btn("primary", true)}
                 >
-                  {copied === "code" ? <Check size={16} /> : <Copy size={16} />}
+                  {copied === "code" ? <Check size={15} /> : <Copy size={15} />}
                   Code
                 </button>
                 <button
                   type="button"
                   onClick={() => void copyText(link, "link")}
-                  className="cards-btn cards-btn-alt cards-btn-sm"
+                  className={btn("alt", true)}
                 >
-                  {copied === "link" ? <Check size={16} /> : <Copy size={16} />}
+                  {copied === "link" ? <Check size={15} /> : <Copy size={15} />}
                   Link
                 </button>
               </div>
               <Hint>Waiting for opponent</Hint>
             </div>
           </div>
-          <button type="button" onClick={leaveGame} className="cards-btn cards-btn-ghost mt-4">
+          <button type="button" onClick={leaveGame} className={`${btn("ghost", true)} mt-4`}>
             Cancel
           </button>
         </StageWrap>
@@ -836,12 +963,14 @@ export default function CardsPage() {
           ? "win"
           : "lose";
 
+      // Club colours only: win = main colour, draw = second colour,
+      // loss = neutral.
       const panelColor =
         outcome === "win"
-          ? "border-emerald-300 bg-emerald-600 text-white"
+          ? "bg-accent text-accent-ink shadow-accent/50"
           : outcome === "lose"
-            ? "border-red-300 bg-red-600 text-white"
-            : "border-amber-200 bg-amber-400 text-slate-900";
+            ? "bg-foreground text-background shadow-black/30"
+            : "bg-accent-2 text-accent-2-ink shadow-accent-2/50";
 
       const headline = !game.winner_seat
         ? "Draw"
@@ -854,24 +983,49 @@ export default function CardsPage() {
       stage = (
         <StageWrap>
           <div
-            className={`card-pop rounded-[24px] border-2 p-8 text-center shadow-xl ${panelColor}`}
+            className={`card-pop relative overflow-hidden rounded-[28px] p-8 text-center shadow-2xl ${panelColor}`}
           >
-            <Trophy size={44} className="mx-auto" />
-            <h2 className="mt-4 text-3xl font-black">{headline}</h2>
-            {game.end_reason === "CONCEDED" && (
-              <p className="mt-1 text-xs font-bold uppercase tracking-wider opacity-80">
-                Conceded
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/25 via-transparent to-black/25" />
+            <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/15" />
+            <div className="pointer-events-none absolute -bottom-12 -left-8 h-36 w-36 rounded-full bg-black/10" />
+
+            <div className="relative">
+              <span className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-black/20 ring-4 ring-white/30">
+                <Trophy size={46} />
+              </span>
+              <p className="mt-5 text-[11px] font-black uppercase tracking-[0.3em] opacity-75">
+                Full time
               </p>
-            )}
-            <p className="mt-5 rounded-xl bg-black/25 px-4 py-2 text-sm font-black">
-              {left.name} {left.cards_left} <span className="opacity-70">:</span>{" "}
-              {right.cards_left} {right.name}
-            </p>
+              <h2 className="mt-1 text-4xl font-black italic uppercase leading-none tracking-tight">
+                {headline}
+              </h2>
+              {game.end_reason === "CONCEDED" && (
+                <p className="mt-2 text-xs font-bold uppercase tracking-wider opacity-80">
+                  Conceded
+                </p>
+              )}
+
+              <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-2xl bg-black/25 px-4 py-3">
+                <div className="min-w-0 text-left">
+                  <p className="truncate text-[11px] font-bold uppercase opacity-80">
+                    {left.name}
+                  </p>
+                  <p className="text-3xl font-black tabular-nums">{left.cards_left}</p>
+                </div>
+                <span className="text-lg font-black opacity-60">:</span>
+                <div className="min-w-0 text-right">
+                  <p className="truncate text-[11px] font-bold uppercase opacity-80">
+                    {right.name}
+                  </p>
+                  <p className="text-3xl font-black tabular-nums">{right.cards_left}</p>
+                </div>
+              </div>
+            </div>
           </div>
-          <button type="button" onClick={leaveGame} className="cards-btn mt-4">
+          <button type="button" onClick={leaveGame} className={`${btn("primary")} mt-6`}>
             <RotateCcw size={18} /> Play again
           </button>
-          <Link href="/" className="cards-btn cards-btn-ghost mt-3">
+          <Link href="/" className={`${btn("ghost")} mt-3`}>
             <ArrowLeft size={16} /> Home
           </Link>
         </StageWrap>
@@ -901,25 +1055,34 @@ export default function CardsPage() {
             ? "You win"
             : `${winnerName} wins`;
 
+      // Club colours only. "You" is the first colour and the opponent the
+      // second; a tie is neutral.
       const bannerColor =
         lr.winner === "tie"
-          ? "bg-amber-400 text-slate-900"
-          : !isLocal && lr.winner === "opponent"
-            ? "bg-red-600 text-white"
-            : "bg-emerald-600 text-white";
+          ? "bg-foreground text-background shadow-black/25"
+          : lr.winner === "you"
+            ? "bg-accent text-accent-ink shadow-accent/40"
+            : "bg-accent-2 text-accent-2-ink shadow-accent-2/40";
 
       stage = (
         <div className="mx-auto w-full max-w-3xl">
-          <div className={`card-pop mb-5 rounded-2xl p-4 text-center shadow-lg ${bannerColor}`}>
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] opacity-80">
-              {STAT_META[lr.stat].label}
-            </p>
-            <p className="mt-1 flex items-center justify-center gap-4 text-4xl font-black">
-              <span>{challengerValue}</span>
-              <span className="text-sm font-bold opacity-70">vs</span>
-              <span>{responderValue}</span>
-            </p>
-            <p className="mt-1 text-base font-black">{bannerText}</p>
+          <div
+            className={`card-pop relative mb-5 overflow-hidden rounded-3xl p-4 text-center shadow-xl ${bannerColor}`}
+          >
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/25 via-transparent to-black/20" />
+            <div className="relative">
+              <p className="mx-auto w-fit rounded-full bg-black/20 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em]">
+                {STAT_META[lr.stat].label}
+              </p>
+              <p className="mt-2 flex items-center justify-center gap-5 text-5xl font-black tabular-nums">
+                <span>{challengerValue}</span>
+                <span className="text-sm font-black uppercase opacity-60">vs</span>
+                <span>{responderValue}</span>
+              </p>
+              <p className="mt-1 text-lg font-black uppercase italic tracking-wide">
+                {bannerText}
+              </p>
+            </div>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
@@ -948,10 +1111,10 @@ export default function CardsPage() {
             type="button"
             onClick={continueGame}
             disabled={busy}
-            className="cards-btn mx-auto mt-6 max-w-sm"
+            className={`${btn("primary")} mx-auto mt-7 max-w-sm`}
           >
             {busy ? <LoaderCircle size={18} className="animate-spin" /> : <ArrowRight size={18} />}
-            Next
+            Next round
           </button>
         </div>
       );
@@ -964,7 +1127,7 @@ export default function CardsPage() {
             <button
               type="button"
               onClick={() => setHolderSeat(challengerSeat)}
-              className="cards-btn mt-4"
+              className={`${btn("primary")} mt-6`}
             >
               <Eye size={18} /> I&apos;m {challengerName}
             </button>
@@ -984,7 +1147,7 @@ export default function CardsPage() {
               type="button"
               onClick={lockStat}
               disabled={!selectedStat || busy}
-              className="cards-btn mt-4"
+              className={`${btn("primary")} mt-6`}
             >
               {busy ? <LoaderCircle size={18} className="animate-spin" /> : <Lock size={18} />}
               {selectedStat ? `Lock ${STAT_META[selectedStat].label}` : "Pick a stat"}
@@ -1009,7 +1172,7 @@ export default function CardsPage() {
               onClick={handleRevealCard}
               disabled={busy || isCardFlipping}
               aria-label={isLocal ? `${responderName}: reveal card` : "Reveal card"}
-              className="block w-full rounded-3xl text-left outline-none ring-4 ring-lime-400/80 shadow-[0_0_26px_8px_rgba(163,230,53,0.4)] transition-shadow duration-300 hover:shadow-[0_0_32px_10px_rgba(163,230,53,0.48)] focus-visible:ring-lime-300 disabled:cursor-wait"
+              className="block w-full rounded-3xl text-left shadow-2xl shadow-accent/50 outline-none ring-4 ring-accent/80 transition-shadow duration-300 hover:shadow-accent/70 focus-visible:ring-accent-2 disabled:cursor-wait"
               style={{
                 transform: isCardFlipping ? "perspective(1000px) rotateY(90deg) scale(0.97)" : "perspective(1000px) rotateY(0deg) scale(1)",
                 transformStyle: "preserve-3d",
@@ -1041,43 +1204,55 @@ export default function CardsPage() {
     const showConcede = game.status === "ACTIVE" && game.phase !== "REVEALED";
 
     gameView = (
-      <section className="mx-auto mt-10 max-w-4xl pb-4 pt-1 sm:mt-10 sm:pb-8 sm:pt-2">
-        {showScore &&
-          (game.phase === "LOCKED" ? (
-            <div className="mx-auto mb-5 flex h-[68px] max-w-sm flex-col items-center justify-center rounded-2xl bg-accent px-4 text-center text-accent-ink shadow-lg">
-              <Lock size={14} className="opacity-80" />
-              <p className="mt-0.5 text-xl font-black leading-6">{lockedLabel}</p>
+      <section className="relative mx-auto mt-10 max-w-4xl pb-4 pt-1 sm:mt-10 sm:pb-8 sm:pt-2">
+        <Backdrop />
+
+        <div className="relative">
+          {showScore &&
+            (game.phase === "LOCKED" ? (
+              <div className="relative mx-auto mb-5 flex max-w-sm items-center justify-center gap-3 overflow-hidden rounded-3xl bg-accent px-4 py-3.5 text-accent-ink shadow-xl shadow-accent/40">
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/25 via-transparent to-black/20" />
+                <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-black/20">
+                  <Lock size={18} />
+                </span>
+                <div className="relative text-left">
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] opacity-75">
+                    Locked
+                  </p>
+                  <p className="text-2xl font-black uppercase leading-6">{lockedLabel}</p>
+                </div>
+              </div>
+            ) : (
+              <ScoreBar
+                left={left}
+                right={right}
+                round={game.round_number}
+                pot={game.pot_count}
+                challengerSeat={challengerSeat}
+              />
+            ))}
+
+          {stage}
+
+          {error && (
+            <div className="mx-auto mt-4 max-w-sm">
+              <ErrorMessage message={error} />
             </div>
-          ) : (
-            <ScoreBar
-              left={left}
-              right={right}
-              round={game.round_number}
-              pot={game.pot_count}
-              challengerSeat={challengerSeat}
-            />
-          ))}
+          )}
 
-        {stage}
-
-        {error && (
-          <div className="mx-auto mt-4 max-w-sm">
-            <ErrorMessage message={error} />
-          </div>
-        )}
-
-        {showConcede && (
-          <div className="mt-8 flex justify-center">
-            <button
-              type="button"
-              onClick={concede}
-              disabled={busy}
-              className="cards-btn cards-btn-ghost cards-btn-sm"
-            >
-              <Flag size={14} /> Concede
-            </button>
-          </div>
-        )}
+          {showConcede && (
+            <div className="mx-auto mt-8 max-w-[11rem]">
+              <button
+                type="button"
+                onClick={concede}
+                disabled={busy}
+                className={btn("ghost", true)}
+              >
+                <Flag size={14} /> Concede
+              </button>
+            </div>
+          )}
+        </div>
       </section>
     );
   }
