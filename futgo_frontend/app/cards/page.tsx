@@ -692,15 +692,14 @@ export default function CardsPage() {
       <Backdrop />
 
       <div className="relative">
-        <div className="mb-5 mt-2 flex justify-end">
+        <div className="hidden md:flex mb-5 mt-2 flex justify-end">
           <BackButton />
         </div>
 
         <form
           onSubmit={submitLobby}
-          className="overflow-hidden rounded-[28px] border-2 border-border bg-surface shadow-2xl shadow-accent/15"
+          className="overflow-hidden mt-10 rounded-[28px] border-2 border-border bg-surface shadow-2xl shadow-accent/15"
         >
-          <div className="brand-bar h-2 w-full" />
 
           <div className="grid gap-5 p-5 sm:p-6">
             {/* Mode tiles */}
