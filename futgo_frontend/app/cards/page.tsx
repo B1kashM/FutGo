@@ -692,7 +692,7 @@ export default function CardsPage() {
       <Backdrop />
 
       <div className="relative">
-        <div className="mb-8 mt-2 flex justify-end">
+        <div className="mb-5 mt-2 flex justify-end">
           <BackButton />
         </div>
 
@@ -818,7 +818,7 @@ export default function CardsPage() {
                             }`}
                           >
                             {pool.label}
-                            <span className="ml-1.5 opacity-60">{pool.count}</span>
+                            {/* <span className="ml-1.5 opacity-60">{pool.count}</span> */}
                           </button>
                         );
                       })}
