@@ -54,7 +54,7 @@ const styles = {
 
 export default function GameModes() {
   return (
-    <main className="relative flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground">
+    <main className="fixed inset-0 flex flex-col overflow-hidden overscroll-none touch-none bg-background text-foreground">
       <div className="brand-bar h-1.5 w-full shrink-0" />
 
       <div className="relative mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col px-7 pb-8 pt-8 sm:px-14 lg:px-24 lg:pb-12 lg:pt-14">
