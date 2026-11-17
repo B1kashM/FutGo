@@ -1195,7 +1195,7 @@ export default function OnlineDraftPage() {
     } else if (draft.status === "WAITING") {
       stage = (
         <>
-          <div className="mt-1.5 sm:mt-5">
+          <div className="mt-1 sm:mt-5">
             <RoomPresenceBar presence={presence} mySeat={seat} />
           </div>
           <Lobby
@@ -1297,6 +1297,7 @@ export default function OnlineDraftPage() {
         name={seat === 1 ? draft?.player1_name : draft?.player2_name}
         isHost={isHost}
         hideChipOnMobile={draft?.status === "WAITING"}
+        hideCodeOnMobile={draft?.status === "WAITING"}
         onLeave={handleLeave}
       />
     );
@@ -1373,6 +1374,7 @@ function RoomBar({
   name,
   isHost,
   hideChipOnMobile = false,
+  hideCodeOnMobile = false,
   onLeave,
 }: {
   roomCode: string;
@@ -1380,12 +1382,17 @@ function RoomBar({
   name?: string;
   isHost: boolean;
   hideChipOnMobile?: boolean;
+  hideCodeOnMobile?: boolean;
   onLeave: () => void;
 }) {
   return (
-    <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5 rounded-xl border border-border bg-surface px-2.5 py-1.5 sm:mt-5 sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3">
-      <div className="flex min-w-0 flex-wrap items-center gap-3">
-        <span className="rounded-lg bg-foreground/[0.06] px-2 py-1 text-[10px] font-black tracking-[0.15em] text-foreground/80 sm:px-3 sm:py-1.5 sm:text-xs sm:tracking-[0.2em]">
+    <div className="mt-1.5 flex items-center justify-between gap-1.5 rounded-xl border border-border bg-surface px-2.5 py-1.5 sm:mt-5 sm:flex-wrap sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <span
+          className={`rounded-lg bg-foreground/[0.06] px-2 py-1 text-[10px] font-black tracking-[0.15em] text-foreground/80 sm:px-3 sm:py-1.5 sm:text-xs sm:tracking-[0.2em] ${
+            hideCodeOnMobile ? "hidden sm:inline-block" : ""
+          }`}
+        >
           ROOM {roomCode || "—"}
         </span>
         {name && (
@@ -1398,7 +1405,7 @@ function RoomBar({
         )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-3">
         <span className={hideChipOnMobile ? "hidden sm:block" : ""}>
           <ConnectionChip status={connection} />
         </span>
@@ -1439,32 +1446,43 @@ function SeatCard({
   loading: boolean;
   onSelectClub: (id: string) => void;
 }) {
+  const placeholderClass =
+    "flex h-9 items-center gap-2 rounded-lg border border-dashed border-border px-3 text-[11px] text-muted sm:h-[72px] sm:gap-3 sm:rounded-xl sm:px-4 sm:text-sm";
+
   return (
     <div
-      className={`rounded-xl border p-3 sm:rounded-[24px] sm:p-6 ${
+      className={`rounded-xl border p-2.5 sm:rounded-[24px] sm:p-6 ${
         isMe ? "border-accent/40 bg-accent/[0.04]" : "border-border bg-surface"
       }`}
     >
-      <div className="mb-2 flex items-center justify-between gap-2 sm:mb-4 sm:gap-3">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="mb-1.5 flex items-center justify-between gap-2 sm:mb-4 sm:gap-3">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <div
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 sm:rounded-xl ${
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 sm:rounded-xl ${
               isHost
                 ? "bg-accent/10 text-accent-text"
                 : "bg-accent-2/10 text-accent-2-text"
             }`}
           >
-            {isHost ? <Crown size={20} /> : <Users size={20} />}
+            {isHost ? <Crown size={16} /> : <Users size={16} />}
           </div>
           <div className="min-w-0">
-            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted sm:text-xs sm:tracking-[0.16em]">{title}</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted sm:text-xs sm:tracking-[0.16em]">
+              {title}
+            </p>
             {joined ? (
-              <h3 className="truncate text-sm font-black sm:text-lg">
+              <h3 className="truncate text-sm font-black leading-tight sm:text-lg">
                 {name}
-                {isMe && <span className="ml-1 text-[9px] font-bold text-accent-text sm:ml-2 sm:text-xs">You</span>}
+                {isMe && (
+                  <span className="ml-1 text-[9px] font-bold text-accent-text sm:ml-2 sm:text-xs">
+                    You
+                  </span>
+                )}
               </h3>
             ) : (
-              <h3 className="text-sm font-black text-muted sm:text-lg">Waiting for player...</h3>
+              <h3 className="text-sm font-black leading-tight text-muted sm:text-lg">
+                Waiting...
+              </h3>
             )}
           </div>
         </div>
@@ -1481,28 +1499,25 @@ function SeatCard({
       </div>
 
       {!joined ? (
-        <div className="flex h-[42px] items-center gap-2 rounded-lg border border-dashed border-border px-3 text-xs text-muted sm:h-[72px] sm:gap-3 sm:rounded-xl sm:px-4 sm:text-sm">
-          <Link2 size={18} /> Share the room code to invite a player
+        <div className={placeholderClass}>
+          <Link2 size={16} /> Share the code to invite
         </div>
       ) : canEditTeam ? (
-        <div className="space-y-2 sm:space-y-3">
-          <TeamDropdown
-            teams={teams}
-            value={team ? String(team.id) : ""}
-            placeholder="Select your club"
-            disabled={loading}
-            excludedId={otherTeamId}
-            onChange={onSelectClub}
-          />
-          {!team && (
-            <p className="text-xs text-amber-600 dark:text-amber-300">Choose a club so the draft can start.</p>
-          )}
-        </div>
+        <TeamDropdown
+          teams={teams}
+          value={team ? String(team.id) : ""}
+          placeholder="Select your club"
+          disabled={loading}
+          excludedId={otherTeamId}
+          onChange={onSelectClub}
+        />
       ) : team ? (
-        <div className="-my-1 origin-left scale-[0.9] sm:my-0 sm:scale-100"><TeamBadge team={team} /></div>
+        <div className="-my-1.5 origin-left scale-[0.85] sm:my-0 sm:scale-100">
+          <TeamBadge team={team} />
+        </div>
       ) : (
-        <div className="flex h-[42px] items-center gap-2 rounded-lg border border-dashed border-border px-3 text-xs text-muted sm:h-[72px] sm:gap-3 sm:rounded-xl sm:px-4 sm:text-sm">
-          <Shield size={18} /> Choosing a club...
+        <div className={placeholderClass}>
+          <Shield size={16} /> Choosing a club...
         </div>
       )}
     </div>
@@ -1549,63 +1564,87 @@ function Lobby({
   let hint = "";
 
   if (roomClosed) {
-    hint = "This room has been closed. Leave to start a new one.";
+    hint = "Room closed. Leave to start a new one.";
   } else if (isHost) {
-    if (!guestJoined) hint = "Waiting for a second player to join...";
-    else if (!draft.player2_team) hint = `Waiting for ${draft.player2_name} to choose a club...`;
+    if (!guestJoined) hint = "Waiting for a second player...";
+    else if (!draft.player2_team) hint = `Waiting for ${draft.player2_name} to pick a club...`;
     else if (!draft.player1_team) hint = "Choose your club to continue.";
-    else hint = "Both managers are ready. Start when you are.";
+    else hint = "Both managers ready. Start when you are.";
   } else if (!draft.player2_team) {
-    hint = "Choose your football club below.";
+    hint = "Choose your football club.";
   } else {
-    hint = `Waiting for ${draft.player1_name} to start the draft...`;
+    hint = `Waiting for ${draft.player1_name} to start...`;
   }
 
   return (
-    <section className="mx-auto max-w-5xl pb-1 pt-2 sm:py-12">
-      <div className="mb-2 flex flex-wrap items-end justify-between gap-2 sm:mb-7 sm:gap-4">
+    <section className="mx-auto max-w-5xl pb-1 pt-1.5 sm:py-12">
+      {/* Desktop header (hidden on mobile to save space) */}
+      <div className="mb-7 hidden flex-wrap items-end justify-between gap-4 sm:flex">
         <div>
-          <div className="mb-3 hidden items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-accent-text sm:inline-flex">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-accent-text">
             <Users size={14} /> Waiting lobby
           </div>
-          <h1 className="text-xl font-black tracking-tight sm:text-5xl">
+          <h1 className="text-5xl font-black tracking-tight">
             {guestJoined ? "READY TO DRAFT." : "WAITING FOR PLAYER."}
           </h1>
-          <p className="mt-3 hidden text-sm leading-6 text-muted sm:block sm:text-base">{hint}</p>
+          <p className="mt-3 text-base leading-6 text-muted">{hint}</p>
         </div>
-        <span className="rounded-full border border-border bg-foreground/[0.03] px-3 py-1.5 text-xs text-muted sm:py-2">
+        <span className="rounded-full border border-border bg-foreground/[0.03] px-3 py-2 text-xs text-muted">
           {categoryLabel}
         </span>
       </div>
 
-      <div className="mb-2 rounded-xl border border-border bg-surface p-3 sm:mb-5 sm:rounded-[24px] sm:p-7">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted sm:text-xs">Room code</p>
-        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 sm:mt-3 sm:gap-4">
+      {/* Room code */}
+      <div className="mb-1.5 rounded-xl border border-border bg-surface px-3 py-2 sm:mb-5 sm:rounded-[24px] sm:p-7">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted sm:text-xs">
+            Room code
+          </p>
+          <span className="rounded-full border border-border bg-foreground/[0.03] px-2 py-0.5 text-[10px] text-muted sm:hidden">
+            {categoryLabel}
+          </span>
+        </div>
+        <div className="mt-1 flex items-center justify-between gap-2 sm:mt-3 sm:flex-wrap sm:gap-4">
           <span className="select-all text-2xl font-black tracking-[0.2em] text-accent-text sm:text-5xl sm:tracking-[0.3em]">
             {roomCode || "········"}
           </span>
-          <div className="flex flex-wrap gap-1.5 sm:gap-2">
+          <div className="flex gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={onCopyCode}
               className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-black text-accent-ink transition hover:brightness-110 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm"
             >
-              {copied === "code" ? <Check size={16} /> : <Copy size={16} />}
-              {copied === "code" ? "Copied" : "Copy code"}
+              {copied === "code" ? <Check size={15} /> : <Copy size={15} />}
+              {copied === "code" ? (
+                "Copied"
+              ) : (
+                <>
+                  <span className="sm:hidden">Code</span>
+                  <span className="hidden sm:inline">Copy code</span>
+                </>
+              )}
             </button>
             <button
               type="button"
               onClick={onCopyLink}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-foreground/75 transition hover:bg-foreground/5 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm"
             >
-              {copied === "link" ? <Check size={16} /> : <Link2 size={16} />}
-              {copied === "link" ? "Copied" : "Copy invite link"}
+              {copied === "link" ? <Check size={15} /> : <Link2 size={15} />}
+              {copied === "link" ? (
+                "Copied"
+              ) : (
+                <>
+                  <span className="sm:hidden">Link</span>
+                  <span className="hidden sm:inline">Copy invite link</span>
+                </>
+              )}
             </button>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-2 sm:gap-5 md:grid-cols-2">
+      {/* Host + guest */}
+      <div className="grid gap-1.5 sm:gap-5 md:grid-cols-2">
         <SeatCard
           title="Host"
           isHost
@@ -1634,10 +1673,11 @@ function Lobby({
         />
       </div>
 
-      <div className="mt-2 flex flex-col gap-2 rounded-xl border border-border bg-foreground/[0.03] p-3 sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:rounded-[24px] sm:p-6">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+      {/* Status + start */}
+      <div className="mt-1.5 flex flex-col gap-2 rounded-xl border border-border bg-foreground/[0.03] p-2.5 sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:rounded-[24px] sm:p-6">
+        <div className="flex items-center gap-2 sm:gap-3">
           <ConnectionChip status={connection} />
-          <span className="text-[10px] leading-4 text-muted sm:text-xs">{hint}</span>
+          <span className="min-w-0 text-[10px] leading-4 text-muted sm:hidden">{hint}</span>
         </div>
 
         {isHost ? (
@@ -1649,24 +1689,24 @@ function Lobby({
           >
             {loading ? (
               <>
-                <LoaderCircle size={19} className="animate-spin" /> Working...
+                <LoaderCircle size={18} className="animate-spin" /> Working...
               </>
             ) : (
               <>
-                <Play size={18} fill="currentColor" /> Start draft
+                <Play size={17} fill="currentColor" /> Start draft
               </>
             )}
           </button>
         ) : (
           <div className="flex w-full items-center justify-center gap-2 rounded-lg border border-accent/25 bg-accent/[0.06] px-5 py-2.5 text-xs font-bold text-accent-text sm:w-auto sm:rounded-xl sm:px-6 sm:py-4 sm:text-sm">
-            <LoaderCircle size={17} className="animate-spin" />
+            <LoaderCircle size={16} className="animate-spin" />
             Waiting for the host to start
           </div>
         )}
       </div>
 
       {error && (
-        <div className="mt-3 sm:mt-5">
+        <div className="mt-2 sm:mt-5">
           <ErrorMessage message={error} />
         </div>
       )}
