@@ -1256,6 +1256,36 @@ export default function CardsPage() {
     );
   }
 
+  // Fix the page: no scrolling or rubber-banding on any screen size.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+
+    html.style.overflow = "hidden";
+    html.style.height = "100%";
+    html.style.overscrollBehavior = "none";
+    body.style.position = "fixed";
+    body.style.inset = "0";
+    body.style.width = "100%";
+    body.style.height = "100%";
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+
+    return () => {
+      html.style.overflow = "";
+      html.style.height = "";
+      html.style.overscrollBehavior = "";
+      body.style.position = "";
+      body.style.inset = "";
+      body.style.width = "";
+      body.style.height = "";
+      body.style.overflow = "";
+      body.style.overscrollBehavior = "";
+    };
+  }, []);
+
+
+
   /* ----------------------------- final render ----------------------- */
 
   let content: ReactNode;
