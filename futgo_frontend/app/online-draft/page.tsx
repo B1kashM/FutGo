@@ -1195,7 +1195,7 @@ export default function OnlineDraftPage() {
     } else if (draft.status === "WAITING") {
       stage = (
         <>
-          <div className="mt-3 sm:mt-5">
+          <div className="mt-1.5 sm:mt-5">
             <RoomPresenceBar presence={presence} mySeat={seat} />
           </div>
           <Lobby
@@ -1383,9 +1383,9 @@ function RoomBar({
   onLeave: () => void;
 }) {
   return (
-    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-surface px-3 py-2 sm:mt-5 sm:gap-3 sm:px-4 sm:py-3">
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5 rounded-xl border border-border bg-surface px-2.5 py-1.5 sm:mt-5 sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3">
       <div className="flex min-w-0 flex-wrap items-center gap-3">
-        <span className="rounded-lg bg-foreground/[0.06] px-3 py-1.5 text-xs font-black tracking-[0.2em] text-foreground/80">
+        <span className="rounded-lg bg-foreground/[0.06] px-2 py-1 text-[10px] font-black tracking-[0.15em] text-foreground/80 sm:px-3 sm:py-1.5 sm:text-xs sm:tracking-[0.2em]">
           ROOM {roomCode || "—"}
         </span>
         {name && (
@@ -1405,7 +1405,7 @@ function RoomBar({
         <button
           type="button"
           onClick={onLeave}
-          className="flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-red-400/40 hover:text-red-600 dark:hover:text-red-300"
+          className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[10px] font-semibold text-muted transition hover:border-red-400/40 hover:text-red-600 dark:hover:text-red-300 sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs"
         >
           <LogOut size={13} /> Leave
         </button>
@@ -1441,14 +1441,14 @@ function SeatCard({
 }) {
   return (
     <div
-      className={`rounded-[20px] border p-4 sm:rounded-[24px] sm:p-6 ${
+      className={`rounded-xl border p-3 sm:rounded-[24px] sm:p-6 ${
         isMe ? "border-accent/40 bg-accent/[0.04]" : "border-border bg-surface"
       }`}
     >
-      <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
+      <div className="mb-2 flex items-center justify-between gap-2 sm:mb-4 sm:gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <div
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10 ${
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 sm:rounded-xl ${
               isHost
                 ? "bg-accent/10 text-accent-text"
                 : "bg-accent-2/10 text-accent-2-text"
@@ -1457,31 +1457,31 @@ function SeatCard({
             {isHost ? <Crown size={20} /> : <Users size={20} />}
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted sm:text-xs">{title}</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted sm:text-xs sm:tracking-[0.16em]">{title}</p>
             {joined ? (
-              <h3 className="truncate text-base font-black sm:text-lg">
+              <h3 className="truncate text-sm font-black sm:text-lg">
                 {name}
-                {isMe && <span className="ml-2 text-xs font-bold text-accent-text">You</span>}
+                {isMe && <span className="ml-1 text-[9px] font-bold text-accent-text sm:ml-2 sm:text-xs">You</span>}
               </h3>
             ) : (
-              <h3 className="text-base font-black text-muted sm:text-lg">Waiting for player...</h3>
+              <h3 className="text-sm font-black text-muted sm:text-lg">Waiting for player...</h3>
             )}
           </div>
         </div>
 
         {joined ? (
-          <span className="flex shrink-0 items-center gap-1.5 text-xs font-bold text-accent-text">
+          <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold text-accent-text sm:gap-1.5 sm:text-xs">
             <span className="h-2 w-2 rounded-full bg-accent-text" /> Joined
           </span>
         ) : (
-          <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted">
+          <span className="flex shrink-0 items-center gap-1 text-[10px] text-muted sm:gap-1.5 sm:text-xs">
             <span className="h-2 w-2 animate-pulse rounded-full bg-muted" /> Not joined
           </span>
         )}
       </div>
 
       {!joined ? (
-        <div className="flex h-[56px] items-center gap-3 rounded-xl border border-dashed border-border px-4 text-sm text-muted sm:h-[72px]">
+        <div className="flex h-[42px] items-center gap-2 rounded-lg border border-dashed border-border px-3 text-xs text-muted sm:h-[72px] sm:gap-3 sm:rounded-xl sm:px-4 sm:text-sm">
           <Link2 size={18} /> Share the room code to invite a player
         </div>
       ) : canEditTeam ? (
@@ -1499,9 +1499,9 @@ function SeatCard({
           )}
         </div>
       ) : team ? (
-        <TeamBadge team={team} />
+        <div className="-my-1 origin-left scale-[0.9] sm:my-0 sm:scale-100"><TeamBadge team={team} /></div>
       ) : (
-        <div className="flex h-[56px] items-center gap-3 rounded-xl border border-dashed border-border px-4 text-sm text-muted sm:h-[72px]">
+        <div className="flex h-[42px] items-center gap-2 rounded-lg border border-dashed border-border px-3 text-xs text-muted sm:h-[72px] sm:gap-3 sm:rounded-xl sm:px-4 sm:text-sm">
           <Shield size={18} /> Choosing a club...
         </div>
       )}
@@ -1562,13 +1562,13 @@ function Lobby({
   }
 
   return (
-    <section className="mx-auto max-w-5xl pb-2 pt-3 sm:py-12">
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-3 sm:mb-7 sm:gap-4">
+    <section className="mx-auto max-w-5xl pb-1 pt-2 sm:py-12">
+      <div className="mb-2 flex flex-wrap items-end justify-between gap-2 sm:mb-7 sm:gap-4">
         <div>
           <div className="mb-3 hidden items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-accent-text sm:inline-flex">
             <Users size={14} /> Waiting lobby
           </div>
-          <h1 className="text-2xl font-black tracking-tight sm:text-5xl">
+          <h1 className="text-xl font-black tracking-tight sm:text-5xl">
             {guestJoined ? "READY TO DRAFT." : "WAITING FOR PLAYER."}
           </h1>
           <p className="mt-3 hidden text-sm leading-6 text-muted sm:block sm:text-base">{hint}</p>
@@ -1578,17 +1578,17 @@ function Lobby({
         </span>
       </div>
 
-      <div className="mb-3 rounded-[20px] border border-border bg-surface p-4 sm:mb-5 sm:rounded-[24px] sm:p-7">
+      <div className="mb-2 rounded-xl border border-border bg-surface p-3 sm:mb-5 sm:rounded-[24px] sm:p-7">
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted sm:text-xs">Room code</p>
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-3 sm:mt-3 sm:gap-4">
-          <span className="select-all text-3xl font-black tracking-[0.3em] text-accent-text sm:text-5xl">
+        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 sm:mt-3 sm:gap-4">
+          <span className="select-all text-2xl font-black tracking-[0.2em] text-accent-text sm:text-5xl sm:tracking-[0.3em]">
             {roomCode || "········"}
           </span>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={onCopyCode}
-              className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-black text-accent-ink transition hover:brightness-110 sm:py-3"
+              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-black text-accent-ink transition hover:brightness-110 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm"
             >
               {copied === "code" ? <Check size={16} /> : <Copy size={16} />}
               {copied === "code" ? "Copied" : "Copy code"}
@@ -1596,7 +1596,7 @@ function Lobby({
             <button
               type="button"
               onClick={onCopyLink}
-              className="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground/75 transition hover:bg-foreground/5 sm:py-3"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-foreground/75 transition hover:bg-foreground/5 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm"
             >
               {copied === "link" ? <Check size={16} /> : <Link2 size={16} />}
               {copied === "link" ? "Copied" : "Copy invite link"}
@@ -1605,7 +1605,7 @@ function Lobby({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:gap-5 md:grid-cols-2">
+      <div className="grid gap-2 sm:gap-5 md:grid-cols-2">
         <SeatCard
           title="Host"
           isHost
@@ -1634,10 +1634,10 @@ function Lobby({
         />
       </div>
 
-      <div className="mt-3 flex flex-col gap-3 rounded-[20px] border border-border bg-foreground/[0.03] p-4 sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:rounded-[24px] sm:p-6">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="mt-2 flex flex-col gap-2 rounded-xl border border-border bg-foreground/[0.03] p-3 sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:rounded-[24px] sm:p-6">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <ConnectionChip status={connection} />
-          <span className="text-xs text-muted">{hint}</span>
+          <span className="text-[10px] leading-4 text-muted sm:text-xs">{hint}</span>
         </div>
 
         {isHost ? (
@@ -1645,7 +1645,7 @@ function Lobby({
             type="button"
             onClick={onStart}
             disabled={!canStart || loading}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-7 py-3 font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56 sm:py-4"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56 sm:rounded-xl sm:px-7 sm:py-4 sm:text-base"
           >
             {loading ? (
               <>
@@ -1658,7 +1658,7 @@ function Lobby({
             )}
           </button>
         ) : (
-          <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-accent/25 bg-accent/[0.06] px-6 py-3 text-sm font-bold text-accent-text sm:w-auto sm:py-4">
+          <div className="flex w-full items-center justify-center gap-2 rounded-lg border border-accent/25 bg-accent/[0.06] px-5 py-2.5 text-xs font-bold text-accent-text sm:w-auto sm:rounded-xl sm:px-6 sm:py-4 sm:text-sm">
             <LoaderCircle size={17} className="animate-spin" />
             Waiting for the host to start
           </div>
