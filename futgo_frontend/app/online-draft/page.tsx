@@ -1007,7 +1007,6 @@ export default function OnlineDraftPage() {
         <BackButton onClick={() => { setError(""); setView("landing"); }} />
 
         <div className="mb-3 sm:mb-7">
-          <h1 className="text-2xl font-black tracking-tight sm:text-5xl">CREATE A ROOM</h1>
           <p className="mt-3 hidden text-sm leading-6 text-muted sm:block sm:text-base">
             Choose the player pool and your club. Your opponent picks their club after joining.
           </p>
@@ -1329,7 +1328,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="mb-3 flex items-center gap-2 rounded-full border border-border px-4 py-1.5 text-sm text-muted transition hover:border-accent-text/50 hover:text-foreground sm:mb-6 sm:py-2"
+      className="hidden sm:flex mb-3 items-center gap-2 rounded-full border border-border px-4 py-1.5 text-sm text-muted transition hover:border-accent-text/50 hover:text-foreground sm:mb-6 sm:py-2"
     >
       <ArrowLeft size={16} /> Back
     </button>
