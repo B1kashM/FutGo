@@ -951,14 +951,14 @@ export default function OnlineDraftPage() {
           <div className="mb-3 hidden items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-accent-text sm:inline-flex">
             <Users size={14} /> Online multiplayer
           </div>
-          <h1 className="text-2xl font-black tracking-tight sm:text-5xl">PLAY ONLINE</h1>
+          <h1 className="text-2xl px-4 font-black tracking-tight sm:text-5xl">PLAY ONLINE</h1>
           <p className="mt-3 hidden max-w-2xl text-sm leading-6 text-muted sm:block sm:text-base">
             Create a private room and share the code, or join a friend&apos;s room.
             Same draft, two screens.
           </p>
         </div>
 
-        <div className="grid gap-3 sm:gap-5 md:grid-cols-2">
+        <div className="grid gap-3 px-4 sm:gap-5 md:grid-cols-2">
           <button
             type="button"
             onClick={() => {
@@ -971,9 +971,6 @@ export default function OnlineDraftPage() {
               <Plus size={26} />
             </div>
             <h2 className="mt-3 text-xl font-black sm:mt-6 sm:text-2xl">Create room</h2>
-            <p className="mt-1.5 text-xs leading-5 text-muted sm:mt-2 sm:text-sm sm:leading-6">
-              Pick the player pool and your club, then invite a friend with a room code.
-            </p>
             <span className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-muted transition group-hover:text-accent-text sm:mt-6">
               Host a draft <ArrowRight size={16} />
             </span>
@@ -991,9 +988,6 @@ export default function OnlineDraftPage() {
               <LogIn size={26} />
             </div>
             <h2 className="mt-3 text-xl font-black sm:mt-6 sm:text-2xl">Join room</h2>
-            <p className="mt-1.5 text-xs leading-5 text-muted sm:mt-2 sm:text-sm sm:leading-6">
-              Enter the room code from your friend and pick your club in the lobby.
-            </p>
             <span className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-muted transition group-hover:text-accent-2-text sm:mt-6">
               Enter a code <ArrowRight size={16} />
             </span>

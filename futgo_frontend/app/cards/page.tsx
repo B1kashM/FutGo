@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import {
+  ArrowLeft,
   ArrowRight,
   Check,
   Copy,
@@ -16,10 +17,11 @@ import {
   Lock,
   LogIn,
   RotateCcw,
+  Swords,
   Trophy,
 } from "lucide-react";
 
-import { DraftPageShell, ErrorMessage } from "../_draft/DraftUI";
+import { BackButton, DraftPageShell, ErrorMessage } from "../_draft/DraftUI";
 import {
   ApiError,
   DECK_OPTIONS,
@@ -58,14 +60,36 @@ const INPUT_CLASS =
 /* Small presentational pieces                                         */
 /* ------------------------------------------------------------------ */
 
-function Spinner({ text }: { text: string }) {
+function Spinner({ text }: { text?: string }) {
   return (
     <section className="mx-auto max-w-md py-24 text-center">
-      <div className="flex flex-col items-center gap-4 text-muted">
+      <div className="flex flex-col items-center gap-3 text-muted">
         <LoaderCircle size={30} className="animate-spin text-accent-text" />
-        <p className="text-sm">{text}</p>
+        {text && <p className="text-sm">{text}</p>}
       </div>
     </section>
+  );
+}
+
+function StageWrap({ children }: { children: ReactNode }) {
+  return <div className="mx-auto w-full max-w-sm">{children}</div>;
+}
+
+// A quiet one-line status ("Waiting...")
+function Hint({ children }: { children: ReactNode }) {
+  return (
+    <p className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-muted">
+      <LoaderCircle size={15} className="animate-spin" />
+      {children}
+    </p>
+  );
+}
+
+function FieldLabel({ children }: { children: ReactNode }) {
+  return (
+    <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.18em] text-muted">
+      {children}
+    </span>
   );
 }
 
@@ -90,24 +114,21 @@ function ScoreBar({
 
     return (
       <div
-        className={`flex min-w-0 flex-1 items-center gap-3 ${
+        className={`flex min-w-0 flex-1 items-center gap-2.5 ${
           align === "right" ? "flex-row-reverse text-right" : ""
         }`}
       >
         <span
-          className={`flex h-12 min-w-12 shrink-0 items-center justify-center rounded-xl px-2 text-2xl font-black shadow-md ${pill}`}
+          className={`flex h-11 min-w-11 shrink-0 items-center justify-center rounded-xl px-2 text-xl font-black shadow-md ${pill}`}
         >
           {info.cards_left}
         </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-black">{info.name}</p>
-          <p className="text-[11px] font-semibold text-muted">
-            cards
-            {info.seat === challengerSeat && (
-              <span className="ml-1.5 font-black text-accent-text">· challenging</span>
-            )}
-          </p>
-        </div>
+        <p className="flex min-w-0 items-center gap-1.5 text-sm font-black">
+          <span className="truncate">{info.name}</span>
+          {info.seat === challengerSeat && (
+            <Swords size={14} className="shrink-0 text-accent-text" />
+          )}
+        </p>
       </div>
     );
   };
@@ -122,7 +143,7 @@ function ScoreBar({
           </p>
           {pot > 0 && (
             <p className="mt-1.5 rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-black text-slate-900">
-              Pot: {pot}
+              Pot {pot}
             </p>
           )}
         </div>
@@ -130,10 +151,6 @@ function ScoreBar({
       </div>
     </div>
   );
-}
-
-function StageWrap({ children }: { children: ReactNode }) {
-  return <div className="mx-auto w-full max-w-sm">{children}</div>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -216,7 +233,7 @@ export default function CardsPage() {
         if (!cancelled) setPools(res.pools);
       })
       .catch(() => {
-        if (!cancelled) setError("Unable to load card pools. Is the server running?");
+        if (!cancelled) setError("Can't load card pools. Is the server running?");
       })
       .finally(() => {
         if (!cancelled) setPoolsLoading(false);
@@ -349,12 +366,12 @@ export default function CardsPage() {
       const name = joinName.trim();
 
       if (code.length < 4) {
-        setError("Enter the room code you were given.");
+        setError("Enter the room code.");
         return;
       }
 
       if (!name) {
-        setError("Enter your display name.");
+        setError("Enter your name.");
         return;
       }
 
@@ -372,7 +389,7 @@ export default function CardsPage() {
           res.state,
         );
       } catch (err) {
-        setError(errorText(err, "Unable to join that room."));
+        setError(errorText(err, "Can't join that room."));
       } finally {
         setBusy(false);
       }
@@ -396,13 +413,13 @@ export default function CardsPage() {
       }
 
       if (p1.toLowerCase() === p2.toLowerCase()) {
-        setError("Please enter two different names.");
+        setError("Use two different names.");
         return;
       }
     }
 
     if (deckChoices.length === 0) {
-      setError("This pool is too small. Pick a bigger one.");
+      setError("This pool is too small. Pick another.");
       return;
     }
 
@@ -427,7 +444,7 @@ export default function CardsPage() {
         res.state,
       );
     } catch (err) {
-      setError(errorText(err, "Unable to create the game."));
+      setError(errorText(err, "Can't create the game."));
     } finally {
       setBusy(false);
     }
@@ -454,7 +471,7 @@ export default function CardsPage() {
     try {
       applyGame(await action());
     } catch (err) {
-      setError(errorText(err, "Something went wrong. Please try again."));
+      setError(errorText(err, "Something went wrong. Try again."));
       // The game may have moved on (e.g. the opponent acted first).
       await resync().catch(() => undefined);
     } finally {
@@ -510,7 +527,7 @@ export default function CardsPage() {
         window.setTimeout(() => setIsCardFlipping(false), 220);
       }, 210);
     } catch (err) {
-      setError(errorText(err, "Unable to reveal the card. Please try again."));
+      setError(errorText(err, "Can't reveal the card. Try again."));
       await resync().catch(() => undefined);
     } finally {
       busyRef.current = false;
@@ -550,7 +567,7 @@ export default function CardsPage() {
 
     const who = current.you.seat === seat ? current.you.name : current.opponent.name;
 
-    if (!window.confirm(`${who}: concede this game? Your opponent wins.`)) return;
+    if (!window.confirm(`${who}, concede this game?`)) return;
 
     void run(() => cardsApi.concede(sess.roomCode, token));
   };
@@ -580,116 +597,112 @@ export default function CardsPage() {
   /* ----------------------------- render: lobby ---------------------- */
 
   const tabs: { key: LobbyTab; label: string; icon: ReactNode }[] = [
-    { key: "LOCAL", label: "Same device", icon: <Gamepad2 size={16} /> },
-    { key: "CREATE", label: "Online: create", icon: <Globe2 size={16} /> },
-    { key: "JOIN", label: "Online: join", icon: <LogIn size={16} /> },
+    { key: "LOCAL", label: "Local", icon: <Gamepad2 size={16} /> },
+    { key: "CREATE", label: "Create", icon: <Globe2 size={16} /> },
+    { key: "JOIN", label: "Join", icon: <LogIn size={16} /> },
   ];
 
-  const lobby = (
-    <section className="mx-auto max-w-3xl py-6 sm:py-12">
-      <div className="mb-6">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-accent px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-accent-ink shadow-md">
-          <Layers size={14} /> Card battle
-        </div>
-        <h1 className="text-3xl font-black tracking-tight sm:text-5xl">PLAY CARDS</h1>
-      </div>
+  const submitLabel =
+    tab === "JOIN" ? "Join" : tab === "CREATE" ? "Create room" : "Play";
 
-      <div className="mb-4 grid grid-cols-3 gap-2">
-        {tabs.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => {
-              setTab(item.key);
-              setError("");
-            }}
-            className={`cards-chip flex items-center justify-center gap-2 rounded-xl px-2 py-3 text-xs font-black sm:text-sm ${
-              tab === item.key ? "cards-chip-active" : ""
-            }`}
-          >
-            {item.icon}
-            <span className="truncate">{item.label}</span>
-          </button>
-        ))}
+  const lobby = (
+    <section className="mx-auto w-full max-w-md pb-6 pt-2 sm:pb-10 sm:pt-3">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight sm:text-4xl">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-accent-ink shadow-md">
+            <Layers size={22} />
+          </span>
+          Play Cards
+        </h1>
+        <BackButton />
       </div>
 
       <form onSubmit={submitLobby} className="cards-panel overflow-hidden rounded-[24px]">
         <div className="brand-bar h-1.5 w-full" />
 
-        <div className="grid gap-5 p-5 sm:p-7">
+        <div className="grid gap-5 p-5 sm:p-6">
+          {/* Mode */}
+          <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-foreground/[0.06] p-1.5">
+            {tabs.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => {
+                  setTab(item.key);
+                  setError("");
+                }}
+                className={`flex items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-xs font-black transition sm:text-sm ${
+                  tab === item.key
+                    ? "bg-accent text-accent-ink shadow"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
+          </div>
+
           {tab === "JOIN" ? (
             <>
-              <label className="block">
-                <span className="mb-2 block text-xs font-black uppercase tracking-wider text-foreground/70">
-                  Room code
-                </span>
+              <input
+                value={joinCode}
+                onChange={(e) =>
+                  setJoinCode(
+                    e.target.value
+                      .toUpperCase()
+                      .replace(/[^A-Z0-9]/g, "")
+                      .slice(0, 6),
+                  )
+                }
+                placeholder="CODE"
+                aria-label="Room code"
+                maxLength={6}
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
+                disabled={busy}
+                className={`${INPUT_CLASS} text-center text-2xl font-black uppercase tracking-[0.3em]`}
+              />
+              <input
+                value={joinName}
+                onChange={(e) => setJoinName(e.target.value)}
+                placeholder="Your name"
+                aria-label="Your name"
+                maxLength={40}
+                disabled={busy}
+                className={INPUT_CLASS}
+              />
+            </>
+          ) : (
+            <>
+              <div className={`grid gap-3 ${tab === "LOCAL" ? "sm:grid-cols-2" : ""}`}>
                 <input
-                  value={joinCode}
-                  onChange={(e) =>
-                    setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))
-                  }
-                  placeholder="e.g. K7Q2XA"
-                  maxLength={6}
-                  autoCapitalize="characters"
-                  autoComplete="off"
-                  spellCheck={false}
-                  disabled={busy}
-                  className={`${INPUT_CLASS} text-center text-2xl font-black uppercase tracking-[0.3em]`}
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-xs font-black uppercase tracking-wider text-foreground/70">
-                  Your display name
-                </span>
-                <input
-                  value={joinName}
-                  onChange={(e) => setJoinName(e.target.value)}
-                  placeholder="Enter your name"
+                  value={name1}
+                  onChange={(e) => setName1(e.target.value)}
+                  placeholder={tab === "LOCAL" ? "Player 1" : "Your name"}
+                  aria-label={tab === "LOCAL" ? "Player 1" : "Your name"}
                   maxLength={40}
                   disabled={busy}
                   className={INPUT_CLASS}
                 />
-              </label>
-            </>
-          ) : (
-            <>
-              <div className={`grid gap-4 ${tab === "LOCAL" ? "sm:grid-cols-2" : ""}`}>
-                <label className="block">
-                  <span className="mb-2 block text-xs font-black uppercase tracking-wider text-foreground/70">
-                    {tab === "LOCAL" ? "Player 1" : "Your name"}
-                  </span>
+                {tab === "LOCAL" && (
                   <input
-                    value={name1}
-                    onChange={(e) => setName1(e.target.value)}
-                    placeholder="Enter name"
+                    value={name2}
+                    onChange={(e) => setName2(e.target.value)}
+                    placeholder="Player 2"
+                    aria-label="Player 2"
                     maxLength={40}
                     disabled={busy}
                     className={INPUT_CLASS}
                   />
-                </label>
-                {tab === "LOCAL" && (
-                  <label className="block">
-                    <span className="mb-2 block text-xs font-black uppercase tracking-wider text-foreground/70">
-                      Player 2
-                    </span>
-                    <input
-                      value={name2}
-                      onChange={(e) => setName2(e.target.value)}
-                      placeholder="Enter name"
-                      maxLength={40}
-                      disabled={busy}
-                      className={INPUT_CLASS}
-                    />
-                  </label>
                 )}
               </div>
 
               <div>
-                <span className="mb-2 block text-xs font-black uppercase tracking-wider text-foreground/70">
-                  Card pool
-                </span>
+                <FieldLabel>Pool</FieldLabel>
                 {poolsLoading ? (
-                  <p className="text-sm text-muted">Loading pools...</p>
+                  <LoaderCircle size={18} className="animate-spin text-muted" />
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {pools.map((pool) => {
@@ -713,9 +726,7 @@ export default function CardsPage() {
               </div>
 
               <div>
-                <span className="mb-2 block text-xs font-black uppercase tracking-wider text-foreground/70">
-                  Cards each
-                </span>
+                <FieldLabel>Cards</FieldLabel>
                 <div className="flex flex-wrap gap-2">
                   {DECK_OPTIONS.map((n) => {
                     const disabled = !deckChoices.includes(n);
@@ -737,33 +748,23 @@ export default function CardsPage() {
               </div>
             </>
           )}
-        </div>
 
-        <div className="p-5 sm:px-7">
-          <button type="submit" disabled={busy || poolsLoading} className="cards-btn">
-            {busy ? (
-              <>
-                <LoaderCircle size={19} className="animate-spin" /> Working...
-              </>
-            ) : tab === "JOIN" ? (
-              <>
-                Join room <ArrowRight size={19} />
-              </>
-            ) : tab === "CREATE" ? (
-              <>
-                Create room <ArrowRight size={19} />
-              </>
-            ) : (
-              <>
-                Deal the cards <ArrowRight size={19} />
-              </>
+          <div>
+            <button type="submit" disabled={busy || poolsLoading} className="cards-btn">
+              {busy ? (
+                <LoaderCircle size={19} className="animate-spin" />
+              ) : (
+                <>
+                  {submitLabel} <ArrowRight size={19} />
+                </>
+              )}
+            </button>
+            {error && (
+              <div className="mt-4">
+                <ErrorMessage message={error} />
+              </div>
             )}
-          </button>
-          {error && (
-            <div className="mt-4">
-              <ErrorMessage message={error} />
-            </div>
-          )}
+          </div>
         </div>
       </form>
     </section>
@@ -797,20 +798,17 @@ export default function CardsPage() {
           <div className="cards-panel overflow-hidden rounded-[24px] text-center">
             <div className="brand-bar h-1.5 w-full" />
             <div className="p-6">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-foreground/70">
-                Room code
-              </p>
-              <p className="mt-3 select-all rounded-2xl bg-accent px-4 py-3 text-5xl font-black tracking-[0.3em] text-accent-ink shadow-lg">
+              <p className="select-all rounded-2xl bg-accent px-4 py-3 text-5xl font-black tracking-[0.3em] text-accent-ink shadow-lg">
                 {game.room_code}
               </p>
-              <div className="mt-5 flex flex-wrap justify-center gap-3">
+              <div className="mt-4 grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => void copyText(game.room_code, "code")}
                   className="cards-btn cards-btn-sm"
                 >
                   {copied === "code" ? <Check size={16} /> : <Copy size={16} />}
-                  {copied === "code" ? "Copied" : "Copy code"}
+                  Code
                 </button>
                 <button
                   type="button"
@@ -818,23 +816,19 @@ export default function CardsPage() {
                   className="cards-btn cards-btn-alt cards-btn-sm"
                 >
                   {copied === "link" ? <Check size={16} /> : <Copy size={16} />}
-                  {copied === "link" ? "Copied" : "Copy invite link"}
+                  Link
                 </button>
               </div>
-              <p className="mt-6 flex items-center justify-center gap-2 text-sm font-semibold text-foreground/75">
-                <LoaderCircle size={16} className="animate-spin" />
-                Waiting for your opponent to join...
-              </p>
+              <Hint>Waiting for opponent</Hint>
             </div>
           </div>
-          <button type="button" onClick={leaveGame} className="cards-btn cards-btn-ghost mt-5">
-            Cancel room
+          <button type="button" onClick={leaveGame} className="cards-btn cards-btn-ghost mt-4">
+            Cancel
           </button>
         </StageWrap>
       );
     } else if (game.status === "FINISHED") {
       const winnerName = game.winner_seat ? nameOf(game.winner_seat) : "";
-      const loserName = game.winner_seat ? nameOf(otherSeat(game.winner_seat)) : "";
 
       const outcome = !game.winner_seat
         ? "draw"
@@ -850,36 +844,35 @@ export default function CardsPage() {
             : "border-amber-200 bg-amber-400 text-slate-900";
 
       const headline = !game.winner_seat
-        ? "It's a draw!"
+        ? "Draw"
         : isLocal
-          ? `${winnerName} wins!`
+          ? `${winnerName} wins`
           : game.you_won
-            ? "You win!"
+            ? "You win"
             : `${winnerName} wins`;
-
-      const reason =
-        game.end_reason === "CONCEDED"
-          ? `${loserName} conceded the game.`
-          : "One side ran out of cards.";
 
       stage = (
         <StageWrap>
           <div
             className={`card-pop rounded-[24px] border-2 p-8 text-center shadow-xl ${panelColor}`}
           >
-            <Trophy size={48} className="mx-auto" />
+            <Trophy size={44} className="mx-auto" />
             <h2 className="mt-4 text-3xl font-black">{headline}</h2>
-            <p className="mt-2 text-sm font-semibold opacity-85">{reason}</p>
+            {game.end_reason === "CONCEDED" && (
+              <p className="mt-1 text-xs font-bold uppercase tracking-wider opacity-80">
+                Conceded
+              </p>
+            )}
             <p className="mt-5 rounded-xl bg-black/25 px-4 py-2 text-sm font-black">
               {left.name} {left.cards_left} <span className="opacity-70">:</span>{" "}
               {right.cards_left} {right.name}
             </p>
           </div>
-          <button type="button" onClick={leaveGame} className="cards-btn mt-5">
+          <button type="button" onClick={leaveGame} className="cards-btn mt-4">
             <RotateCcw size={18} /> Play again
           </button>
-          <Link href="/" className="cards-btn cards-btn-ghost mt-4">
-            Back to home
+          <Link href="/" className="cards-btn cards-btn-ghost mt-3">
+            <ArrowLeft size={16} /> Home
           </Link>
         </StageWrap>
       );
@@ -903,10 +896,10 @@ export default function CardsPage() {
 
       const bannerText =
         lr.winner === "tie"
-          ? "It's a tie! Both cards go to the pot."
+          ? "Tie"
           : !isLocal && lr.winner === "you"
-            ? "You win this round! +2 cards"
-            : `${winnerName} wins this round`;
+            ? "You win"
+            : `${winnerName} wins`;
 
       const bannerColor =
         lr.winner === "tie"
@@ -917,16 +910,16 @@ export default function CardsPage() {
 
       stage = (
         <div className="mx-auto w-full max-w-3xl">
-          <div className={`card-pop mb-5 rounded-2xl p-5 text-center shadow-lg ${bannerColor}`}>
-            <p className="text-xs font-black uppercase tracking-[0.18em] opacity-80">
-              Round {lr.number} · {STAT_META[lr.stat].label}
+          <div className={`card-pop mb-5 rounded-2xl p-4 text-center shadow-lg ${bannerColor}`}>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] opacity-80">
+              {STAT_META[lr.stat].label}
             </p>
-            <p className="mt-2 flex items-center justify-center gap-4 text-4xl font-black">
+            <p className="mt-1 flex items-center justify-center gap-4 text-4xl font-black">
               <span>{challengerValue}</span>
-              <span className="text-base font-bold opacity-70">vs</span>
+              <span className="text-sm font-bold opacity-70">vs</span>
               <span>{responderValue}</span>
             </p>
-            <p className="mt-2 text-lg font-black">{bannerText}</p>
+            <p className="mt-1 text-base font-black">{bannerText}</p>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
@@ -958,7 +951,7 @@ export default function CardsPage() {
             className="cards-btn mx-auto mt-6 max-w-sm"
           >
             {busy ? <LoaderCircle size={18} className="animate-spin" /> : <ArrowRight size={18} />}
-            Next round
+            Next
           </button>
         </div>
       );
@@ -967,22 +960,19 @@ export default function CardsPage() {
         // Pass-the-device screen: the card stays hidden until the right person taps.
         stage = (
           <StageWrap>
-            <CardBack title="HAND OVER" subtitle={`${challengerName} is up`} />
+            <CardBack title="PASS THE DEVICE" subtitle={challengerName} />
             <button
               type="button"
               onClick={() => setHolderSeat(challengerSeat)}
-              className="cards-btn mt-5"
+              className="cards-btn mt-4"
             >
-              <Eye size={18} /> I&apos;m {challengerName}: show my card
+              <Eye size={18} /> I&apos;m {challengerName}
             </button>
           </StageWrap>
         );
       } else if (game.you_are_challenger && game.my_card) {
         stage = (
           <StageWrap>
-            <p className="mb-3 text-center text-sm font-black text-foreground/80">
-              {isLocal ? `${challengerName}, ` : ""}pick your strongest stat
-            </p>
             <PlayerCard
               key={`mine-${game.round_number}`}
               player={game.my_card}
@@ -994,24 +984,17 @@ export default function CardsPage() {
               type="button"
               onClick={lockStat}
               disabled={!selectedStat || busy}
-              className="cards-btn mt-5"
+              className="cards-btn mt-4"
             >
               {busy ? <LoaderCircle size={18} className="animate-spin" /> : <Lock size={18} />}
-              {selectedStat ? `Lock ${STAT_META[selectedStat].label}` : "Select a stat to lock"}
+              {selectedStat ? `Lock ${STAT_META[selectedStat].label}` : "Pick a stat"}
             </button>
           </StageWrap>
         );
       } else {
         stage = (
           <StageWrap>
-            <CardBack
-              title={`${challengerName.toUpperCase()}'S CARD`}
-              subtitle="Choosing a stat..."
-            />
-            <p className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-foreground/75">
-              <LoaderCircle size={16} className="animate-spin" />
-              Waiting for {challengerName} to lock a stat
-            </p>
+            <CardBack title={challengerName.toUpperCase()} subtitle="Choosing..." />
           </StageWrap>
         );
       }
@@ -1035,8 +1018,8 @@ export default function CardsPage() {
             >
               <div className="pointer-events-none overflow-hidden rounded-3xl">
                 <CardBack
-                  title="REVEAL CARD"
-                  subtitle={busy || isCardFlipping ? "Revealing..." : ""}
+                  title={isLocal ? responderName.toUpperCase() : "REVEAL"}
+                  subtitle={busy || isCardFlipping ? "Revealing..." : "Tap to reveal"}
                 />
               </div>
             </button>
@@ -1046,29 +1029,24 @@ export default function CardsPage() {
         stage = (
           <StageWrap>
             {game.my_card && <PlayerCard player={game.my_card} lockedStat={game.locked_stat} />}
-            <p className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-foreground/75">
-              <LoaderCircle size={16} className="animate-spin" />
-              Waiting for {responderName} to reveal their card
-            </p>
+            <Hint>Waiting for {responderName}</Hint>
           </StageWrap>
         );
       }
     } else {
-      stage = <Spinner text="Syncing the game..." />;
+      stage = <Spinner />;
     }
 
     const showScore = game.status === "ACTIVE";
     const showConcede = game.status === "ACTIVE" && game.phase !== "REVEALED";
 
     gameView = (
-      <section className="mx-auto max-w-4xl py-4 sm:py-8">
-        {showScore && (
-          game.phase === "LOCKED" ? (
-            <div className="mb-5 flex h-[72px] flex-col items-center justify-center rounded-2xl bg-accent px-4 py-2 text-center text-accent-ink shadow-lg">
-              <p className="text-[10px] font-black uppercase leading-3 tracking-[0.18em] opacity-80">
-                {challengerName} locked
-              </p>
-              <p className="mt-1 text-xl font-black leading-7">{lockedLabel}</p>
+      <section className="mx-auto mt-10 max-w-4xl pb-4 pt-1 sm:mt-10 sm:pb-8 sm:pt-2">
+        {showScore &&
+          (game.phase === "LOCKED" ? (
+            <div className="mx-auto mb-5 flex h-[68px] max-w-sm flex-col items-center justify-center rounded-2xl bg-accent px-4 text-center text-accent-ink shadow-lg">
+              <Lock size={14} className="opacity-80" />
+              <p className="mt-0.5 text-xl font-black leading-6">{lockedLabel}</p>
             </div>
           ) : (
             <ScoreBar
@@ -1078,8 +1056,7 @@ export default function CardsPage() {
               pot={game.pot_count}
               challengerSeat={challengerSeat}
             />
-          )
-        )}
+          ))}
 
         {stage}
 
@@ -1109,9 +1086,9 @@ export default function CardsPage() {
 
   let content: ReactNode;
 
-  if (view === "restoring") content = <Spinner text="Loading..." />;
+  if (view === "restoring") content = <Spinner />;
   else if (view === "lobby") content = lobby;
-  else content = gameView ?? <Spinner text="Loading the game..." />;
+  else content = gameView ?? <Spinner />;
 
-  return <DraftPageShell>{content}</DraftPageShell>;
+  return <DraftPageShell hideBack>{content}</DraftPageShell>;
 }

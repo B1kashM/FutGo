@@ -177,10 +177,10 @@ const LEGENDS: Record<ClubKey | "default", Legend[]> = {
       rating: 99,
       pos: "RW",
       shirt: "10",
-      stats: [["DRI", 99], ["SHO", 96], ["PAS", 94]],
+      stats: [["DRI", 99], ["SHO", 96], ["PAS", 99]],
       look: {
-        skin: SKIN.fair, face: "oval", hair: "#4a3322", style: "side-part",
-        facial: "beard", facialColor: "#7a4a2a", brows: "thick", eyes: "brown",
+        skin: SKIN.fair, face: "oval", hair: "#0c0501", style: "long",
+        facial: "stubble", facialColor: "#7a4a2a", brows: "thick", eyes: "brown",
         nose: "medium", mouth: "smirk",
       },
       kit: KITS.barcelona,
@@ -192,7 +192,7 @@ const LEGENDS: Record<ClubKey | "default", Legend[]> = {
       shirt: "11",
       stats: [["DRI", 96], ["PAC", 91], ["PAS", 88]],
       look: {
-        skin: "#c48e66", face: "oval", hair: "#d9b45a", style: "fade",
+        skin: "#c48e66", face: "oval", hair: "#ce9b1c", style: "fade",
         facial: "stubble", brows: "thin", eyes: "dark", nose: "medium",
         mouth: "smile",
       },
@@ -221,7 +221,7 @@ const LEGENDS: Record<ClubKey | "default", Legend[]> = {
       shirt: "07",
       stats: [["SHO", 98], ["PAC", 93], ["PHY", 92]],
       look: {
-        skin: SKIN.fair, face: "square", hair: "#2a1b12", style: "slick",
+        skin: SKIN.fair, face: "oval", hair: "#2a1b12", style: "slick",
         facial: "stubble", brows: "thick", eyes: "dark", nose: "medium",
         mouth: "smile",
       },
@@ -491,7 +491,7 @@ const LEGENDS: Record<ClubKey | "default", Legend[]> = {
       shirt: "11",
       stats: [["DRI", 92], ["PAS", 90], ["SHO", 89]],
       look: {
-        skin: SKIN.light, face: "oval", hair: "#b08a52", style: "side-part",
+        skin: SKIN.light, face: "long", hair: "#b08a52", style: "side-part",
         facial: "beard", facialColor: "#7a5a30", brows: "thin", eyes: "blue",
         nose: "medium", mouth: "smile",
       },
@@ -504,7 +504,7 @@ const LEGENDS: Record<ClubKey | "default", Legend[]> = {
       shirt: "09",
       stats: [["SHO", 96], ["PHY", 95], ["PAC", 93]],
       look: {
-        skin: SKIN.light, face: "square", hair: "#d9b45a", style: "man-bun",
+        skin: SKIN.light, face: "long", hair: "#ffe8ad", style: "man-bun",
         brows: "thick", eyes: "blue", nose: "medium", mouth: "neutral",
       },
       kit: KITS.dortmund,

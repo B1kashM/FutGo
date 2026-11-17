@@ -11,9 +11,6 @@ import {
   Target, Timer, Trophy, Users, X, Zap,
 } from "lucide-react";
 
-import ThemeToggle from "../components/ThemeToggle";
-import ClubPicker from "../components/ClubPicker";
-import { useClub } from "../_theme/useClub";
 import { useLockBodyScroll } from "./useLockBodyScroll";
 import {
   DRAFT_CATEGORIES,
@@ -165,41 +162,39 @@ export function RoomPresenceBar({
 /* Page shell                                                          */
 /* ================================================================== */
 
-export function DraftPageShell({ children }: { children: ReactNode }) {
-  const { club } = useClub();
+export function BackButton({
+  href = "/",
+  className = "",
+}: {
+  href?: string;
+  className?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-label="Back home"
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-foreground/25 bg-surface text-foreground/80 transition hover:border-accent-text/60 hover:text-foreground ${className}`}
+    >
+      <ArrowLeft size={18} />
+    </Link>
+  );
+}
 
+
+export function DraftPageShell({
+  children,
+  hideBack = false,
+}: {
+  children: ReactNode;
+  hideBack?: boolean;
+}) {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="brand-bar h-1.5 w-full" />
-      <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-7 lg:px-10">
-        {/* relative + z-40 keeps the club picker's own layers inside the header,
-            so full-screen popups (rendered in a portal) always sit above it. */}
-        <header className="fut-page-header relative z-40 flex flex-wrap items-center justify-between gap-x-3 gap-y-3 border-b border-border pb-4 sm:pb-5">
-          <Link href="/" className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <div className="shirt flex h-9 w-9 items-center justify-center rounded-xl border-2 sm:h-10 sm:w-10">
-              <Goal size={20} strokeWidth={2.5} />
-            </div>
-            <div>
-              <div className="text-base font-black tracking-[0.16em] sm:text-lg">
-                FUT<span className="text-accent-text">GO</span>
-              </div>
-              <div className="hidden text-[10px] font-semibold uppercase tracking-[0.22em] text-muted min-[400px]:block">{club.brandTag}</div>
-            </div>
-          </Link>
-          <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-3">
-            {/* Scaled down on small screens so the picker never overflows the header */}
-            <div className="min-w-0 max-w-full [zoom:0.8] sm:[zoom:0.9] lg:[zoom:1]">
-              <ClubPicker />
-            </div>
-            <div className="shrink-0 [zoom:0.85] sm:[zoom:0.95] lg:[zoom:1]">
-              <ThemeToggle />
-            </div>
-            <Link href="/" aria-label="Back home" className="flex shrink-0 items-center gap-2 rounded-full border border-foreground/25 bg-surface px-3 py-2 text-sm text-foreground/80 transition hover:border-accent-text/60 hover:text-foreground sm:px-4">
-              <ArrowLeft size={16} />
-              <span className="hidden sm:inline">Back home</span>
-            </Link>
-          </div>
-        </header>
+      <div className="relative mx-auto max-w-[1440px] px-4 pb-5 pt-3 sm:px-7 lg:px-10">
+        {!hideBack && (
+          <BackButton className="absolute right-4 top-3 z-10 !h-9 !w-9 sm:right-7 lg:right-10" />
+        )}
         {children}
       </div>
     </main>
