@@ -112,6 +112,8 @@ export type GameState = {
   opponent_card: CardPlayer | null;
   /** Responder only, while a stat is locked: face-down card ids by tier. */
   hand?: Partial<Record<CardTier, number[]>> | null;
+  /** Responder, while locked: tier of the challenger's card. */
+  opponent_card_tier?: CardTier | null;
   /** Challenger, while choosing: id of the card currently shown to them. */
   current_card_id?: number | null;
   /** Challenger already swapped their card this round. */

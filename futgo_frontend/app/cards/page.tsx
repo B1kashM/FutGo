@@ -99,10 +99,6 @@ type AlbumData = {
   exclude: number | null;
 };
 
-function tierOf(card: unknown): Tier | undefined {
-  return (card as { tier?: Tier } | null | undefined)?.tier;
-}
-
 /* ------------------------------------------------------------------ */
 /* Design tokens (all colours come from the selected club theme)       */
 /* ------------------------------------------------------------------ */
@@ -327,21 +323,6 @@ function TierBack({
     >
       {face}
     </button>
-  );
-}
-
-function TierChip({ tier }: { tier?: Tier }) {
-  if (!tier) return null;
-  const meta = TIER_META[tier];
-  const Icon = meta.icon;
-
-  return (
-    <span
-      className={`mx-auto mb-2 flex w-fit items-center gap-1 rounded-full bg-gradient-to-br ${meta.grad} ${meta.ink} px-3 py-1 text-[10px] font-black uppercase tracking-wider shadow`}
-    >
-      <Icon size={12} />
-      {meta.label}
-    </span>
   );
 }
 
@@ -657,6 +638,9 @@ export default function CardsPage() {
   // Deal preview (round 1) and tier album (responder, after a stat is locked).
   const [dealSeen, setDealSeen] = useState(false);
   const [albumKind, setAlbumKind] = useState<AlbumKind | null>(null);
+  // Local play only: tier hints for the responder (the screen holds the
+  // challenger's view, so the responder's view is fetched separately).
+  const [localHint, setLocalHint] = useState<Tier | null>(null);
   const [albumLoading, setAlbumLoading] = useState(false);
   const [album, setAlbum] = useState<AlbumData | null>(null);
   const [albumTier, setAlbumTier] = useState<Tier | null>(null);
@@ -737,6 +721,28 @@ export default function CardsPage() {
       closeAlbum();
     }
   }, [phase, albumKind, closeAlbum]);
+
+  const lockedNow = game?.phase === "LOCKED";
+  const challengerNow = game?.challenger_seat;
+  useEffect(() => {
+    const sess = sessionRef.current;
+    if (!lockedNow || !sess || sess.mode !== "LOCAL" || !challengerNow) {
+      setLocalHint(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    fetchFull(sess, otherSeat(challengerNow))
+      .then((s) => {
+        if (cancelled) return;
+        setLocalHint(s.opponent_card_tier ?? null);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lockedNow, challengerNow]);
 
   /* ----------------------------- startup ---------------------------- */
 
@@ -1393,6 +1399,12 @@ export default function CardsPage() {
     const challengerName = nameOf(challengerSeat);
     const responderName = nameOf(responderSeat);
     const lockedLabel = game.locked_stat ? STAT_META[game.locked_stat].label : "";
+    // The Locked banner takes the tier colour of the challenger's card, so the
+    // responder gets a hint without any text. Challenger sees the club colour.
+    const lockedTier: Tier | null = game.opponent_card_tier ?? localHint ?? null;
+    const lockedTone = lockedTier
+      ? `bg-gradient-to-br ${TIER_META[lockedTier].grad} ${TIER_META[lockedTier].ink} shadow-black/30`
+      : "bg-accent text-accent-ink shadow-accent/40";
 
     const left = game.you.seat === 1 ? game.you : game.opponent;
     const right = game.you.seat === 1 ? game.opponent : game.you;
@@ -1588,7 +1600,6 @@ export default function CardsPage() {
           <div className="grid gap-5 sm:grid-cols-2">
             {challengerCard && (
               <div>
-                <TierChip tier={tierOf(challengerCard)} />
                 <PlayerCard
                   key={`c-${lr.number}`}
                   player={challengerCard}
@@ -1600,7 +1611,6 @@ export default function CardsPage() {
             )}
             {responderCard && (
               <div>
-                <TierChip tier={tierOf(responderCard)} />
                 <PlayerCard
                   key={`r-${lr.number}`}
                   player={responderCard}
@@ -1777,9 +1787,6 @@ export default function CardsPage() {
               )}
               Choose a card
             </button>
-            <p className="mt-3 text-center text-xs font-semibold text-muted">
-              Tap the card for your top card, or choose from your tiers.
-            </p>
           </StageWrap>
         );
       } else {
@@ -1805,7 +1812,9 @@ export default function CardsPage() {
         <div className="relative">
           {showScore &&
             (game.phase === "LOCKED" ? (
-              <div className="relative mx-auto mb-5 flex max-w-sm items-center justify-center gap-3 overflow-hidden rounded-3xl bg-accent px-4 py-3.5 text-accent-ink shadow-xl shadow-accent/40">
+              <div
+                className={`relative mx-auto mb-5 flex max-w-sm items-center justify-center gap-3 overflow-hidden rounded-3xl px-4 py-3.5 shadow-xl ${lockedTone}`}
+              >
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/25 via-transparent to-black/20" />
                 <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-black/20">
                   <Lock size={18} />
@@ -1836,7 +1845,7 @@ export default function CardsPage() {
           )}
 
           {showConcede && (
-            <div className="mx-auto mt-8 max-w-[11rem]">
+            <div className="mx-auto mt-5 max-w-[11rem]">
               <button
                 type="button"
                 onClick={concede}

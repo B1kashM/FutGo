@@ -505,6 +505,7 @@ def build_state(game, seat):
         "opponent_card": None,
         "hand": None,
         "current_card_id": None,
+        "opponent_card_tier": None,
         "card_swapped": game.card_swapped,
         "used_tiers": _used_tiers(game, seat),
         "last_round": None,
@@ -528,6 +529,13 @@ def build_state(game, seat):
             # It only holds ids and tiers, never who the players are.
             if not (is_challenger and game.phase == "LOCKED"):
                 state["hand"] = _hand_payload(game, seat)
+            # Responder only, after a stat is locked: the challenger card's tier
+            # (colours the Locked banner), never any card details.
+            if game.phase == "LOCKED" and not is_challenger:
+                theirs_top = _top_card(game, opp)
+                state["opponent_card_tier"] = (
+                    tier_of(theirs_top.player) if theirs_top else None
+                )
         elif rnd:  # REVEALED: show the cards that were actually played
             mine, theirs = _round_card(game, rnd, seat), _round_card(game, rnd, opp)
             state["my_card"] = _card_payload(mine) if mine else None
