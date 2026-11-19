@@ -10,9 +10,11 @@ const TIER_CLASS: Record<StatTier, string> = {
   low: "stat-low",
 };
 
+// Fixed colours (not the club theme): green = won the round, red = lost.
+// A tie keeps the theme's own "pcard-tie" style.
 const RESULT_CLASS = {
-  win: "pcard-win",
-  lose: "pcard-lose",
+  win: "ring-4 ring-green-500 shadow-[0_0_32px_rgba(34,197,94,0.5)]",
+  lose: "ring-4 ring-red-500 shadow-[0_0_32px_rgba(239,68,68,0.45)]",
   tie: "pcard-tie",
 } as const;
 

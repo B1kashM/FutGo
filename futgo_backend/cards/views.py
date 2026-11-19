@@ -85,11 +85,24 @@ class LockStatAPIView(CardGameView):
         return Response(services.build_state(game, seat))
 
 
-class RevealAPIView(CardGameView):
+class ChooseCardAPIView(CardGameView):
+    """Challenger swaps their card for a face-down one from a tier."""
+
     def post(self, request, room_code):
         with transaction.atomic():
             game, seat = services.load_game(room_code, _token(request), lock=True)
-            services.reveal(game, seat)
+            services.choose_card(game, seat, request.data.get("card_id"))
+        return Response(services.build_state(game, seat))
+
+
+class RevealAPIView(CardGameView):
+    def post(self, request, room_code):
+        # Optional card_id: the responder plays a chosen card from their tier
+        # album. Without it the top card is played, as before.
+        card_id = request.data.get("card_id")
+        with transaction.atomic():
+            game, seat = services.load_game(room_code, _token(request), lock=True)
+            services.reveal(game, seat, card_id)
         return Response(services.build_state(game, seat))
 
 

@@ -6,8 +6,10 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
+  Award,
   Check,
   Copy,
+  Crown,
   Eye,
   Flag,
   Gamepad2,
@@ -16,10 +18,12 @@ import {
   LoaderCircle,
   Lock,
   LogIn,
+  Medal,
   RotateCcw,
   Swords,
   Trophy,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { BackButton, DraftPageShell, ErrorMessage } from "../_draft/DraftUI";
 import {
@@ -52,6 +56,52 @@ type LobbyTab = "LOCAL" | "CREATE" | "JOIN";
 
 const POLL_MS = 2000;
 const MAX_BACKOFF_MS = 8000;
+
+/* ------------------------------------------------------------------ */
+/* Tiers (fixed colours, they do not follow the club theme)            */
+/* ------------------------------------------------------------------ */
+
+type Tier = "GOLD" | "SILVER" | "BRONZE";
+
+const TIERS: Tier[] = ["GOLD", "SILVER", "BRONZE"];
+
+const TIER_META: Record<
+  Tier,
+  { label: string; icon: LucideIcon; grad: string; ink: string }
+> = {
+  GOLD: {
+    label: "Gold",
+    icon: Crown,
+    grad: "from-[#fff1a8] via-[#f5c518] to-[#b8860b]",
+    ink: "text-[#3b2a00]",
+  },
+  SILVER: {
+    label: "Silver",
+    icon: Medal,
+    grad: "from-[#f4f6f8] via-[#c0c7d0] to-[#7d8793]",
+    ink: "text-[#1f2933]",
+  },
+  BRONZE: {
+    label: "Bronze",
+    icon: Award,
+    grad: "from-[#f0c08a] via-[#cd7f32] to-[#7a4316]",
+    ink: "text-[#2b1404]",
+  },
+};
+
+/** "swap" = challenger changes their card, "play" = responder picks a card. */
+type AlbumKind = "swap" | "play";
+
+type AlbumData = {
+  hand: Partial<Record<Tier, number[]>>;
+  used: Tier[];
+  /** Card already shown to the challenger (hidden from the swap album). */
+  exclude: number | null;
+};
+
+function tierOf(card: unknown): Tier | undefined {
+  return (card as { tier?: Tier } | null | undefined)?.tier;
+}
 
 /* ------------------------------------------------------------------ */
 /* Design tokens (all colours come from the selected club theme)       */
@@ -109,19 +159,6 @@ function Backdrop() {
       <div className="absolute -left-10 top-52 h-24 w-[140%] -rotate-6 bg-accent-2/10" />
       <div className="absolute -left-10 top-4 h-56 w-56 rounded-full bg-accent/25 blur-3xl" />
       <div className="absolute -right-10 top-40 h-52 w-52 rounded-full bg-accent-2/25 blur-3xl" />
-    </div>
-  );
-}
-
-/** Three fanned mini cards used as the lobby emblem. */
-function CardFan() {
-  return (
-    <div className="relative h-14 w-28 shrink-0" aria-hidden="true">
-      <div className="absolute left-0 top-4 h-20 w-14 -rotate-[14deg] rounded-xl border-2 border-white/80 bg-accent-2 shadow-lg" />
-      <div className="absolute right-0 top-4 h-20 w-14 rotate-[14deg] rounded-xl border-2 border-white/80 bg-accent shadow-lg" />
-      <div className="absolute left-1/2 top-0 flex h-20 w-14 -translate-x-1/2 items-center justify-center rounded-xl border-2 border-white/90 bg-gradient-to-br from-accent to-accent-2 text-accent-ink shadow-xl">
-        <Layers size={22} />
-      </div>
     </div>
   );
 }
@@ -236,6 +273,365 @@ function ScoreBar({
 }
 
 /* ------------------------------------------------------------------ */
+/* Tier pieces                                                         */
+/* ------------------------------------------------------------------ */
+
+const BACK_SIZE = {
+  xs: "h-14 w-10 rounded-lg",
+  sm: "h-24 w-16 rounded-xl",
+  md: "h-32 w-24 rounded-2xl",
+  lg: "h-52 w-36 rounded-2xl",
+} as const;
+
+const BACK_ICON = { xs: 14, sm: 20, md: 28, lg: 46 } as const;
+
+/** A face-down card in tier colours. The player is never shown. */
+function TierBack({
+  tier,
+  size = "sm",
+  selected = false,
+  onClick,
+  disabled,
+}: {
+  tier: Tier;
+  size?: keyof typeof BACK_SIZE;
+  selected?: boolean;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  const meta = TIER_META[tier];
+  const Icon = meta.icon;
+
+  const face = (
+    <span
+      className={`relative flex ${BACK_SIZE[size]} items-center justify-center overflow-hidden border-2 border-white/80 bg-gradient-to-br ${meta.grad} ${meta.ink} shadow-lg transition ${
+        selected ? "-translate-y-1 scale-105 ring-4 ring-foreground" : ""
+      }`}
+    >
+      <span className="pointer-events-none absolute inset-1 rounded-[inherit] border border-black/15" />
+      <span className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/35 via-transparent to-black/15" />
+      <Icon size={BACK_ICON[size]} className="relative opacity-80" />
+    </span>
+  );
+
+  if (!onClick) return face;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={selected}
+      aria-label={`${meta.label} card, face down`}
+      className="rounded-xl outline-none focus-visible:ring-4 focus-visible:ring-accent/60 disabled:opacity-50"
+    >
+      {face}
+    </button>
+  );
+}
+
+function TierChip({ tier }: { tier?: Tier }) {
+  if (!tier) return null;
+  const meta = TIER_META[tier];
+  const Icon = meta.icon;
+
+  return (
+    <span
+      className={`mx-auto mb-2 flex w-fit items-center gap-1 rounded-full bg-gradient-to-br ${meta.grad} ${meta.ink} px-3 py-1 text-[10px] font-black uppercase tracking-wider shadow`}
+    >
+      <Icon size={12} />
+      {meta.label}
+    </span>
+  );
+}
+
+/** Deal preview. Online: only your own deck, face down, in tier colours. */
+function DealPreview({
+  isLocal,
+  left,
+  right,
+  you,
+  opponent,
+  hand,
+  isChallenger,
+  onStart,
+}: {
+  isLocal: boolean;
+  left: SideInfo;
+  right: SideInfo;
+  you: SideInfo;
+  opponent: SideInfo;
+  hand: Partial<Record<Tier, number[]>> | null;
+  isChallenger: boolean;
+  onStart: () => void;
+}) {
+  const startButton = (
+    <button type="button" onClick={onStart} className={`${btn("primary")} mt-6`}>
+      {isLocal || isChallenger ? "Start round 1" : "Ready"} <ArrowRight size={18} />
+    </button>
+  );
+
+  // Plain club-coloured decks: local play (one shared screen) or no tier data.
+  const plainPanel = (info: SideInfo, tone: "a" | "b", offset: number) => (
+    <div className="rounded-3xl border-2 border-border bg-surface p-4 shadow-xl shadow-black/10">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span
+          className={`truncate rounded-lg px-3 py-1 text-xs font-black uppercase tracking-wider ${
+            tone === "a"
+              ? "bg-accent text-accent-ink"
+              : "bg-accent-2 text-accent-2-ink"
+          }`}
+        >
+          {info.name}
+        </span>
+        <span className="text-3xl font-black leading-none tabular-nums">
+          {info.cards_left}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5" aria-label={`${info.cards_left} cards face down`}>
+        {Array.from({ length: info.cards_left }).map((_, i) => (
+          <span
+            key={i}
+            className={`card-pop relative flex h-14 w-10 items-center justify-center rounded-lg border-2 border-white/80 shadow-md ${
+              tone === "a"
+                ? "bg-accent text-accent-ink"
+                : "bg-accent-2 text-accent-2-ink"
+            }`}
+            style={{ animationDelay: `${(offset + i) * 40}ms`, animationFillMode: "both" }}
+          >
+            <span className="pointer-events-none absolute inset-0.5 rounded-md border border-white/30" />
+            <Layers size={14} className="opacity-70" />
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (isLocal || !hand) {
+    return (
+      <div className="mx-auto w-full max-w-md pb-24">
+        <p className="mb-4 text-center text-[11px] font-black uppercase tracking-[0.3em] text-muted">
+          Cards dealt
+        </p>
+        <div className="grid gap-4">
+          {plainPanel(left, "a", 0)}
+          <p className="text-center text-xs font-black uppercase tracking-[0.3em] text-muted">
+            vs
+          </p>
+          {plainPanel(right, "b", left.cards_left)}
+        </div>
+        {startButton}
+      </div>
+    );
+  }
+
+  const groups = TIERS.map((tier) => ({ tier, ids: hand[tier] ?? [] })).filter(
+    (g) => g.ids.length > 0,
+  );
+  let index = 0;
+
+  return (
+    <div className="mx-auto w-full max-w-md pb-24">
+      <p className="mb-4 text-center text-[11px] font-black uppercase tracking-[0.3em] text-muted">
+        Your deck
+      </p>
+
+      <div className="rounded-3xl border-2 border-border bg-surface p-4 shadow-xl shadow-black/10">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <span className="truncate rounded-lg bg-accent px-3 py-1 text-xs font-black uppercase tracking-wider text-accent-ink">
+            {you.name}
+          </span>
+          <span className="text-3xl font-black leading-none tabular-nums">
+            {you.cards_left}
+          </span>
+        </div>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          {groups.map(({ tier, ids }) => {
+            const meta = TIER_META[tier];
+            const Icon = meta.icon;
+            return (
+              <span
+                key={tier}
+                className={`flex items-center gap-1 rounded-full bg-gradient-to-br ${meta.grad} ${meta.ink} px-3 py-1 text-[11px] font-black shadow`}
+              >
+                <Icon size={12} />
+                {ids.length} {meta.label}
+              </span>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap gap-1.5" aria-label={`${you.cards_left} cards face down`}>
+          {groups.flatMap(({ tier, ids }) =>
+            ids.map((id) => {
+              const delay = index++ * 40;
+              return (
+                <span
+                  key={id}
+                  className="card-pop"
+                  style={{ animationDelay: `${delay}ms`, animationFillMode: "both" }}
+                >
+                  <TierBack tier={tier} size="xs" />
+                </span>
+              );
+            }),
+          )}
+        </div>
+      </div>
+
+      <p className="mt-4 text-center text-xs font-semibold text-muted">
+        {opponent.name} holds {opponent.cards_left} cards too. Only you can see your deck.
+      </p>
+
+      {startButton}
+    </div>
+  );
+}
+
+/** Tier album: pick a tier, then a face-down card from it. */
+function Album({
+  data,
+  tier,
+  picked,
+  busy,
+  flipping,
+  onSelectTier,
+  onPick,
+  onBack,
+  onPlay,
+  actionLabel,
+  skipLabel,
+}: {
+  data: AlbumData;
+  tier: Tier | null;
+  picked: number | null;
+  busy: boolean;
+  flipping: boolean;
+  onSelectTier: (tier: Tier) => void;
+  onPick: (id: number) => void;
+  onBack: () => void;
+  onPlay: () => void;
+  actionLabel: string;
+  skipLabel: string;
+}) {
+  const idsOf = (t: Tier) =>
+    (data.hand[t] ?? []).filter((id) => id !== data.exclude);
+  const ids = tier ? idsOf(tier) : [];
+
+  return (
+    <div className="mx-auto w-full max-w-md pb-24">
+      <div className="mb-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={busy}
+          aria-label="Back"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-border bg-surface text-foreground/80 transition hover:border-accent/60 disabled:opacity-50"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <div className="min-w-0">
+          <p className="text-lg font-black leading-tight">
+            {tier ? `${TIER_META[tier].label} album` : "Your cards"}
+          </p>
+          <p className="text-xs font-semibold text-muted">
+            {tier
+              ? "Pick one face-down card."
+              : "One pick per tier each game. Cards stay hidden."}
+          </p>
+        </div>
+      </div>
+
+      {!tier ? (
+        <div className="grid gap-3">
+          {TIERS.map((t) => {
+            const meta = TIER_META[t];
+            const count = idsOf(t).length;
+            const used = data.used.includes(t);
+            const disabled = used || count === 0;
+
+            return (
+              <button
+                key={t}
+                type="button"
+                disabled={disabled}
+                onClick={() => onSelectTier(t)}
+                className="flex items-center gap-4 rounded-2xl border-2 border-border bg-surface p-3 text-left transition enabled:hover:border-accent/60 disabled:opacity-45"
+              >
+                <TierBack tier={t} size="sm" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-base font-black">{meta.label}</span>
+                  <span className="block text-xs font-semibold text-muted">
+                    {count} {count === 1 ? "card" : "cards"}
+                  </span>
+                </span>
+                <span
+                  className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider ${
+                    disabled
+                      ? "bg-foreground/10 text-muted"
+                      : "bg-accent text-accent-ink"
+                  }`}
+                >
+                  {used ? "Used" : count === 0 ? "Empty" : "Ready"}
+                </span>
+              </button>
+            );
+          })}
+
+          <button type="button" onClick={onBack} className={`${btn("ghost", true)} mt-1`}>
+            {skipLabel}
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="mb-5 flex flex-col items-center rounded-3xl border-2 border-dashed border-border bg-surface/60 p-4">
+            {picked !== null ? (
+              <div
+                style={{
+                  transform: flipping
+                    ? "perspective(1000px) rotateY(90deg) scale(0.97)"
+                    : "perspective(1000px) rotateY(0deg) scale(1)",
+                  transition: "transform 420ms cubic-bezier(0.2, 0.75, 0.25, 1)",
+                }}
+              >
+                <TierBack tier={tier} size="lg" />
+              </div>
+            ) : (
+              <div className="flex h-52 w-36 items-center justify-center rounded-2xl border-2 border-dashed border-border text-center text-xs font-bold text-muted">
+                Pick a card below
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onPlay}
+              disabled={picked === null || busy}
+              className={`${btn("primary")} mt-4`}
+            >
+              {busy ? <LoaderCircle size={18} className="animate-spin" /> : <Eye size={18} />}
+              {actionLabel}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-4 justify-items-center gap-x-2 gap-y-4">
+            {ids.map((id) => (
+              <TierBack
+                key={id}
+                tier={tier}
+                size="sm"
+                selected={picked === id}
+                onClick={() => onPick(id)}
+                disabled={busy}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
@@ -258,6 +654,14 @@ export default function CardsPage() {
   // Local mode: which seat currently holds the shared device.
   const [holderSeat, setHolderSeat] = useState<Seat | null>(null);
 
+  // Deal preview (round 1) and tier album (responder, after a stat is locked).
+  const [dealSeen, setDealSeen] = useState(false);
+  const [albumKind, setAlbumKind] = useState<AlbumKind | null>(null);
+  const [albumLoading, setAlbumLoading] = useState(false);
+  const [album, setAlbum] = useState<AlbumData | null>(null);
+  const [albumTier, setAlbumTier] = useState<Tier | null>(null);
+  const [pickedId, setPickedId] = useState<number | null>(null);
+
   const [busy, setBusy] = useState(false);
   const [isCardFlipping, setIsCardFlipping] = useState(false);
   const [error, setError] = useState("");
@@ -267,7 +671,22 @@ export default function CardsPage() {
   const gameRef = useRef<GameState | null>(null);
   const busyRef = useRef(false);
 
+  const showDeal =
+    view === "game" &&
+    !!game &&
+    game.status === "ACTIVE" &&
+    game.phase === "CHOOSING" &&
+    game.round_number === 1 &&
+    !dealSeen;
+
   /* ----------------------------- state helpers ---------------------- */
+
+  const closeAlbum = useCallback(() => {
+    setAlbumKind(null);
+    setAlbumTier(null);
+    setPickedId(null);
+    setAlbum(null);
+  }, []);
 
   const applyGame = useCallback((next: GameState) => {
     const previous = gameRef.current;
@@ -286,10 +705,12 @@ export default function CardsPage() {
       applyGame(state);
       setSelectedStat(null);
       setHolderSeat(null);
+      setDealSeen(false);
+      closeAlbum();
       setError("");
       setView("game");
     },
-    [applyGame],
+    [applyGame, closeAlbum],
   );
 
   const leaveGame = useCallback(() => {
@@ -300,9 +721,22 @@ export default function CardsPage() {
     setGame(null);
     setSelectedStat(null);
     setHolderSeat(null);
+    setDealSeen(false);
+    closeAlbum();
     setError("");
     setView("lobby");
-  }, []);
+  }, [closeAlbum]);
+
+  // The album only makes sense while a stat is locked.
+  const phase = game?.phase;
+  useEffect(() => {
+    if (
+      (albumKind === "swap" && phase !== "CHOOSING") ||
+      (albumKind === "play" && phase !== "LOCKED")
+    ) {
+      closeAlbum();
+    }
+  }, [phase, albumKind, closeAlbum]);
 
   /* ----------------------------- startup ---------------------------- */
 
@@ -579,15 +1013,83 @@ export default function CardsPage() {
     });
   };
 
-  const handleRevealCard = async () => {
+  /** Responder seat: online = me, local = the player who is not challenging. */
+  const responderSeatFor = (sess: CardsSession, current: GameState): Seat =>
+    sess.mode === "ONLINE" ? sess.seat : otherSeat(current.challenger_seat);
+
+  /** Open the tier album: "swap" for the challenger, "play" for the responder. */
+  const openAlbum = async (kind: AlbumKind) => {
+    const sess = sessionRef.current;
+    const current = gameRef.current;
+    if (!sess || !current || busyRef.current) return;
+
+    const seat: Seat =
+      kind === "swap"
+        ? sess.mode === "ONLINE"
+          ? sess.seat
+          : current.challenger_seat
+        : responderSeatFor(sess, current);
+
+    setAlbumLoading(true);
+    setError("");
+
+    try {
+      const full = await fetchFull(sess, seat);
+
+      setAlbum({
+        hand: full.hand ?? {},
+        used: full.used_tiers ?? [],
+        exclude: kind === "swap" ? (full.current_card_id ?? null) : null,
+      });
+      setAlbumTier(null);
+      setPickedId(null);
+      setAlbumKind(kind);
+    } catch (err) {
+      setError(errorText(err, "Can't load your cards. Try again."));
+    } finally {
+      setAlbumLoading(false);
+    }
+  };
+
+  const handleAlbumBack = () => {
+    if (albumTier) {
+      setAlbumTier(null);
+      setPickedId(null);
+    } else {
+      closeAlbum();
+    }
+  };
+
+  /** Challenger: swap the current card for a face-down card from a tier. */
+  const handleChooseCard = () => {
+    const sess = sessionRef.current;
+    const current = gameRef.current;
+    if (!sess || !current || pickedId === null) return;
+
+    const seat: Seat =
+      sess.mode === "ONLINE" ? sess.seat : current.challenger_seat;
+    const token = sess.tokens[seat];
+    if (!token) return;
+
+    const cardId = pickedId;
+
+    void run(async () => {
+      const next = await cardsApi.choose(sess.roomCode, token, cardId);
+      closeAlbum();
+      setSelectedStat(null);
+      return next;
+    });
+  };
+
+  /** Reveal the responder card. Without a cardId the top card is played. */
+  const handleRevealCard = async (cardId?: number) => {
     if (busyRef.current || isCardFlipping) return;
 
     const sess = sessionRef.current;
     const current = gameRef.current;
     if (!sess || !current) return;
 
-    const seat: Seat =
-      sess.mode === "ONLINE" ? sess.seat : otherSeat(current.challenger_seat);
+    const seat = responderSeatFor(sess, current);
     const token = sess.tokens[seat];
     if (!token) return;
 
@@ -598,7 +1100,7 @@ export default function CardsPage() {
     setError("");
 
     try {
-      const next = await cardsApi.reveal(sess.roomCode, token);
+      const next = await cardsApi.reveal(sess.roomCode, token, cardId);
       if (sess.mode === "LOCAL") setHolderSeat(seat);
 
       // Begin the flip only when the revealed card data is ready, then swap
@@ -817,7 +1319,6 @@ export default function CardsPage() {
                             }`}
                           >
                             {pool.label}
-                            {/* <span className="ml-1.5 opacity-60">{pool.count}</span> */}
                           </button>
                         );
                       })}
@@ -962,8 +1463,7 @@ export default function CardsPage() {
           ? "win"
           : "lose";
 
-      // Club colours only: win = main colour, draw = second colour,
-      // loss = neutral.
+      // Fixed colours: green = win, red = loss, club colour = draw.
       const panelColor =
         outcome === "win"
           ? "bg-green-600 text-white shadow-green-600/50"
@@ -1054,9 +1554,9 @@ export default function CardsPage() {
             ? "You win"
             : `${winnerName} wins`;
 
-// Fixed colours: green = win, red = loss, neutral = tie.
-// In local (pass-the-device) mode there is no single "you", so the
-// round winner is always shown green.
+      // Fixed colours: green = win, red = loss, neutral = tie. In local
+      // (pass-the-device) mode there is no single "you", so the round
+      // winner is always shown green.
       const bannerColor =
         lr.winner === "tie"
           ? "bg-foreground text-background shadow-black/25"
@@ -1087,23 +1587,29 @@ export default function CardsPage() {
 
           <div className="grid gap-5 sm:grid-cols-2">
             {challengerCard && (
-              <PlayerCard
-                key={`c-${lr.number}`}
-                player={challengerCard}
-                lockedStat={lr.stat}
-                result={cardResult(iAmChallenger)}
-                owner={challengerName}
-              />
+              <div>
+                <TierChip tier={tierOf(challengerCard)} />
+                <PlayerCard
+                  key={`c-${lr.number}`}
+                  player={challengerCard}
+                  lockedStat={lr.stat}
+                  result={cardResult(iAmChallenger)}
+                  owner={challengerName}
+                />
+              </div>
             )}
             {responderCard && (
-              <PlayerCard
-                key={`r-${lr.number}`}
-                player={responderCard}
-                lockedStat={lr.stat}
-                result={cardResult(!iAmChallenger)}
-                owner={responderName}
-                flip
-              />
+              <div>
+                <TierChip tier={tierOf(responderCard)} />
+                <PlayerCard
+                  key={`r-${lr.number}`}
+                  player={responderCard}
+                  lockedStat={lr.stat}
+                  result={cardResult(!iAmChallenger)}
+                  owner={responderName}
+                  flip
+                />
+              </div>
             )}
           </div>
 
@@ -1119,7 +1625,20 @@ export default function CardsPage() {
         </div>
       );
     } else if (game.phase === "CHOOSING") {
-      if (isLocal && holderSeat !== challengerSeat) {
+      if (showDeal) {
+        stage = (
+          <DealPreview
+            isLocal={isLocal}
+            left={left}
+            right={right}
+            you={game.you}
+            opponent={game.opponent}
+            hand={game.hand ?? null}
+            isChallenger={game.you_are_challenger}
+            onStart={() => setDealSeen(true)}
+          />
+        );
+      } else if (isLocal && holderSeat !== challengerSeat) {
         // Pass-the-device screen: the card stays hidden until the right person taps.
         stage = (
           <StageWrap>
@@ -1133,11 +1652,30 @@ export default function CardsPage() {
             </button>
           </StageWrap>
         );
+      } else if (game.you_are_challenger && albumKind === "swap" && album) {
+        stage = (
+          <Album
+            data={album}
+            tier={albumTier}
+            picked={pickedId}
+            busy={busy}
+            flipping={false}
+            onSelectTier={(t) => {
+              setAlbumTier(t);
+              setPickedId(null);
+            }}
+            onPick={setPickedId}
+            onBack={handleAlbumBack}
+            onPlay={handleChooseCard}
+            actionLabel="Use this card"
+            skipLabel="Keep my card"
+          />
+        );
       } else if (game.you_are_challenger && game.my_card) {
         stage = (
           <StageWrap>
             <PlayerCard
-              key={`mine-${game.round_number}`}
+              key={`mine-${game.round_number}-${game.my_card.player_id}`}
               player={game.my_card}
               selectedStat={selectedStat}
               onSelectStat={setSelectedStat}
@@ -1152,6 +1690,24 @@ export default function CardsPage() {
               {busy ? <LoaderCircle size={18} className="animate-spin" /> : <Lock size={18} />}
               {selectedStat ? `Lock ${STAT_META[selectedStat].label}` : "Pick a stat"}
             </button>
+            <button
+              type="button"
+              onClick={() => void openAlbum("swap")}
+              disabled={busy || albumLoading || !!game.card_swapped}
+              className={`${btn("alt")} mt-3`}
+            >
+              {albumLoading ? (
+                <LoaderCircle size={18} className="animate-spin" />
+              ) : (
+                <Layers size={18} />
+              )}
+              {game.card_swapped ? "Card changed" : "Choose a card"}
+            </button>
+            <p className="mt-3 text-center text-xs font-semibold text-muted">
+              {game.card_swapped
+                ? "You can change your card once per round."
+                : "Not happy with this card? Swap it for a face-down one from a tier."}
+            </p>
           </StageWrap>
         );
       } else {
@@ -1164,14 +1720,35 @@ export default function CardsPage() {
     } else if (game.phase === "LOCKED") {
       const canReveal = isLocal || !game.you_are_challenger;
 
-      if (canReveal) {
+      if (canReveal && albumKind === "play" && album) {
+        stage = (
+          <Album
+            data={album}
+            tier={albumTier}
+            picked={pickedId}
+            busy={busy || isCardFlipping}
+            flipping={isCardFlipping}
+            onSelectTier={(t) => {
+              setAlbumTier(t);
+              setPickedId(null);
+            }}
+            onPick={setPickedId}
+            onBack={handleAlbumBack}
+            onPlay={() => {
+              if (pickedId !== null) void handleRevealCard(pickedId);
+            }}
+            actionLabel="Play and reveal"
+            skipLabel="Play top card instead"
+          />
+        );
+      } else if (canReveal) {
         stage = (
           <StageWrap>
             <button
               type="button"
-              onClick={handleRevealCard}
+              onClick={() => void handleRevealCard()}
               disabled={busy || isCardFlipping}
-              aria-label={isLocal ? `${responderName}: reveal card` : "Reveal card"}
+              aria-label={isLocal ? `${responderName}: reveal top card` : "Reveal top card"}
               className="block w-full rounded-3xl text-left shadow-2xl shadow-accent/50 outline-none ring-4 ring-accent/80 transition-shadow duration-300 hover:shadow-accent/70 focus-visible:ring-accent-2 disabled:cursor-wait"
               style={{
                 transform: isCardFlipping ? "perspective(1000px) rotateY(90deg) scale(0.97)" : "perspective(1000px) rotateY(0deg) scale(1)",
@@ -1181,11 +1758,28 @@ export default function CardsPage() {
             >
               <div className="pointer-events-none overflow-hidden rounded-3xl">
                 <CardBack
-                  title={isLocal ? responderName.toUpperCase() : "REVEAL"}
+                  title={isLocal ? responderName.toUpperCase() : "TOP CARD"}
                   subtitle={busy || isCardFlipping ? "Revealing..." : "Tap to reveal"}
                 />
               </div>
             </button>
+
+            <button
+              type="button"
+              onClick={() => void openAlbum("play")}
+              disabled={busy || isCardFlipping || albumLoading}
+              className={`${btn("alt")} mt-6`}
+            >
+              {albumLoading ? (
+                <LoaderCircle size={18} className="animate-spin" />
+              ) : (
+                <Layers size={18} />
+              )}
+              Choose a card
+            </button>
+            <p className="mt-3 text-center text-xs font-semibold text-muted">
+              Tap the card for your top card, or choose from your tiers.
+            </p>
           </StageWrap>
         );
       } else {
@@ -1200,8 +1794,9 @@ export default function CardsPage() {
       stage = <Spinner />;
     }
 
-    const showScore = game.status === "ACTIVE";
-    const showConcede = game.status === "ACTIVE" && game.phase !== "REVEALED";
+    const showScore = game.status === "ACTIVE" && !showDeal;
+    const showConcede =
+      game.status === "ACTIVE" && game.phase !== "REVEALED" && !showDeal;
 
     gameView = (
       <section className="relative mx-auto mt-10 max-w-4xl pb-4 pt-1 sm:mt-10 sm:pb-8 sm:pt-2">
@@ -1257,50 +1852,50 @@ export default function CardsPage() {
     );
   }
 
-  // Fix the page: no scrolling or rubber-banding on any screen size.
-// Allow scrolling only when both cards are revealed
-const allowScroll =
-  view === "game" &&
-  game?.status === "ACTIVE" &&
-  game?.phase === "REVEALED";
+  // The page is fixed (no scrolling or rubber-banding), except on screens
+  // that need room: the deal preview, the tier album and the reveal screen.
+  const allowScroll =
+    view === "game" &&
+    game?.status === "ACTIVE" &&
+    (game.phase === "REVEALED" || albumKind !== null || showDeal);
 
-useEffect(() => {
-  const html = document.documentElement;
-  const body = document.body;
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
 
-  html.style.overflow = "hidden";
-  html.style.height = "100%";
-  html.style.overscrollBehavior = "none";
-  body.style.position = "fixed";
-  body.style.inset = "0";
-  body.style.width = "100%";
-  body.style.height = "100%";
-  body.style.overscrollBehavior = "none";
+    html.style.overflow = "hidden";
+    html.style.height = "100%";
+    html.style.overscrollBehavior = "none";
+    body.style.position = "fixed";
+    body.style.inset = "0";
+    body.style.width = "100%";
+    body.style.height = "100%";
+    body.style.overscrollBehavior = "none";
 
-  // The body itself becomes the scroll container on the reveal screen
-  body.style.overflowY = allowScroll ? "auto" : "hidden";
-  body.style.overflowX = "hidden";
-  (body.style as any).webkitOverflowScrolling = "touch";
+    // The body itself becomes the scroll container on those screens.
+    body.style.overflowY = allowScroll ? "auto" : "hidden";
+    body.style.overflowX = "hidden";
+    (body.style as unknown as Record<string, string>).webkitOverflowScrolling =
+      "touch";
 
-  if (!allowScroll) body.scrollTop = 0;
+    if (!allowScroll) body.scrollTop = 0;
 
-  return () => {
-    html.style.overflow = "";
-    html.style.height = "";
-    html.style.overscrollBehavior = "";
-    body.style.position = "";
-    body.style.inset = "";
-    body.style.width = "";
-    body.style.height = "";
-    body.style.overflow = "";
-    body.style.overflowX = "";
-    body.style.overflowY = "";
-    body.style.overscrollBehavior = "";
-    (body.style as any).webkitOverflowScrolling = "";
-  };
-}, [allowScroll]);
-
-
+    return () => {
+      html.style.overflow = "";
+      html.style.height = "";
+      html.style.overscrollBehavior = "";
+      body.style.position = "";
+      body.style.inset = "";
+      body.style.width = "";
+      body.style.height = "";
+      body.style.overflow = "";
+      body.style.overflowX = "";
+      body.style.overflowY = "";
+      body.style.overscrollBehavior = "";
+      (body.style as unknown as Record<string, string>).webkitOverflowScrolling =
+        "";
+    };
+  }, [allowScroll]);
 
   /* ----------------------------- final render ----------------------- */
 

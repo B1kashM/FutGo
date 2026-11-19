@@ -11,4 +11,5 @@ urlpatterns = [
     path("<str:room_code>/reveal/", views.RevealAPIView.as_view(), name="cards-reveal"),
     path("<str:room_code>/continue/", views.ContinueAPIView.as_view(), name="cards-continue"),
     path("<str:room_code>/concede/", views.ConcedeAPIView.as_view(), name="cards-concede"),
+    path("<str:room_code>/choose/", views.ChooseCardAPIView.as_view()),
 ]

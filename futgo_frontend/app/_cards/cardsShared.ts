@@ -55,6 +55,9 @@ export function topStatKeys(stats: CardStats, count = 3): StatKey[] {
 export type Seat = 1 | 2;
 export type CardStats = Record<StatKey, number>;
 
+/** Whole-card tier (Gold / Silver / Bronze), set by the backend. */
+export type CardTier = "GOLD" | "SILVER" | "BRONZE";
+
 export type CardPlayer = {
   player_id: number;
   name: string;
@@ -64,6 +67,7 @@ export type CardPlayer = {
   ovr_rating: number;
   category: string;
   image_url: string;
+  tier?: CardTier;
   stats: CardStats;
 };
 
@@ -106,6 +110,14 @@ export type GameState = {
   available_action: AvailableAction;
   my_card: CardPlayer | null;
   opponent_card: CardPlayer | null;
+  /** Responder only, while a stat is locked: face-down card ids by tier. */
+  hand?: Partial<Record<CardTier, number[]>> | null;
+  /** Challenger, while choosing: id of the card currently shown to them. */
+  current_card_id?: number | null;
+  /** Challenger already swapped their card this round. */
+  card_swapped?: boolean;
+  /** Tiers this seat has already used its one manual pick on. */
+  used_tiers?: CardTier[] | null;
   last_round: LastRound | null;
   game_over: boolean;
   winner_seat: Seat | null;
@@ -238,8 +250,17 @@ export const cardsApi = {
   lock: (roomCode: string, token: string, stat: StatKey) =>
     post<GameState>(`/api/cards/${roomCode}/lock/`, token, { stat }),
 
-  reveal: (roomCode: string, token: string) =>
-    post<GameState>(`/api/cards/${roomCode}/reveal/`, token),
+  /** Challenger: swap the current card for a face-down card from the hand. */
+  choose: (roomCode: string, token: string, cardId: number) =>
+    post<GameState>(`/api/cards/${roomCode}/choose/`, token, { card_id: cardId }),
+
+  /** Without cardId the top card is played; with it, a card from the hand. */
+  reveal: (roomCode: string, token: string, cardId?: number) =>
+    post<GameState>(
+      `/api/cards/${roomCode}/reveal/`,
+      token,
+      cardId === undefined ? undefined : { card_id: cardId },
+    ),
 
   next: (roomCode: string, token: string) =>
     post<GameState>(`/api/cards/${roomCode}/continue/`, token),

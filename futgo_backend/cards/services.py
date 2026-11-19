@@ -13,6 +13,12 @@ MAX_DECK_SIZE = 30
 DEFAULT_DECK_SIZE = 20
 VALID_CATEGORIES = {key for key, _ in Player.CATEGORY_CHOICES}
 
+# Tiers are worked out from the average of a card's stats.
+# Tune these two numbers to change how many cards land in each tier.
+TIER_GOLD_MIN = 85
+TIER_SILVER_MIN = 72
+TIERS = ("GOLD", "SILVER", "BRONZE")
+
 
 class CardGameError(Exception):
     def __init__(self, message, status=400):
@@ -67,6 +73,50 @@ def _move_to_bottom(game, cards, owner):
         gc.owner = owner
         gc.order = base + i
     GameCard.objects.bulk_update(cards, ["owner", "order"])
+
+
+# ---------------------------------------------------------------- tiers
+
+def tier_of(player):
+    """GOLD / SILVER / BRONZE from the average of the card stats."""
+    values = [
+        v for v in player.card_stats.as_dict().values()
+        if isinstance(v, (int, float)) and not isinstance(v, bool)
+    ]
+    average = sum(values) / len(values) if values else 0
+    if average >= TIER_GOLD_MIN:
+        return "GOLD"
+    if average >= TIER_SILVER_MIN:
+        return "SILVER"
+    return "BRONZE"
+
+
+def _used_tiers(game, seat):
+    raw = game.player1_used_tiers if seat == 1 else game.player2_used_tiers
+    return [t for t in (raw or "").split(",") if t in TIERS]
+
+
+def _mark_tier_used(game, seat, tier):
+    used = _used_tiers(game, seat)
+    if tier not in used:
+        used.append(tier)
+    value = ",".join(used)
+    if seat == 1:
+        game.player1_used_tiers = value
+    else:
+        game.player2_used_tiers = value
+
+
+def _hand_payload(game, seat):
+    """Card ids in a seat's hand, grouped by tier. No player details."""
+    hand = {tier: [] for tier in TIERS}
+    cards = game.cards.filter(owner=seat).select_related("player", "player__card_stats")
+    for gc in cards:
+        hand[tier_of(gc.player)].append(gc.id)
+    # Stable pseudo-shuffle so the id order does not reveal the deck order.
+    for ids in hand.values():
+        ids.sort(key=lambda i: (i * 2654435761) % 1000003)
+    return hand
 
 
 # ---------------------------------------------------------------- card pool
@@ -136,6 +186,9 @@ def _start_game(game):
     game.challenger_seat = 1
     game.round_number = 1
     game.locked_stat = ""
+    game.player1_used_tiers = ""
+    game.player2_used_tiers = ""
+    game.card_swapped = False
     _touch(game)
 
 
@@ -234,7 +287,57 @@ def lock_stat(game, seat, stat):
     _touch(game)
 
 
-def reveal(game, seat):
+def choose_card(game, seat, card_id):
+    """Challenger swaps their current card for a face-down card from their hand.
+
+    Allowed once per round, and each tier can be used once per game. The
+    chosen card becomes the challenger's top card, so it is shown to them
+    and they then lock a stat as usual.
+    """
+    if game.status != "ACTIVE" or game.phase != "CHOOSING":
+        raise CardGameError("You can't change your card right now.", 409)
+    if seat != game.challenger_seat:
+        raise CardGameError("Only the challenger can change their card.", 403)
+    if game.card_swapped:
+        raise CardGameError("You already changed your card this round.", 409)
+
+    try:
+        card_id = int(card_id)
+    except (TypeError, ValueError):
+        raise CardGameError("card_id must be a number.")
+
+    chosen = (
+        game.cards.filter(id=card_id, owner=seat)
+        .select_related("player", "player__card_stats")
+        .first()
+    )
+    if chosen is None:
+        raise CardGameError("That card is not in your hand.")
+
+    top = _top_card(game, seat)
+    if top is None:
+        raise CardGameError("You have no cards left.", 409)
+    if chosen.id == top.id:
+        raise CardGameError("That is already your current card.")
+
+    tier = tier_of(chosen.player)
+    if tier in _used_tiers(game, seat):
+        raise CardGameError(f"You already used your {tier.title()} pick this game.", 409)
+    _mark_tier_used(game, seat, tier)
+
+    top.order, chosen.order = chosen.order, top.order
+    GameCard.objects.bulk_update([top, chosen], ["order"])
+    game.card_swapped = True
+    _touch(game)
+
+
+def reveal(game, seat, card_id=None):
+    """The responder reveals a card.
+
+    Without card_id the top card is played. With card_id the responder plays
+    that card from their hand, which uses up that tier's pick for the game
+    (unless it happens to be the top card anyway).
+    """
     if game.status != "ACTIVE" or game.phase != "LOCKED":
         raise CardGameError("There is nothing to reveal right now.", 409)
     if seat == game.challenger_seat:
@@ -243,6 +346,34 @@ def reveal(game, seat):
     c1, c2 = _top_card(game, 1), _top_card(game, 2)
     if not c1 or not c2:
         raise CardGameError("A player has no cards left.", 409)
+
+    if card_id is not None:
+        try:
+            card_id = int(card_id)
+        except (TypeError, ValueError):
+            raise CardGameError("card_id must be a number.")
+
+        chosen = (
+            game.cards.filter(id=card_id, owner=seat)
+            .select_related("player", "player__card_stats")
+            .first()
+        )
+        if chosen is None:
+            raise CardGameError("That card is not in your hand.")
+
+        top = c1 if seat == 1 else c2
+        if chosen.id != top.id:
+            tier = tier_of(chosen.player)
+            if tier in _used_tiers(game, seat):
+                raise CardGameError(
+                    f"You already used your {tier.title()} pick this game.", 409
+                )
+            _mark_tier_used(game, seat, tier)
+
+        if seat == 1:
+            c1 = chosen
+        else:
+            c2 = chosen
 
     stat = game.locked_stat
     v1 = getattr(c1.player.card_stats, stat)
@@ -264,13 +395,26 @@ def reveal(game, seat):
     _touch(game)
 
 
+def _round_card(game, rnd, seat):
+    """The card a seat actually played in a round (not always the top card)."""
+    player_id = rnd.p1_player_id if seat == 1 else rnd.p2_player_id
+    card = None
+    if player_id:
+        card = (
+            game.cards.filter(owner=seat, player_id=player_id)
+            .select_related("player", "player__card_stats")
+            .first()
+        )
+    return card or _top_card(game, seat)
+
+
 def continue_round(game):
     """Move the cards and start the next round. Safe to call twice."""
     if game.status != "ACTIVE" or game.phase != "REVEALED":
         return
 
     rnd = game.rounds.get(number=game.round_number)
-    c1, c2 = _top_card(game, 1), _top_card(game, 2)
+    c1, c2 = _round_card(game, rnd, 1), _round_card(game, rnd, 2)
 
     if rnd.winner_seat in (1, 2):
         pot = list(game.cards.filter(owner=0).order_by("order"))
@@ -290,6 +434,7 @@ def continue_round(game):
     else:
         game.phase = "CHOOSING"
         game.locked_stat = ""
+        game.card_swapped = False
         game.round_number += 1
     _touch(game)
 
@@ -316,6 +461,7 @@ def _card_payload(gc):
         "ovr_rating": p.ovr_rating,
         "category": p.category,
         "image_url": p.image_url,
+        "tier": tier_of(p),
         "stats": p.card_stats.as_dict(),
     }
 
@@ -357,6 +503,10 @@ def build_state(game, seat):
         "available_action": _available_action(game, seat),
         "my_card": None,
         "opponent_card": None,
+        "hand": None,
+        "current_card_id": None,
+        "card_swapped": game.card_swapped,
+        "used_tiers": _used_tiers(game, seat),
         "last_round": None,
         "game_over": game.status == "FINISHED",
         "winner_seat": game.winner_seat,
@@ -364,18 +514,25 @@ def build_state(game, seat):
         "end_reason": game.end_reason or None,
     }
 
+    rnd = game.rounds.order_by("-number").first()
+
     if game.status == "ACTIVE":
         # Hidden-information rule: nobody sees a card before it is allowed.
         if game.phase in ("CHOOSING", "LOCKED"):
             if is_challenger:
                 gc = _top_card(game, seat)
                 state["my_card"] = _card_payload(gc) if gc else None
-        else:  # REVEALED
-            mine, theirs = _top_card(game, seat), _top_card(game, opp)
+                state["current_card_id"] = gc.id if gc else None
+            # Your own hand, face down and grouped by tier. Used for the deal
+            # preview, the challenger's card swap and the responder's pick.
+            # It only holds ids and tiers, never who the players are.
+            if not (is_challenger and game.phase == "LOCKED"):
+                state["hand"] = _hand_payload(game, seat)
+        elif rnd:  # REVEALED: show the cards that were actually played
+            mine, theirs = _round_card(game, rnd, seat), _round_card(game, rnd, opp)
             state["my_card"] = _card_payload(mine) if mine else None
             state["opponent_card"] = _card_payload(theirs) if theirs else None
 
-    rnd = game.rounds.order_by("-number").first()
     if rnd and (game.phase == "REVEALED" or game.status == "FINISHED"):
         p1 = rnd.p1_player.name if rnd.p1_player else None
         p2 = rnd.p2_player.name if rnd.p2_player else None

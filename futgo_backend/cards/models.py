@@ -46,6 +46,9 @@ class CardGame(models.Model):
     version = models.PositiveIntegerField(default=0)  # bumps on every change (for polling)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    player1_used_tiers = models.CharField(max_length=40, blank=True, default="")
+    player2_used_tiers = models.CharField(max_length=40, blank=True, default="")
+    card_swapped = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.room_code} ({self.mode}, {self.status})"
