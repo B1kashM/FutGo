@@ -966,9 +966,9 @@ export default function CardsPage() {
       // loss = neutral.
       const panelColor =
         outcome === "win"
-          ? "bg-accent text-accent-ink shadow-accent/50"
+          ? "bg-green-600 text-white shadow-green-600/50"
           : outcome === "lose"
-            ? "bg-foreground text-background shadow-black/30"
+            ? "bg-red-600 text-white shadow-red-600/50"
             : "bg-accent-2 text-accent-2-ink shadow-accent-2/50";
 
       const headline = !game.winner_seat
@@ -1054,17 +1054,18 @@ export default function CardsPage() {
             ? "You win"
             : `${winnerName} wins`;
 
-      // Club colours only. "You" is the first colour and the opponent the
-      // second; a tie is neutral.
+// Fixed colours: green = win, red = loss, neutral = tie.
+// In local (pass-the-device) mode there is no single "you", so the
+// round winner is always shown green.
       const bannerColor =
         lr.winner === "tie"
           ? "bg-foreground text-background shadow-black/25"
-          : lr.winner === "you"
-            ? "bg-accent text-accent-ink shadow-accent/40"
-            : "bg-accent-2 text-accent-2-ink shadow-accent-2/40";
+          : isLocal || lr.winner === "you"
+            ? "bg-green-600 text-white shadow-green-600/40"
+            : "bg-red-600 text-white shadow-red-600/40";
 
       stage = (
-        <div className="mx-auto w-full max-w-3xl">
+        <div className="mx-auto w-full max-w-3xl pb-24">
           <div
             className={`card-pop relative mb-5 overflow-hidden rounded-3xl p-4 text-center shadow-xl ${bannerColor}`}
           >
@@ -1257,32 +1258,47 @@ export default function CardsPage() {
   }
 
   // Fix the page: no scrolling or rubber-banding on any screen size.
-  useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
+// Allow scrolling only when both cards are revealed
+const allowScroll =
+  view === "game" &&
+  game?.status === "ACTIVE" &&
+  game?.phase === "REVEALED";
 
-    html.style.overflow = "hidden";
-    html.style.height = "100%";
-    html.style.overscrollBehavior = "none";
-    body.style.position = "fixed";
-    body.style.inset = "0";
-    body.style.width = "100%";
-    body.style.height = "100%";
-    body.style.overflow = "hidden";
-    body.style.overscrollBehavior = "none";
+useEffect(() => {
+  const html = document.documentElement;
+  const body = document.body;
 
-    return () => {
-      html.style.overflow = "";
-      html.style.height = "";
-      html.style.overscrollBehavior = "";
-      body.style.position = "";
-      body.style.inset = "";
-      body.style.width = "";
-      body.style.height = "";
-      body.style.overflow = "";
-      body.style.overscrollBehavior = "";
-    };
-  }, []);
+  html.style.overflow = "hidden";
+  html.style.height = "100%";
+  html.style.overscrollBehavior = "none";
+  body.style.position = "fixed";
+  body.style.inset = "0";
+  body.style.width = "100%";
+  body.style.height = "100%";
+  body.style.overscrollBehavior = "none";
+
+  // The body itself becomes the scroll container on the reveal screen
+  body.style.overflowY = allowScroll ? "auto" : "hidden";
+  body.style.overflowX = "hidden";
+  (body.style as any).webkitOverflowScrolling = "touch";
+
+  if (!allowScroll) body.scrollTop = 0;
+
+  return () => {
+    html.style.overflow = "";
+    html.style.height = "";
+    html.style.overscrollBehavior = "";
+    body.style.position = "";
+    body.style.inset = "";
+    body.style.width = "";
+    body.style.height = "";
+    body.style.overflow = "";
+    body.style.overflowX = "";
+    body.style.overflowY = "";
+    body.style.overscrollBehavior = "";
+    (body.style as any).webkitOverflowScrolling = "";
+  };
+}, [allowScroll]);
 
 
 
