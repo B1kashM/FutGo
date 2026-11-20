@@ -1443,28 +1443,18 @@ function LegendCard({
   return (
     <div
       className={`absolute aspect-[7/10] w-[40%] transition-transform duration-300 ${className}`}
-      style={{
-        // thin light outline + deep shadow so the card separates from any background
-        filter:
-          "drop-shadow(0 0 1.5px rgba(255,255,255,0.9)) drop-shadow(0 14px 16px rgba(0,0,0,0.6))",
-      }}
     >
       <div className="h-full w-full" style={{ containerType: "inline-size" }}>
         <div
           className={`relative flex h-full w-full flex-col overflow-hidden ${toneClass[tone]}`}
           style={{
             borderRadius: "10cqw",
-            border: "2.6cqw solid rgba(255,255,255,0.96)",
+            border: "2.6cqw solid rgba(255,255,255,0.92)",
             padding: "3cqw",
-            boxShadow: isGold
-              ? "inset 0 0 0 0.9cqw rgba(120,80,0,0.35), 0 0 0 1.2cqw rgba(251,191,36,0.55)"
-              : "inset 0 0 0 0.9cqw rgba(0,0,0,0.3)",
           }}
         >
           {/* Depth: light from the top, shade at the bottom */}
-          <div className="pointer-events-none absolute inset-[-15%] rounded-full bg-[radial-gradient(closest-side,rgba(255,255,255,0.55),rgba(255,255,255,0.12)_60%,transparent)]" />
-          {/* Gloss sheen */}
-          <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(115deg,transparent_28%,rgba(255,255,255,0.3)_44%,transparent_58%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/30 via-transparent to-black/35" />
 
           {/* Portrait */}
           <div
@@ -1577,7 +1567,7 @@ const variants = {
   b: {
     hover: "hover:border-accent-2/70",
     glow: "bg-accent-2/25",
-    stage: "bg-black/60", // was bg-accent-2/30, which blended with the cards
+    stage: "bg-accent-2/30",
     pill: "border-accent-2/40 bg-accent-2/10 text-accent-2-text",
     arrow: "bg-accent-2 text-accent-2-ink",
   },
@@ -1805,7 +1795,6 @@ export default function Home() {
               className="relative"
               style={{ width: "min(100cqw, 150cqh)", aspectRatio: "1.5 / 1" }}
             >
-              <div className="pointer-events-none absolute inset-[-8%] rounded-full bg-[radial-gradient(closest-side,rgba(255,255,255,0.32),transparent)]" />
               <LegendCard
                 legend={legends[0]}
                 tone={toneByIndex[0]}
@@ -1819,7 +1808,7 @@ export default function Home() {
               <LegendCard
                 legend={legends[1]}
                 tone={toneByIndex[1]}
-                className="left-[30%] top-[6%] z-10 scale-[1.1] group-hover:-translate-y-1"
+                className="left-[30%] top-[7%] z-10 group-hover:-translate-y-1"
               />
             </div>
           </ModeCard>
