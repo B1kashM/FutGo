@@ -45,6 +45,7 @@ import type {
   CardsSession,
   GameState,
   Pool,
+  PreviewCard,
   Seat,
   SideInfo,
   StatKey,
@@ -326,7 +327,49 @@ function TierBack({
   );
 }
 
-/** Deal preview. Online: only your own deck, face down, in tier colours. */
+/** Face-up preview card: tier frame, player image and name only (no stats). */
+function DealCard({ card, delay }: { card: PreviewCard; delay: number }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const meta = TIER_META[card.tier];
+  const Icon = meta.icon;
+
+  return (
+    <div
+      className={`card-pop relative aspect-[3/4] overflow-hidden rounded-xl border-2 border-white/80 bg-gradient-to-br ${meta.grad} ${meta.ink} shadow-lg`}
+      style={{ animationDelay: `${delay}ms`, animationFillMode: "both" }}
+    >
+      {card.image && !imgFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={card.image}
+          alt={card.name}
+          loading="lazy"
+          draggable={false}
+          onError={() => setImgFailed(true)}
+          className="absolute inset-0 h-full w-full object-cover object-top"
+        />
+      ) : (
+        <Icon size={32} className="absolute inset-0 m-auto opacity-50" />
+      )}
+
+      {/* tier badge */}
+      <span
+        className={`absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br ${meta.grad} ${meta.ink} shadow ring-1 ring-black/20`}
+      >
+        <Icon size={11} />
+      </span>
+
+      {/* name strip */}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/60 to-transparent px-1.5 pb-1.5 pt-6">
+        <p className="line-clamp-2 text-center text-[10px] font-black uppercase leading-tight tracking-wide text-white">
+          {card.name}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** Deal preview. Online: only your own deck, face up (image + name), no stats. */
 function DealPreview({
   isLocal,
   left,
@@ -334,6 +377,7 @@ function DealPreview({
   you,
   opponent,
   hand,
+  preview,
   isChallenger,
   onStart,
 }: {
@@ -343,6 +387,7 @@ function DealPreview({
   you: SideInfo;
   opponent: SideInfo;
   hand: Partial<Record<Tier, number[]>> | null;
+  preview: PreviewCard[] | null;
   isChallenger: boolean;
   onStart: () => void;
 }) {
@@ -388,6 +433,7 @@ function DealPreview({
     </div>
   );
 
+  // Local play is handled by LocalDealFlow; this is the plain fallback.
   if (isLocal || !hand) {
     return (
       <div className="mx-auto w-full max-w-md pb-24">
@@ -406,13 +452,19 @@ function DealPreview({
     );
   }
 
+  // Sort face-up cards Gold -> Silver -> Bronze.
+  const cards: PreviewCard[] | null =
+    preview && preview.length > 0
+      ? [...preview].sort((a, b) => TIERS.indexOf(a.tier) - TIERS.indexOf(b.tier))
+      : null;
+
   const groups = TIERS.map((tier) => ({ tier, ids: hand[tier] ?? [] })).filter(
     (g) => g.ids.length > 0,
   );
   let index = 0;
 
   return (
-    <div className="mx-auto w-full max-w-md pb-24">
+    <div className="mx-auto w-full max-w-2xl pb-24">
       <p className="mb-4 text-center text-[11px] font-black uppercase tracking-[0.3em] text-muted">
         Your deck
       </p>
@@ -443,22 +495,34 @@ function DealPreview({
           })}
         </div>
 
-        <div className="flex flex-wrap gap-1.5" aria-label={`${you.cards_left} cards face down`}>
-          {groups.flatMap(({ tier, ids }) =>
-            ids.map((id) => {
-              const delay = index++ * 40;
-              return (
-                <span
-                  key={id}
-                  className="card-pop"
-                  style={{ animationDelay: `${delay}ms`, animationFillMode: "both" }}
-                >
-                  <TierBack tier={tier} size="xs" />
-                </span>
-              );
-            }),
-          )}
-        </div>
+        {cards ? (
+          <div
+            className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5"
+            aria-label={`${cards.length} cards in your deck`}
+          >
+            {cards.map((card, i) => (
+              <DealCard key={card.id} card={card} delay={i * 40} />
+            ))}
+          </div>
+        ) : (
+          // Fallback: server did not send a preview, keep the face-down view.
+          <div className="flex flex-wrap gap-1.5" aria-label={`${you.cards_left} cards face down`}>
+            {groups.flatMap(({ tier, ids }) =>
+              ids.map((id) => {
+                const delay = index++ * 40;
+                return (
+                  <span
+                    key={id}
+                    className="card-pop"
+                    style={{ animationDelay: `${delay}ms`, animationFillMode: "both" }}
+                  >
+                    <TierBack tier={tier} size="xs" />
+                  </span>
+                );
+              }),
+            )}
+          </div>
+        )}
       </div>
 
       <p className="mt-4 text-center text-xs font-semibold text-muted">
@@ -466,6 +530,170 @@ function DealPreview({
       </p>
 
       {startButton}
+    </div>
+  );
+}
+
+/** One player's deck, face up: tier counts plus a grid of image + name cards. */
+function DeckPanel({
+  name,
+  cards,
+  tone,
+}: {
+  name: string;
+  cards: PreviewCard[];
+  tone: "a" | "b";
+}) {
+  const sorted = [...cards].sort(
+    (a, b) => TIERS.indexOf(a.tier) - TIERS.indexOf(b.tier),
+  );
+
+  return (
+    <div className="rounded-3xl border-2 border-border bg-surface p-4 shadow-xl shadow-black/10">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span
+          className={`truncate rounded-lg px-3 py-1 text-xs font-black uppercase tracking-wider ${
+            tone === "a"
+              ? "bg-accent text-accent-ink"
+              : "bg-accent-2 text-accent-2-ink"
+          }`}
+        >
+          {name}
+        </span>
+        <span className="text-3xl font-black leading-none tabular-nums">
+          {sorted.length}
+        </span>
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {TIERS.map((tier) => {
+          const count = sorted.filter((c) => c.tier === tier).length;
+          if (count === 0) return null;
+          const meta = TIER_META[tier];
+          const Icon = meta.icon;
+          return (
+            <span
+              key={tier}
+              className={`flex items-center gap-1 rounded-full bg-gradient-to-br ${meta.grad} ${meta.ink} px-3 py-1 text-[11px] font-black shadow`}
+            >
+              <Icon size={12} />
+              {count} {meta.label}
+            </span>
+          );
+        })}
+      </div>
+
+      <div
+        className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5"
+        aria-label={`${sorted.length} cards in ${name}'s deck`}
+      >
+        {sorted.map((card, i) => (
+          <DealCard key={card.id} card={card} delay={i * 40} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Local (one shared device) deal preview. Each player sees only their own
+ * deck face up, one after the other, with a pass-the-device screen between.
+ */
+function LocalDealFlow({
+  session,
+  names,
+  onStart,
+}: {
+  session: CardsSession;
+  names: Record<Seat, string>;
+  onStart: () => void;
+}) {
+  const [decks, setDecks] = useState<Partial<Record<Seat, PreviewCard[]>>>({});
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [step, setStep] = useState<"pass1" | "deck1" | "pass2" | "deck2">("pass1");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    Promise.all([fetchFull(session, 1), fetchFull(session, 2)])
+      .then(([a, b]) => {
+        if (cancelled) return;
+        setDecks({ 1: a.hand_preview ?? [], 2: b.hand_preview ?? [] });
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
+  if (loading) return <Spinner />;
+
+  if (failed || !decks[1]?.length || !decks[2]?.length) {
+    return (
+      <StageWrap>
+        <ErrorMessage message="Can't load the deck preview." />
+        <button type="button" onClick={onStart} className={`${btn("primary")} mt-6`}>
+          Start round 1 <ArrowRight size={18} />
+        </button>
+      </StageWrap>
+    );
+  }
+
+  const pass = (seat: Seat, next: "deck1" | "deck2") => (
+    <StageWrap>
+      <CardBack title="PASS THE DEVICE" subtitle={names[seat]} />
+      <button
+        type="button"
+        onClick={() => setStep(next)}
+        className={`${btn("primary")} mt-6`}
+      >
+        <Eye size={18} /> I&apos;m {names[seat]}
+      </button>
+    </StageWrap>
+  );
+
+  if (step === "pass1") return pass(1, "deck1");
+  if (step === "pass2") return pass(2, "deck2");
+
+  const seat: Seat = step === "deck1" ? 1 : 2;
+
+  return (
+    <div className="mx-auto w-full max-w-2xl pb-24">
+      <p className="mb-4 text-center text-[11px] font-black uppercase tracking-[0.3em] text-muted">
+        Your deck
+      </p>
+
+      <DeckPanel
+        key={seat}
+        name={names[seat]}
+        cards={decks[seat] ?? []}
+        tone={seat === 1 ? "a" : "b"}
+      />
+
+      <p className="mt-4 text-center text-xs font-semibold text-muted">
+        Only {names[seat]} should look. Hide the screen before passing it on.
+      </p>
+
+      {seat === 1 ? (
+        <button
+          type="button"
+          onClick={() => setStep("pass2")}
+          className={`${btn("primary")} mt-6`}
+        >
+          Hide and pass to {names[2]} <ArrowRight size={18} />
+        </button>
+      ) : (
+        <button type="button" onClick={onStart} className={`${btn("primary")} mt-6`}>
+          Start round 1 <ArrowRight size={18} />
+        </button>
+      )}
     </div>
   );
 }
@@ -1636,7 +1864,13 @@ export default function CardsPage() {
       );
     } else if (game.phase === "CHOOSING") {
       if (showDeal) {
-        stage = (
+        stage = isLocal ? (
+          <LocalDealFlow
+            session={session}
+            names={{ 1: nameOf(1), 2: nameOf(2) }}
+            onStart={() => setDealSeen(true)}
+          />
+        ) : (
           <DealPreview
             isLocal={isLocal}
             left={left}
@@ -1644,6 +1878,7 @@ export default function CardsPage() {
             you={game.you}
             opponent={game.opponent}
             hand={game.hand ?? null}
+            preview={game.hand_preview ?? null}
             isChallenger={game.you_are_challenger}
             onStart={() => setDealSeen(true)}
           />

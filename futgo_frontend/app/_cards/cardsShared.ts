@@ -71,6 +71,17 @@ export type CardPlayer = {
   stats: CardStats;
 };
 
+/**
+ * A card shown face up on the round 1 deal screen: image, name and tier only.
+ * It never carries stats.
+ */
+export type PreviewCard = {
+  id: number;
+  name: string;
+  image?: string | null;
+  tier: CardTier;
+};
+
 export type SideInfo = { seat: Seat; name: string; cards_left: number };
 
 export type LastRound = {
@@ -112,6 +123,8 @@ export type GameState = {
   opponent_card: CardPlayer | null;
   /** Responder only, while a stat is locked: face-down card ids by tier. */
   hand?: Partial<Record<CardTier, number[]>> | null;
+  /** Round 1 deal screen only: your own deck face up (image, name, tier). */
+  hand_preview?: PreviewCard[] | null;
   /** Responder, while locked: tier of the challenger's card. */
   opponent_card_tier?: CardTier | null;
   /** Challenger, while choosing: id of the card currently shown to them. */

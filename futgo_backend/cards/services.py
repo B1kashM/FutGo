@@ -119,6 +119,27 @@ def _hand_payload(game, seat):
     return hand
 
 
+def _hand_preview(game, seat):
+    """Deal preview: image, name and tier for each card in a seat's hand.
+
+    No stats. Only used for the round 1 deal screen, so the identity of
+    the face-down album cards is not sent on every poll.
+    """
+    cards = game.cards.filter(owner=seat).select_related("player", "player__card_stats")
+    previews = [
+        {
+            "id": gc.id,
+            "name": gc.player.name,
+            "image": gc.player.image_url or None,
+            "tier": tier_of(gc.player),
+        }
+        for gc in cards
+    ]
+    order = {tier: i for i, tier in enumerate(TIERS)}
+    previews.sort(key=lambda c: (order[c["tier"]], c["name"]))
+    return previews
+
+
 # ---------------------------------------------------------------- card pool
 
 def eligible_players(category=""):
@@ -504,6 +525,7 @@ def build_state(game, seat):
         "my_card": None,
         "opponent_card": None,
         "hand": None,
+        "hand_preview": None,
         "current_card_id": None,
         "opponent_card_tier": None,
         "card_swapped": game.card_swapped,
@@ -529,6 +551,11 @@ def build_state(game, seat):
             # It only holds ids and tiers, never who the players are.
             if not (is_challenger and game.phase == "LOCKED"):
                 state["hand"] = _hand_payload(game, seat)
+            if not (is_challenger and game.phase == "LOCKED"):
+                state["hand"] = _hand_payload(game, seat)
+                # Round 1 deal screen only: show your own deck face up.
+            if game.phase == "CHOOSING" and game.round_number == 1:
+                state["hand_preview"] = _hand_preview(game, seat)
             # Responder only, after a stat is locked: the challenger card's tier
             # (colours the Locked banner), never any card details.
             if game.phase == "LOCKED" and not is_challenger:
