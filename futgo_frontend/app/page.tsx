@@ -1443,18 +1443,28 @@ function LegendCard({
   return (
     <div
       className={`absolute aspect-[7/10] w-[40%] transition-transform duration-300 ${className}`}
+      style={{
+        // thin light outline + deep shadow so the card separates from any background
+        filter:
+          "drop-shadow(0 0 1.5px rgba(255,255,255,0.9)) drop-shadow(0 14px 16px rgba(0,0,0,0.6))",
+      }}
     >
       <div className="h-full w-full" style={{ containerType: "inline-size" }}>
         <div
           className={`relative flex h-full w-full flex-col overflow-hidden ${toneClass[tone]}`}
           style={{
             borderRadius: "10cqw",
-            border: "2.6cqw solid rgba(255,255,255,0.92)",
+            border: "2.6cqw solid rgba(255,255,255,0.96)",
             padding: "3cqw",
+            boxShadow: isGold
+              ? "inset 0 0 0 0.9cqw rgba(120,80,0,0.35), 0 0 0 1.2cqw rgba(251,191,36,0.55)"
+              : "inset 0 0 0 0.9cqw rgba(0,0,0,0.3)",
           }}
         >
           {/* Depth: light from the top, shade at the bottom */}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/30 via-transparent to-black/35" />
+          {/* Gloss sheen */}
+          <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(115deg,transparent_28%,rgba(255,255,255,0.3)_44%,transparent_58%)]" />
 
           {/* Portrait */}
           <div
@@ -1556,18 +1566,23 @@ function LegendCard({
 /* Mode card (the whole card is the link)                              */
 /* ------------------------------------------------------------------ */
 
+// The outer tile. `frame` is what makes it stand out from the page: a thicker
+// club-coloured border, a club-tinted gradient fill and a coloured glow.
 const variants = {
   a: {
-    hover: "hover:border-accent/70",
-    glow: "bg-accent/25",
+    frame:
+      "border-accent/70 bg-gradient-to-br from-accent/25 via-surface-2 to-surface-2 shadow-2xl shadow-accent/30 ring-1 ring-accent/30 hover:border-accent hover:shadow-accent/50",
+    glow: "bg-accent/40",
     stage: "bg-accent/30",
     pill: "border-trim/40 bg-trim/10 text-accent-text",
     arrow: "bg-accent text-accent-ink",
   },
   b: {
-    hover: "hover:border-accent-2/70",
-    glow: "bg-accent-2/25",
-    stage: "bg-accent-2/30",
+    frame:
+      "border-accent-2/70 bg-gradient-to-br from-accent-2/25 via-surface-2 to-surface-2 shadow-2xl shadow-accent-2/30 ring-1 ring-accent-2/30 hover:border-accent-2 hover:shadow-accent-2/50",
+    glow: "bg-accent-2/40",
+    // Neutral dark stage so the club-coloured cards do not blend into it
+    stage: "bg-black/55",
     pill: "border-accent-2/40 bg-accent-2/10 text-accent-2-text",
     arrow: "bg-accent-2 text-accent-2-ink",
   },
@@ -1593,11 +1608,14 @@ function ModeCard({
   return (
     <Link
       href={href}
-      className={`group relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-border bg-surface-2 p-6 transition duration-300 hover:-translate-y-0.5 lg:p-9 ${v.hover}`}
+      className={`group relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border-2 p-6 transition duration-300 hover:-translate-y-1 lg:p-9 ${v.frame}`}
     >
-      <div className="brand-bar absolute inset-x-0 top-0 h-1" />
+      {/* Thicker club-colour bar along the top */}
+      <div className="brand-bar absolute inset-x-0 top-0 h-2" />
+      {/* Soft top light so the tile reads as raised */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent" />
       <div
-        className={`pointer-events-none absolute -top-12 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full blur-3xl ${v.glow}`}
+        className={`pointer-events-none absolute -top-12 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full blur-3xl ${v.glow}`}
       />
 
       {/* Visual */}
@@ -1629,7 +1647,7 @@ function ModeCard({
           <p className="mt-1 hidden text-sm text-muted sm:block">{tagline}</p>
         </div>
         <span
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition group-hover:translate-x-1 lg:h-11 lg:w-11 ${v.arrow}`}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-lg transition group-hover:translate-x-1 lg:h-11 lg:w-11 ${v.arrow}`}
         >
           <ArrowRight size={19} />
         </span>
@@ -1795,6 +1813,8 @@ export default function Home() {
               className="relative"
               style={{ width: "min(100cqw, 150cqh)", aspectRatio: "1.5 / 1" }}
             >
+              {/* White light behind the cards */}
+              <div className="pointer-events-none absolute inset-[-15%] rounded-full bg-[radial-gradient(closest-side,rgba(255,255,255,0.5),rgba(255,255,255,0.1)_60%,transparent)]" />
               <LegendCard
                 legend={legends[0]}
                 tone={toneByIndex[0]}
@@ -1808,7 +1828,7 @@ export default function Home() {
               <LegendCard
                 legend={legends[1]}
                 tone={toneByIndex[1]}
-                className="left-[30%] top-[7%] z-10 group-hover:-translate-y-1"
+                className="left-[30%] top-[6%] z-10 scale-[1.1] group-hover:-translate-y-1"
               />
             </div>
           </ModeCard>
