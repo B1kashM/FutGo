@@ -5,6 +5,7 @@ import "./globals.css";
 
 import { CLUB_IDS, DEFAULT_CLUB } from "./_theme/clubs";
 import InitialLoader from "./components/InitialLoader";
+import InstallPrompt from "./components/InstallPrompt";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,7 +21,8 @@ export const metadata: Metadata = {
   title: "FutGo",
   description: "Built with Passion",
 
-  manifest: "/manifest.json",
+  // No `manifest` field here: Next.js serves app/manifest.json at
+  // /manifest.webmanifest and adds the <link rel="manifest"> tag itself.
 
   appleWebApp: {
     capable: true,
@@ -124,6 +126,9 @@ export default function RootLayout({
         <InitialLoader />
 
         {children}
+
+        {/* Shows only in a browser tab, never inside the installed app */}
+        <InstallPrompt />
       </body>
     </html>
   );
