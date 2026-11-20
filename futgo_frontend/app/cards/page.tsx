@@ -111,10 +111,16 @@ const BTN_BASE =
   "flex w-full items-center justify-center gap-2 font-black uppercase tracking-wide transition disabled:cursor-not-allowed disabled:opacity-50";
 
 /** Chunky "game" buttons with a pressed-down effect. */
-function btn(variant: "primary" | "alt" | "ghost", small = false) {
+function btn(
+  variant: "primary" | "alt" | "ghost",
+  small = false,
+  compact = false,
+) {
   const size = small
     ? "rounded-xl px-4 py-2.5 text-xs"
-    : "rounded-2xl px-6 py-4 text-sm sm:text-base";
+    : compact
+      ? "rounded-2xl px-4 py-2.5 text-xs sm:px-6 sm:py-4 sm:text-base"
+      : "rounded-2xl px-6 py-4 text-sm sm:text-base";
 
   const press =
     "shadow-[0_5px_0_0_rgba(0,0,0,0.3)] hover:brightness-110 active:translate-y-[3px] active:shadow-[0_2px_0_0_rgba(0,0,0,0.3)] disabled:shadow-none";
@@ -249,7 +255,7 @@ function ScoreBar({
   );
 
   return (
-    <div className="relative mb-5 overflow-hidden rounded-3xl border-2 border-border bg-surface shadow-xl shadow-black/10">
+    <div className="relative mb-3 overflow-hidden rounded-3xl border-2 sm:mb-5 border-border bg-surface shadow-xl shadow-black/10">
       <div className="grid grid-cols-[1fr_auto_1fr]">
         {side(left, "left")}
         <div className="flex min-w-[76px] flex-col items-center justify-center gap-1 bg-surface px-2 py-3">
@@ -1930,7 +1936,7 @@ export default function CardsPage() {
               type="button"
               onClick={lockStat}
               disabled={!selectedStat || busy}
-              className={`${btn("primary")} mt-6`}
+              className={`${btn("primary", false, true)} mt-4 sm:mt-6`}
             >
               {busy ? <LoaderCircle size={18} className="animate-spin" /> : <Lock size={18} />}
               {selectedStat ? `Lock ${STAT_META[selectedStat].label}` : "Pick a stat"}
@@ -1939,7 +1945,7 @@ export default function CardsPage() {
               type="button"
               onClick={() => void openAlbum("swap")}
               disabled={busy || albumLoading || !!game.card_swapped}
-              className={`${btn("alt")} mt-3`}
+              className={`${btn("alt", false, true)} mt-2 sm:mt-3`}
             >
               {albumLoading ? (
                 <LoaderCircle size={18} className="animate-spin" />
@@ -1948,7 +1954,7 @@ export default function CardsPage() {
               )}
               {game.card_swapped ? "Card changed" : "Choose a card"}
             </button>
-            <p className="mt-3 text-center text-xs font-semibold text-muted">
+            <p className="mt-3 hidden text-center text-xs font-semibold text-muted sm:block">
               {game.card_swapped
                 ? "You can change your card once per round."
                 : "Not happy with this card? Swap it for a face-down one from a tier."}
@@ -2013,7 +2019,7 @@ export default function CardsPage() {
               type="button"
               onClick={() => void openAlbum("play")}
               disabled={busy || isCardFlipping || albumLoading}
-              className={`${btn("alt")} mt-6`}
+              className={`${btn("alt", false, true)} mt-4 sm:mt-6`}
             >
               {albumLoading ? (
                 <LoaderCircle size={18} className="animate-spin" />
@@ -2041,7 +2047,7 @@ export default function CardsPage() {
       game.status === "ACTIVE" && game.phase !== "REVEALED" && !showDeal;
 
     gameView = (
-      <section className="relative mx-auto mt-10 max-w-4xl pb-4 pt-1 sm:mt-10 sm:pb-8 sm:pt-2">
+      <section className="relative mx-auto mt-6 max-w-4xl pb-[calc(2rem+env(safe-area-inset-bottom))] pt-1 sm:mt-10 sm:pb-8 sm:pt-2">
         <Backdrop />
 
         <div className="relative">
@@ -2080,7 +2086,7 @@ export default function CardsPage() {
           )}
 
           {showConcede && (
-            <div className="mx-auto mt-5 max-w-[11rem]">
+            <div className="mx-auto mt-3 max-w-[11rem] sm:mt-5">
               <button
                 type="button"
                 onClick={concede}
