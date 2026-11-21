@@ -29,6 +29,7 @@ import { BackButton, DraftPageShell, ErrorMessage } from "../_draft/DraftUI";
 import {
   ApiError,
   DECK_OPTIONS,
+  PLAYER_OPTIONS,
   STAT_META,
   cardsApi,
   clearSession,
@@ -36,6 +37,7 @@ import {
   fetchFull,
   isUnchanged,
   loadSession,
+  nameFor,
   otherSeat,
   saveSession,
   toTokens,
@@ -44,13 +46,16 @@ import {
 import type {
   CardsSession,
   GameState,
+  PlayerInfo,
   Pool,
   PreviewCard,
   Seat,
   SideInfo,
   StatKey,
+  TableClash,
+  TablePlay,
 } from "../_cards/cardsShared";
-import { CardBack, PlayerCard } from "../_cards/CardsUI";
+import { CardBack, MiniCard, PlayerCard } from "../_cards/CardsUI";
 
 type View = "restoring" | "lobby" | "game";
 type LobbyTab = "LOCAL" | "CREATE" | "JOIN";
@@ -136,6 +141,17 @@ function btn(
 }
 
 /* ------------------------------------------------------------------ */
+/* Small helpers                                                       */
+/* ------------------------------------------------------------------ */
+
+/** win / lose / tie for one card, judged against the other cards in its clash. */
+function resultOf(plays: TablePlay[], play: TablePlay): "win" | "lose" | "tie" {
+  const best = Math.max(...plays.map((p) => p.value));
+  if (play.value !== best) return "lose";
+  return plays.filter((p) => p.value === best).length > 1 ? "tie" : "win";
+}
+
+/* ------------------------------------------------------------------ */
 /* Small presentational pieces                                         */
 /* ------------------------------------------------------------------ */
 
@@ -169,12 +185,12 @@ function Backdrop() {
 // A quiet one-line status ("Waiting...")
 function Hint({ children }: { children: ReactNode }) {
   return (
-    <p className="mx-auto mt-5 flex w-fit items-center justify-center gap-2 rounded-full border-2 border-accent/30 bg-accent/10 px-4 py-2 text-sm font-black text-accent-text">
-      <span className="relative flex h-2.5 w-2.5">
+    <p className="mx-auto mt-5 flex w-fit max-w-full items-center justify-center gap-2 rounded-full border-2 border-accent/30 bg-accent/10 px-4 py-2 text-sm font-black text-accent-text">
+      <span className="relative flex h-2.5 w-2.5 shrink-0">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-70" />
         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-accent" />
       </span>
-      {children}
+      <span className="min-w-0 truncate">{children}</span>
     </p>
   );
 }
@@ -214,18 +230,21 @@ function NameField({
   );
 }
 
+/** Two-player scoreboard (local play and 2-player rooms). */
 function ScoreBar({
   left,
   right,
   round,
   pot,
   challengerSeat,
+  tieBreak,
 }: {
   left: SideInfo;
   right: SideInfo;
   round: number;
   pot: number;
   challengerSeat: Seat;
+  tieBreak: boolean;
 }) {
   const side = (info: SideInfo, align: "left" | "right") => (
     <div
@@ -263,6 +282,11 @@ function ScoreBar({
             Round
           </span>
           <span className="text-3xl font-black leading-none">{round}</span>
+          {tieBreak && (
+            <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-black text-slate-900">
+              Tie-break
+            </span>
+          )}
           {pot > 0 && (
             <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-black text-background">
               Pot {pot}
@@ -271,6 +295,99 @@ function ScoreBar({
         </div>
         {side(right, "right")}
       </div>
+    </div>
+  );
+}
+
+/** Scoreboard for 3 to 6 players: one chip per player. */
+function PlayersBar({
+  players,
+  round,
+  pot,
+  clash,
+  showRevealed,
+}: {
+  players: PlayerInfo[];
+  round: number;
+  pot: number;
+  clash: number;
+  showRevealed: boolean;
+}) {
+  return (
+    <div className="relative mb-3 overflow-hidden rounded-3xl border-2 border-border bg-surface p-3 shadow-xl shadow-black/10 sm:mb-5">
+      <div className="mb-2 flex items-center justify-between gap-2 px-1">
+        {pot > 0 && (
+          <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-black text-background">
+            Pot {pot}
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-3">
+        {players.map((p, i) => (
+          <div
+            key={p.seat}
+            className={`flex items-center justify-between gap-2 rounded-2xl px-3 py-2 ${
+              i % 2 === 0
+                ? "bg-accent text-accent-ink"
+                : "bg-accent-2 text-accent-2-ink"
+            } ${p.is_you ? "ring-2 ring-foreground" : ""} ${
+              p.eliminated ? "opacity-40 grayscale" : ""
+            }`}
+          >
+            <span className="flex min-w-0 items-center gap-1 text-[11px] font-black uppercase tracking-wide">
+              <span className="truncate">{p.name}</span>
+            </span>
+            <span className="text-2xl font-black leading-none tabular-nums">
+              {p.cards_left}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Kickoff Draw: names flick past, then the server's pick is declared. */
+function KickoffDraw({ names, winner }: { names: string[]; winner: string }) {
+  const [index, setIndex] = useState(0);
+  const [done, setDone] = useState(names.length < 2);
+
+  useEffect(() => {
+    if (names.length < 2) return undefined;
+
+    const spin = window.setInterval(() => setIndex((i) => i + 1), 110);
+    const stop = window.setTimeout(() => {
+      window.clearInterval(spin);
+      setDone(true);
+    }, 1900);
+
+    return () => {
+      window.clearInterval(spin);
+      window.clearTimeout(stop);
+    };
+  }, [names.length]);
+
+  const label = done || names.length === 0 ? winner : names[index % names.length];
+
+  return (
+    <div className="mb-5 overflow-hidden rounded-3xl border-2 border-border bg-surface p-4 text-center shadow-xl shadow-black/10">
+      <p className="text-[11px] font-black uppercase tracking-[0.3em] text-muted">
+        Kickoff draw
+      </p>
+      <div
+        className={`mx-auto mt-3 flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-xl font-black uppercase transition-all duration-300 ${
+          done
+            ? "scale-105 bg-accent text-accent-ink shadow-lg shadow-accent/40"
+            : "bg-foreground/10 text-foreground/70"
+        }`}
+      >
+        <Swords size={20} className="shrink-0" />
+        <span className="truncate">{label}</span>
+      </div>
+      <p className="mt-2 text-xs font-semibold text-muted">
+        {done ? "locks the first stat." : "Picking who locks first..."}
+      </p>
     </div>
   );
 }
@@ -378,25 +495,25 @@ function DealCard({ card, delay }: { card: PreviewCard; delay: number }) {
 /** Deal preview. Online: only your own deck, face up (image + name), no stats. */
 function DealPreview({
   isLocal,
-  left,
-  right,
+  players,
   you,
-  opponent,
   hand,
   preview,
   isChallenger,
+  firstLocker,
   onStart,
 }: {
   isLocal: boolean;
-  left: SideInfo;
-  right: SideInfo;
+  players: PlayerInfo[];
   you: SideInfo;
-  opponent: SideInfo;
   hand: Partial<Record<Tier, number[]>> | null;
   preview: PreviewCard[] | null;
   isChallenger: boolean;
+  firstLocker: string;
   onStart: () => void;
 }) {
+  const others = players.filter((p) => p.seat !== you.seat);
+
   const startButton = (
     <button type="button" onClick={onStart} className={`${btn("primary")} mt-6`}>
       {isLocal || isChallenger ? "Start round 1" : "Ready"} <ArrowRight size={18} />
@@ -405,7 +522,10 @@ function DealPreview({
 
   // Plain club-coloured decks: local play (one shared screen) or no tier data.
   const plainPanel = (info: SideInfo, tone: "a" | "b", offset: number) => (
-    <div className="rounded-3xl border-2 border-border bg-surface p-4 shadow-xl shadow-black/10">
+    <div
+      key={info.seat}
+      className="rounded-3xl border-2 border-border bg-surface p-4 shadow-xl shadow-black/10"
+    >
       <div className="mb-3 flex items-center justify-between gap-3">
         <span
           className={`truncate rounded-lg px-3 py-1 text-xs font-black uppercase tracking-wider ${
@@ -441,17 +561,19 @@ function DealPreview({
 
   // Local play is handled by LocalDealFlow; this is the plain fallback.
   if (isLocal || !hand) {
+    let offset = 0;
     return (
       <div className="mx-auto w-full max-w-md pb-24">
         <p className="mb-4 text-center text-[11px] font-black uppercase tracking-[0.3em] text-muted">
           Cards dealt
         </p>
+        <KickoffDraw names={players.map((p) => p.name)} winner={firstLocker} />
         <div className="grid gap-4">
-          {plainPanel(left, "a", 0)}
-          <p className="text-center text-xs font-black uppercase tracking-[0.3em] text-muted">
-            vs
-          </p>
-          {plainPanel(right, "b", left.cards_left)}
+          {players.map((p, i) => {
+            const panel = plainPanel(p, i % 2 === 0 ? "a" : "b", offset);
+            offset += p.cards_left;
+            return panel;
+          })}
         </div>
         {startButton}
       </div>
@@ -471,6 +593,8 @@ function DealPreview({
 
   return (
     <div className="mx-auto w-full max-w-2xl pb-24">
+      <KickoffDraw names={players.map((p) => p.name)} winner={firstLocker} />
+
       <p className="mb-4 text-center text-[11px] font-black uppercase tracking-[0.3em] text-muted">
         Your deck
       </p>
@@ -532,7 +656,10 @@ function DealPreview({
       </div>
 
       <p className="mt-4 text-center text-xs font-semibold text-muted">
-        {opponent.name} holds {opponent.cards_left} cards too. Only you can see your deck.
+        {others.length === 1
+          ? `${others[0].name} holds ${others[0].cards_left} cards too.`
+          : `${others.length} opponents hold ${you.cards_left} cards each.`}{" "}
+        Only you can see your deck.
       </p>
 
       {startButton}
@@ -604,20 +731,25 @@ function DeckPanel({
 /**
  * Local (one shared device) deal preview. Each player sees only their own
  * deck face up, one after the other, with a pass-the-device screen between.
+ * Last step: the Kickoff Draw says who locks first.
  */
 function LocalDealFlow({
   session,
   names,
+  firstLocker,
   onStart,
 }: {
   session: CardsSession;
-  names: Record<Seat, string>;
+  names: Record<1 | 2, string>;
+  firstLocker: string;
   onStart: () => void;
 }) {
   const [decks, setDecks] = useState<Partial<Record<Seat, PreviewCard[]>>>({});
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-  const [step, setStep] = useState<"pass1" | "deck1" | "pass2" | "deck2">("pass1");
+  const [step, setStep] = useState<
+    "pass1" | "deck1" | "pass2" | "deck2" | "kickoff"
+  >("pass1");
 
   useEffect(() => {
     let cancelled = false;
@@ -652,7 +784,7 @@ function LocalDealFlow({
     );
   }
 
-  const pass = (seat: Seat, next: "deck1" | "deck2") => (
+  const pass = (seat: 1 | 2, next: "deck1" | "deck2") => (
     <StageWrap>
       <CardBack title="PASS THE DEVICE" subtitle={names[seat]} />
       <button
@@ -668,7 +800,18 @@ function LocalDealFlow({
   if (step === "pass1") return pass(1, "deck1");
   if (step === "pass2") return pass(2, "deck2");
 
-  const seat: Seat = step === "deck1" ? 1 : 2;
+  if (step === "kickoff") {
+    return (
+      <StageWrap>
+        <KickoffDraw names={[names[1], names[2]]} winner={firstLocker} />
+        <button type="button" onClick={onStart} className={`${btn("primary")} mt-6`}>
+          Start round 1 <ArrowRight size={18} />
+        </button>
+      </StageWrap>
+    );
+  }
+
+  const seat: 1 | 2 = step === "deck1" ? 1 : 2;
 
   return (
     <div className="mx-auto w-full max-w-2xl pb-24">
@@ -696,8 +839,12 @@ function LocalDealFlow({
           Hide and pass to {names[2]} <ArrowRight size={18} />
         </button>
       ) : (
-        <button type="button" onClick={onStart} className={`${btn("primary")} mt-6`}>
-          Start round 1 <ArrowRight size={18} />
+        <button
+          type="button"
+          onClick={() => setStep("kickoff")}
+          className={`${btn("primary")} mt-6`}
+        >
+          Hide and continue <ArrowRight size={18} />
         </button>
       )}
     </div>
@@ -862,6 +1009,7 @@ export default function CardsPage() {
   const [joinName, setJoinName] = useState("");
   const [poolKey, setPoolKey] = useState("ALL");
   const [deckSize, setDeckSize] = useState(20);
+  const [maxPlayers, setMaxPlayers] = useState(2);
 
   const [session, setSession] = useState<CardsSession | null>(null);
   const [game, setGame] = useState<GameState | null>(null);
@@ -1099,12 +1247,17 @@ export default function CardsPage() {
 
   /* ----------------------------- lobby ------------------------------ */
 
+  // Local games always have 2 players; only "Create" lets you pick 2 to 6.
+  const needPlayers = tab === "CREATE" ? maxPlayers : 2;
+
   const selectedPool = pools.find((pool) => pool.key === poolKey);
   const poolCount = selectedPool?.count ?? 0;
 
+  // Every player gets the same number of cards, so the pool must hold
+  // deck size x players unique cards.
   const deckChoices = useMemo(
-    () => DECK_OPTIONS.filter((n) => n <= Math.floor(poolCount / 2)),
-    [poolCount],
+    () => DECK_OPTIONS.filter((n) => n * needPlayers <= poolCount),
+    [poolCount, needPlayers],
   );
 
   useEffect(() => {
@@ -1139,7 +1292,7 @@ export default function CardsPage() {
           {
             roomCode: res.room_code,
             mode: "ONLINE",
-            seat: 2,
+            seat: res.seat ?? 2,
             tokens: toTokens(res.tokens),
           },
           res.state,
@@ -1175,7 +1328,7 @@ export default function CardsPage() {
     }
 
     if (deckChoices.length === 0) {
-      setError("This pool is too small. Pick another.");
+      setError("This pool is too small for that many players. Pick another.");
       return;
     }
 
@@ -1188,6 +1341,7 @@ export default function CardsPage() {
         player2_name: mode === "LOCAL" ? p2 : undefined,
         category: poolKey,
         deck_size: deckSize,
+        max_players: mode === "ONLINE" ? maxPlayers : 2,
       });
 
       beginGame(
@@ -1228,7 +1382,7 @@ export default function CardsPage() {
       applyGame(await action());
     } catch (err) {
       setError(errorText(err, "Something went wrong. Try again."));
-      // The game may have moved on (e.g. the opponent acted first).
+      // The game may have moved on (e.g. another player acted first).
       await resync().catch(() => undefined);
     } finally {
       busyRef.current = false;
@@ -1257,7 +1411,7 @@ export default function CardsPage() {
   const responderSeatFor = (sess: CardsSession, current: GameState): Seat =>
     sess.mode === "ONLINE" ? sess.seat : otherSeat(current.challenger_seat);
 
-  /** Open the tier album: "swap" for the challenger, "play" for the responder. */
+  /** Open the tier album: "swap" for the challenger, "play" for a responder. */
   const openAlbum = async (kind: AlbumKind) => {
     const sess = sessionRef.current;
     const current = gameRef.current;
@@ -1348,6 +1502,9 @@ export default function CardsPage() {
       setIsCardFlipping(true);
       window.setTimeout(() => {
         applyGame(next);
+        // With 3+ players the table may still be waiting for others, so the
+        // album has to close here and not only when the phase changes.
+        closeAlbum();
         window.setTimeout(() => setIsCardFlipping(false), 220);
       }, 210);
     } catch (err) {
@@ -1389,9 +1546,13 @@ export default function CardsPage() {
     const token = sess.tokens[seat];
     if (!token) return;
 
-    const who = current.you.seat === seat ? current.you.name : current.opponent.name;
+    const who = nameFor(current, seat);
+    const message =
+      current.max_players > 2
+        ? `${who}, leave this game? Your cards are shared with the other players.`
+        : `${who}, concede this game?`;
 
-    if (!window.confirm(`${who}, concede this game?`)) return;
+    if (!window.confirm(message)) return;
 
     void run(() => cardsApi.concede(sess.roomCode, token));
   };
@@ -1422,7 +1583,7 @@ export default function CardsPage() {
 
   const tabs: { key: LobbyTab; label: string; sub: string; icon: ReactNode }[] = [
     { key: "LOCAL", label: "Local", sub: "1 device", icon: <Gamepad2 size={22} /> },
-    { key: "CREATE", label: "Create", sub: "Host room", icon: <Globe2 size={22} /> },
+    { key: "CREATE", label: "Create", sub: "2-6 players", icon: <Globe2 size={22} /> },
     { key: "JOIN", label: "Join", sub: "Use code", icon: <LogIn size={22} /> },
   ];
 
@@ -1535,6 +1696,32 @@ export default function CardsPage() {
                   )}
                 </div>
 
+                {tab === "CREATE" && (
+                  <div>
+                    <FieldLabel>Players</FieldLabel>
+                    <div className="flex flex-wrap gap-2">
+                      {PLAYER_OPTIONS.map((n) => {
+                        const active = maxPlayers === n;
+                        return (
+                          <button
+                            key={n}
+                            type="button"
+                            disabled={busy}
+                            onClick={() => setMaxPlayers(n)}
+                            className={`min-w-12 flex-1 rounded-xl border-2 px-3 py-2.5 text-lg font-black tabular-nums transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                              active
+                                ? "border-accent bg-accent text-accent-ink shadow-md shadow-accent/30"
+                                : "border-border bg-background text-foreground/80 hover:border-accent/60"
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <FieldLabel>Pool</FieldLabel>
                   {poolsLoading ? (
@@ -1544,7 +1731,7 @@ export default function CardsPage() {
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {pools.map((pool) => {
-                        const tooSmall = pool.count < DECK_OPTIONS[0] * 2;
+                        const tooSmall = pool.count < DECK_OPTIONS[0] * needPlayers;
                         const active = poolKey === pool.key;
                         return (
                           <button
@@ -1625,28 +1812,37 @@ export default function CardsPage() {
 
   if (view === "game" && game && session) {
     const isLocal = session.mode === "LOCAL";
-    const nameOf = (seat: Seat) =>
-      game.you.seat === seat ? game.you.name : game.opponent.name;
+    const isMulti = game.max_players > 2;
+    const seatInfo = (seat: Seat): SideInfo =>
+      game.players.find((p) => p.seat === seat) ?? { seat, name: "", cards_left: 0 };
+    const nameOf = (seat: Seat) => seatInfo(seat).name;
 
     const challengerSeat = game.challenger_seat;
-    const responderSeat = otherSeat(challengerSeat);
     const challengerName = nameOf(challengerSeat);
-    const responderName = nameOf(responderSeat);
+    // Local / 2-player only: the one player who is not challenging.
+    const responderName = nameOf(otherSeat(challengerSeat));
     const lockedLabel = game.locked_stat ? STAT_META[game.locked_stat].label : "";
+    const tieBreak = game.clash_number > 1;
+    const spectating = !!game.you.eliminated;
+    const waitingOn = game.waiting_on ?? [];
     // The Locked banner takes the tier colour of the challenger's card, so the
-    // responder gets a hint without any text. Challenger sees the club colour.
+    // responders get a hint without any text. Challenger sees the club colour.
     const lockedTier: Tier | null = game.opponent_card_tier ?? localHint ?? null;
     const lockedTone = lockedTier
       ? `bg-gradient-to-br ${TIER_META[lockedTier].grad} ${TIER_META[lockedTier].ink} shadow-black/30`
       : "bg-accent text-accent-ink shadow-accent/40";
 
-    const left = game.you.seat === 1 ? game.you : game.opponent;
-    const right = game.you.seat === 1 ? game.opponent : game.you;
+    const left = seatInfo(1);
+    const right = seatInfo(2);
+    const firstLockerName = game.first_locker?.name ?? challengerName;
 
     let stage: ReactNode;
 
     if (game.status === "WAITING") {
       const link = `${window.location.origin}${window.location.pathname}?room=${game.room_code}`;
+      const slots = Array.from({ length: game.max_players }, (_, i) =>
+        game.players.find((p) => p.seat === i + 1) ?? null,
+      );
 
       stage = (
         <StageWrap>
@@ -1692,7 +1888,28 @@ export default function CardsPage() {
                   Link
                 </button>
               </div>
-              <Hint>Waiting for opponent</Hint>
+
+              <div className="mt-6 grid gap-2 text-left">
+                {slots.map((p, i) => (
+                  <div
+                    key={i}
+                    className={`flex items-center justify-between gap-2 rounded-xl border-2 px-3 py-2 text-sm font-black ${
+                      p
+                        ? "border-accent/40 bg-accent/10 text-foreground"
+                        : "border-dashed border-border text-muted"
+                    }`}
+                  >
+                    <span className="truncate">{p ? p.name : "Open seat"}</span>
+                    <span className="shrink-0 text-[10px] uppercase tracking-wider opacity-70">
+                      {p ? (p.is_you ? "You" : "Joined") : `Seat ${i + 1}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <Hint>
+                Waiting for players ({game.players.length}/{game.max_players})
+              </Hint>
             </div>
           </div>
           <button type="button" onClick={leaveGame} className={`${btn("ghost", true)} mt-4`}>
@@ -1725,6 +1942,10 @@ export default function CardsPage() {
             ? "You win"
             : `${winnerName} wins`;
 
+      const standings = [...game.players].sort(
+        (a, b) => b.cards_left - a.cards_left,
+      );
+
       stage = (
         <StageWrap>
           <div
@@ -1750,20 +1971,23 @@ export default function CardsPage() {
                 </p>
               )}
 
-              <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-2xl bg-black/25 px-4 py-3">
-                <div className="min-w-0 text-left">
-                  <p className="truncate text-[11px] font-bold uppercase opacity-80">
-                    {left.name}
-                  </p>
-                  <p className="text-3xl font-black tabular-nums">{left.cards_left}</p>
-                </div>
-                <span className="text-lg font-black opacity-60">:</span>
-                <div className="min-w-0 text-right">
-                  <p className="truncate text-[11px] font-bold uppercase opacity-80">
-                    {right.name}
-                  </p>
-                  <p className="text-3xl font-black tabular-nums">{right.cards_left}</p>
-                </div>
+              <div className="mt-6 grid gap-2 rounded-2xl bg-black/25 px-4 py-3">
+                {standings.map((p) => (
+                  <div
+                    key={p.seat}
+                    className="flex items-center justify-between gap-3 text-left"
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5 text-[12px] font-bold uppercase">
+                      {p.seat === game.winner_seat && (
+                        <Trophy size={12} className="shrink-0" />
+                      )}
+                      <span className="truncate">{p.name}</span>
+                    </span>
+                    <span className="text-2xl font-black tabular-nums">
+                      {p.cards_left}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -1775,40 +1999,74 @@ export default function CardsPage() {
           </Link>
         </StageWrap>
       );
-    } else if (game.phase === "REVEALED" && game.last_round) {
+    } else if (game.phase === "REVEALED" && game.last_round && game.table?.length) {
       const lr = game.last_round;
-      const iAmChallenger = game.you_are_challenger;
-      const challengerCard = iAmChallenger ? game.my_card : game.opponent_card;
-      const responderCard = iAmChallenger ? game.opponent_card : game.my_card;
-      const challengerValue = iAmChallenger ? lr.your_value : lr.opponent_value;
-      const responderValue = iAmChallenger ? lr.opponent_value : lr.your_value;
+      const clashes = game.table;
+      const current = clashes[clashes.length - 1];
+      const earlier = clashes.slice(0, -1);
+      const topPlay = current.plays[0];
+      const leaders = current.plays.filter((p) => p.value === topPlay.value);
+      const isTie = lr.winner === "tie";
+      const winnerName = lr.winner_name ?? "";
+      const challengerPlay = current.plays.find((p) => p.seat === challengerSeat);
+      const otherPlay = current.plays.find((p) => p.seat !== challengerSeat);
 
-      const cardResult = (mine: boolean): "win" | "lose" | "tie" =>
-        lr.winner === "tie"
-          ? "tie"
-          : (lr.winner === "you") === mine
-            ? "win"
-            : "lose";
-
-      const winnerName =
-        lr.winner === "you" ? game.you.name : lr.winner === "opponent" ? game.opponent.name : "";
-
-      const bannerText =
-        lr.winner === "tie"
-          ? "Tie"
-          : !isLocal && lr.winner === "you"
-            ? "You win"
-            : `${winnerName} wins`;
+      const bannerText = isTie
+        ? "Tie"
+        : !isLocal && lr.winner === "you"
+          ? "You win"
+          : `${winnerName} wins`;
 
       // Fixed colours: green = win, red = loss, neutral = tie. In local
       // (pass-the-device) mode there is no single "you", so the round
       // winner is always shown green.
-      const bannerColor =
-        lr.winner === "tie"
-          ? "bg-foreground text-background shadow-black/25"
-          : isLocal || lr.winner === "you"
-            ? "bg-green-600 text-white shadow-green-600/40"
-            : "bg-red-600 text-white shadow-red-600/40";
+      const bannerColor = isTie
+        ? "bg-foreground text-background shadow-black/25"
+        : isLocal || lr.winner === "you"
+          ? "bg-green-600 text-white shadow-green-600/40"
+          : "bg-red-600 text-white shadow-red-600/40";
+
+      const renderClash = (clash: TableClash, big: boolean) => {
+        const ordered = big
+          ? [...clash.plays].sort(
+              (a, b) =>
+                Number(b.seat === challengerSeat) - Number(a.seat === challengerSeat),
+            )
+          : clash.plays;
+
+        return (
+          <div
+            className={
+              big
+                ? "grid gap-5 sm:grid-cols-2"
+                : "grid grid-cols-2 gap-3 sm:grid-cols-3"
+            }
+          >
+            {ordered.map((play) => {
+              const result = resultOf(clash.plays, play);
+              return big ? (
+                <PlayerCard
+                  key={`${lr.number}-${clash.clash}-${play.seat}`}
+                  player={play.card}
+                  lockedStat={lr.stat}
+                  result={result}
+                  owner={play.name}
+                  flip={play.seat !== challengerSeat}
+                />
+              ) : (
+                <MiniCard
+                  key={`${lr.number}-${clash.clash}-${play.seat}`}
+                  player={play.card}
+                  owner={play.name}
+                  stat={lr.stat}
+                  value={play.value}
+                  result={result}
+                />
+              );
+            })}
+          </div>
+        );
+      };
 
       stage = (
         <div className="mx-auto w-full max-w-3xl pb-24">
@@ -1819,43 +2077,43 @@ export default function CardsPage() {
             <div className="relative">
               <p className="mx-auto w-fit rounded-full bg-black/20 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em]">
                 {STAT_META[lr.stat].label}
+                {tieBreak ? " · Tie-break" : ""}
               </p>
-              <p className="mt-2 flex items-center justify-center gap-5 text-5xl font-black tabular-nums">
-                <span>{challengerValue}</span>
-                <span className="text-sm font-black uppercase opacity-60">vs</span>
-                <span>{responderValue}</span>
-              </p>
+              {!isMulti && challengerPlay && otherPlay ? (
+                <p className="mt-2 flex items-center justify-center gap-5 text-5xl font-black tabular-nums">
+                  <span>{challengerPlay.value}</span>
+                  <span className="text-sm font-black uppercase opacity-60">vs</span>
+                  <span>{otherPlay.value}</span>
+                </p>
+              ) : (
+                <p className="mt-2 text-5xl font-black tabular-nums">{topPlay.value}</p>
+              )}
               <p className="mt-1 text-lg font-black uppercase italic tracking-wide">
                 {bannerText}
               </p>
+              {isTie && (
+                <p className="mt-1 text-xs font-bold uppercase tracking-wider opacity-80">
+                  {leaders.map((p) => p.name).join(" & ")} play on for the same stat
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            {challengerCard && (
-              <div>
-                <PlayerCard
-                  key={`c-${lr.number}`}
-                  player={challengerCard}
-                  lockedStat={lr.stat}
-                  result={cardResult(iAmChallenger)}
-                  owner={challengerName}
-                />
-              </div>
-            )}
-            {responderCard && (
-              <div>
-                <PlayerCard
-                  key={`r-${lr.number}`}
-                  player={responderCard}
-                  lockedStat={lr.stat}
-                  result={cardResult(!iAmChallenger)}
-                  owner={responderName}
-                  flip
-                />
-              </div>
-            )}
-          </div>
+          {earlier.map((clash) => (
+            <div key={clash.clash} className="mb-6 opacity-80">
+              <p className="mb-2 text-center text-[11px] font-black uppercase tracking-[0.25em] text-muted">
+                {clash.clash === 1 ? "First reveal (tied)" : `Tie-break ${clash.clash - 1} (tied)`}
+              </p>
+              {renderClash(clash, false)}
+            </div>
+          ))}
+
+          {earlier.length > 0 && (
+            <p className="mb-2 text-center text-[11px] font-black uppercase tracking-[0.25em] text-muted">
+              {tieBreak ? `Tie-break ${current.clash - 1}` : "Result"}
+            </p>
+          )}
+          {renderClash(current, current.plays.length <= 2)}
 
           <button
             type="button"
@@ -1864,7 +2122,7 @@ export default function CardsPage() {
             className={`${btn("primary")} mx-auto mt-7 max-w-sm`}
           >
             {busy ? <LoaderCircle size={18} className="animate-spin" /> : <ArrowRight size={18} />}
-            Next round
+            {isTie ? "Tie-break" : "Next round"}
           </button>
         </div>
       );
@@ -1874,18 +2132,18 @@ export default function CardsPage() {
           <LocalDealFlow
             session={session}
             names={{ 1: nameOf(1), 2: nameOf(2) }}
+            firstLocker={firstLockerName}
             onStart={() => setDealSeen(true)}
           />
         ) : (
           <DealPreview
             isLocal={isLocal}
-            left={left}
-            right={right}
+            players={game.players}
             you={game.you}
-            opponent={game.opponent}
             hand={game.hand ?? null}
             preview={game.hand_preview ?? null}
             isChallenger={game.you_are_challenger}
+            firstLocker={firstLockerName}
             onStart={() => setDealSeen(true)}
           />
         );
@@ -1969,7 +2227,7 @@ export default function CardsPage() {
         );
       }
     } else if (game.phase === "LOCKED") {
-      const canReveal = isLocal || !game.you_are_challenger;
+      const canReveal = isLocal || game.available_action === "reveal";
 
       if (canReveal && albumKind === "play" && album) {
         stage = (
@@ -2031,10 +2289,28 @@ export default function CardsPage() {
           </StageWrap>
         );
       } else {
+        // Challenger, a responder who already revealed, a seat that is not in
+        // this tie-break, or a knocked-out player: wait until everyone has shown.
+        const waitText =
+          waitingOn.length > 0
+            ? `Waiting for ${waitingOn.join(", ")}`
+            : "Flipping the cards...";
+
         stage = (
           <StageWrap>
-            {game.my_card && <PlayerCard player={game.my_card} lockedStat={game.locked_stat} />}
-            <Hint>Waiting for {responderName}</Hint>
+            {game.my_card ? (
+              <PlayerCard player={game.my_card} lockedStat={game.locked_stat} />
+            ) : (
+              <CardBack
+                title="CARDS IN PLAY"
+                subtitle={
+                  tieBreak && !spectating
+                    ? "You are not in this tie-break"
+                    : "Watching"
+                }
+              />
+            )}
+            <Hint>{waitText}</Hint>
           </StageWrap>
         );
       }
@@ -2044,40 +2320,59 @@ export default function CardsPage() {
 
     const showScore = game.status === "ACTIVE" && !showDeal;
     const showConcede =
-      game.status === "ACTIVE" && game.phase !== "REVEALED" && !showDeal;
+      game.status === "ACTIVE" &&
+      game.phase !== "REVEALED" &&
+      !showDeal &&
+      !spectating;
 
     gameView = (
-      <section className="relative mx-auto mt-6 max-w-4xl pb-[calc(2rem+env(safe-area-inset-bottom))] pt-1 sm:mt-10 sm:pb-8 sm:pt-2">
+      <section className="relative mx-auto mt-4 max-w-4xl pb-[calc(2rem+env(safe-area-inset-bottom))] pt-1 sm:mt-10 sm:pb-8 sm:pt-2">
         <Backdrop />
 
         <div className="relative">
-          {showScore &&
-            (game.phase === "LOCKED" ? (
-              <div
-                className={`relative mx-auto mb-5 flex max-w-sm items-center justify-center gap-3 overflow-hidden rounded-3xl px-4 py-3.5 shadow-xl ${lockedTone}`}
-              >
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/25 via-transparent to-black/20" />
-                <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-black/20">
-                  <Lock size={18} />
-                </span>
-                <div className="relative text-left">
-                  <p className="text-[10px] font-black uppercase tracking-[0.25em] opacity-75">
-                    Locked
-                  </p>
-                  <p className="text-2xl font-black uppercase leading-6">{lockedLabel}</p>
-                </div>
+          {showScore && game.phase === "LOCKED" && (
+            <div
+              className={`relative mx-auto mb-5 flex max-w-sm items-center justify-center gap-3 overflow-hidden rounded-3xl px-4 py-3.5 shadow-xl ${lockedTone}`}
+            >
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/25 via-transparent to-black/20" />
+              <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-black/20">
+                <Lock size={18} />
+              </span>
+              <div className="relative text-left">
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] opacity-75">
+                  {tieBreak ? "Tie-break · Locked" : "Locked"}
+                </p>
+                <p className="text-2xl font-black uppercase leading-6">{lockedLabel}</p>
               </div>
-            ) : (
-              <ScoreBar
-                left={left}
-                right={right}
-                round={game.round_number}
-                pot={game.pot_count}
-                challengerSeat={challengerSeat}
-              />
-            ))}
+            </div>
+          )}
+
+          {showScore && isMulti && (
+            <PlayersBar
+              players={game.players}
+              round={game.round_number}
+              pot={game.pot_count}
+              clash={game.clash_number}
+              showRevealed={game.phase === "LOCKED"}
+            />
+          )}
+
+          {showScore && !isMulti && game.phase !== "LOCKED" && (
+            <ScoreBar
+              left={left}
+              right={right}
+              round={game.round_number}
+              pot={game.pot_count}
+              challengerSeat={challengerSeat}
+              tieBreak={tieBreak}
+            />
+          )}
 
           {stage}
+
+          {spectating && game.status === "ACTIVE" && (
+            <Hint>You are out of cards. Watching the rest</Hint>
+          )}
 
           {error && (
             <div className="mx-auto mt-4 max-w-sm">
@@ -2093,7 +2388,7 @@ export default function CardsPage() {
                 disabled={busy}
                 className={btn("ghost", true)}
               >
-                <Flag size={14} /> Concede
+                <Flag size={14} /> {isMulti ? "Leave" : "Concede"}
               </button>
             </div>
           )}

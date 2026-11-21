@@ -191,7 +191,7 @@ export function DraftPageShell({
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="brand-bar h-1.5 w-full" />
-      <div className="relative mx-auto max-w-[1440px] px-4 pb-5 pt-3 sm:px-7 lg:px-10">
+      <div className="relative mx-auto max-w-[1440px] px-6 pb-5 pt-0 sm:px-7 lg:px-10">
         {!hideBack && (
           <BackButton className="absolute right-4 top-3 z-10 !h-9 !w-9 sm:right-7 lg:right-10" />
         )}

@@ -151,6 +151,91 @@ export function PlayerCard({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Compact card (multiplayer table: up to 6 cards on one screen)       */
+/* ------------------------------------------------------------------ */
+
+const MINI_RESULT = {
+  win: "ring-4 ring-green-500 shadow-[0_0_24px_rgba(34,197,94,0.45)]",
+  lose: "ring-2 ring-red-500/70 opacity-80",
+  tie: "ring-4 ring-amber-400 shadow-[0_0_24px_rgba(251,191,36,0.45)]",
+} as const;
+
+type MiniCardProps = {
+  player: CardPlayer;
+  /** Name of the person who played this card. */
+  owner: string;
+  /** The locked stat and this card's value for it. */
+  stat: StatKey;
+  value: number;
+  result?: "win" | "lose" | "tie" | null;
+  flip?: boolean;
+};
+
+/** Small version of a card: photo, name and the one number that matters. */
+export function MiniCard({
+  player,
+  owner,
+  stat,
+  value,
+  result = null,
+  flip = true,
+}: MiniCardProps) {
+  const tier = statTier(value);
+
+  return (
+    <div className="w-full">
+      <p className="mb-1.5 truncate text-center text-[11px] font-black uppercase tracking-[0.16em] text-foreground/70">
+        {owner}
+      </p>
+
+      <div
+        className={`pcard relative w-full overflow-hidden rounded-2xl ${
+          result ? MINI_RESULT[result] : ""
+        } ${flip ? "card-flip-in" : ""}`}
+      >
+        <div className="pcard-photo relative h-28 sm:h-32">
+          <div className="absolute left-2 top-2 z-10 rounded-lg bg-amber-400 px-1.5 py-0.5 text-base font-black leading-none text-slate-900 shadow">
+            {player.ovr_rating}
+          </div>
+          <div className="absolute right-2 top-2 z-10 rounded-md bg-accent-2 px-1.5 py-0.5 text-[9px] font-black tracking-wider text-accent-2-ink shadow">
+            {player.position}
+          </div>
+
+          {player.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={player.image_url}
+              alt={player.name}
+              referrerPolicy="no-referrer"
+              className="absolute inset-x-0 bottom-0 mx-auto h-[92%] w-auto max-w-full object-contain object-bottom"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-5xl font-black text-white/20">
+              {player.name.charAt(0)}
+            </div>
+          )}
+
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-2.5 pb-1.5 pt-6">
+            <h3 className="truncate text-sm font-black leading-tight text-white">
+              {player.name}
+            </h3>
+          </div>
+        </div>
+
+        <div className={`stat-tile ${TIER_CLASS[tier]} stat-locked m-2 !p-2`}>
+          <span className="flex items-center justify-between gap-2">
+            <span className="truncate text-[11px] font-bold opacity-90">
+              {STAT_META[stat].label}
+            </span>
+            <span className="text-xl font-black leading-none">{value}</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type CardBackProps = {
   title: string;
   subtitle?: string;

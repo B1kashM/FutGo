@@ -23,7 +23,13 @@ class CardGameView(APIView):
 
 class PoolsAPIView(CardGameView):
     def get(self, request):
-        return Response({"pools": services.pool_summary()})
+        return Response(
+            {
+                "pools": services.pool_summary(),
+                "player_counts": list(services.ALLOWED_PLAYER_COUNTS),
+                "deck_sizes": list(services.ALLOWED_DECK_SIZES),
+            }
+        )
 
 
 class CreateGameAPIView(CardGameView):
@@ -36,14 +42,16 @@ class CreateGameAPIView(CardGameView):
                 player2_name=data.get("player2_name"),
                 category=data.get("category"),
                 deck_size=data.get("deck_size"),
+                max_players=data.get("max_players"),  # 2 to 6, online only
             )
-        tokens = {"1": game.player1_token}
+        tokens = {"1": services.get_token(game, 1)}
         if game.mode == "LOCAL":
-            tokens["2"] = game.player2_token  # one device holds both seats
+            tokens["2"] = services.get_token(game, 2)  # one device holds both seats
         return Response(
             {
                 "room_code": game.room_code,
                 "mode": game.mode,
+                "max_players": game.max_players,
                 "tokens": tokens,
                 "state": services.build_state(game, 1),
             },
@@ -58,12 +66,15 @@ class JoinGameAPIView(CardGameView):
                 request.data.get("room_code", ""),
                 request.data.get("player_name"),
             )
+        seat = game.joined_seat
         return Response(
             {
                 "room_code": game.room_code,
                 "mode": game.mode,
-                "tokens": {"2": game.player2_token},
-                "state": services.build_state(game, 2),
+                "max_players": game.max_players,
+                "seat": seat,
+                "tokens": {str(seat): game.joined_token},
+                "state": services.build_state(game, seat),
             }
         )
 

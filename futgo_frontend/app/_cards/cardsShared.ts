@@ -52,7 +52,8 @@ export function topStatKeys(stats: CardStats, count = 3): StatKey[] {
 /* Types (these mirror the backend state)                              */
 /* ------------------------------------------------------------------ */
 
-export type Seat = 1 | 2;
+export type Seat = 1 | 2 | 3 | 4 | 5 | 6;
+export const SEATS: Seat[] = [1, 2, 3, 4, 5, 6];
 export type CardStats = Record<StatKey, number>;
 
 /** Whole-card tier (Gold / Silver / Bronze), set by the backend. */
@@ -84,14 +85,55 @@ export type PreviewCard = {
 
 export type SideInfo = { seat: Seat; name: string; cards_left: number };
 
+/** One seat in the room (online rooms hold 2 to 6 of these). */
+export type PlayerInfo = SideInfo & {
+  is_you: boolean;
+  is_challenger: boolean;
+  eliminated: boolean;
+  /** Only filled while a stat is locked: has this seat shown its card yet? */
+  has_revealed: boolean | null;
+};
+
+export type YouInfo = SideInfo & { eliminated?: boolean };
+
+/** One card shown on the table in a clash (visible to everyone after the flip). */
+export type TablePlay = {
+  seat: Seat;
+  name: string;
+  player: string;
+  value: number;
+  card: CardPlayer;
+};
+
+/** One clash of a round. Clash 1 is the normal reveal, clash 2+ are tie-breaks. */
+export type TableClash = {
+  clash: number;
+  outcome: "tie" | "winner";
+  winner_seat: Seat | null;
+  plays: TablePlay[]; // highest value first
+};
+
+export type LastRoundResult = {
+  seat: Seat;
+  name: string;
+  player: string;
+  value: number;
+};
+
 export type LastRound = {
   number: number;
+  clash: number;
   stat: StatKey;
-  your_value: number;
-  opponent_value: number;
+  your_value: number | null;
+  /** Highest value among the other players. */
+  opponent_value: number | null;
   your_player: string | null;
   opponent_player: string | null;
   winner: "you" | "opponent" | "tie";
+  winner_seat: Seat | null;
+  winner_name: string | null;
+  tied_seats: Seat[];
+  results: LastRoundResult[];
 };
 
 export type AvailableAction =
@@ -101,6 +143,7 @@ export type AvailableAction =
   | "wait_for_reveal"
   | "reveal"
   | "continue"
+  | "eliminated"
   | null;
 
 export type GameState = {
@@ -110,18 +153,32 @@ export type GameState = {
   phase: "CHOOSING" | "LOCKED" | "REVEALED";
   version: number;
   round_number: number;
+  /** 1 = normal reveal, 2+ = tie-break for the same locked stat. */
+  clash_number: number;
   category: string;
   deck_size: number;
-  you: SideInfo;
-  opponent: SideInfo;
+  max_players: number;
+  seats_filled: number;
+  players: PlayerInfo[];
+  you: YouInfo;
+  /** Only set in 2-player rooms (kept for the old screens). */
+  opponent: SideInfo | null;
   pot_count: number;
   challenger_seat: Seat;
   you_are_challenger: boolean;
+  /** Round 1 only: who the Kickoff Draw picked to lock first. */
+  first_locker?: { seat: Seat; name: string } | null;
   locked_stat: StatKey | null;
+  required_seats?: Seat[];
+  tie_seats?: Seat[];
+  /** Names of players who still have to reveal. */
+  waiting_on?: string[];
   available_action: AvailableAction;
   my_card: CardPlayer | null;
   opponent_card: CardPlayer | null;
-  /** Responder only, while a stat is locked: face-down card ids by tier. */
+  /** After the flip: every clash of this round with all cards. */
+  table?: TableClash[] | null;
+  /** Face-down card ids by tier (challenger choosing, or responder picking). */
   hand?: Partial<Record<CardTier, number[]>> | null;
   /** Round 1 deal screen only: your own deck face up (image, name, tier). */
   hand_preview?: PreviewCard[] | null;
@@ -136,6 +193,7 @@ export type GameState = {
   last_round: LastRound | null;
   game_over: boolean;
   winner_seat: Seat | null;
+  winner_name?: string | null;
   you_won: boolean | null;
   end_reason: "NO_CARDS" | "CONCEDED" | null;
 };
@@ -147,11 +205,18 @@ export type Pool = { key: string; label: string; count: number };
 type CreateResponse = {
   room_code: string;
   mode: "LOCAL" | "ONLINE";
+  max_players?: number;
+  /** Set by the join endpoint: the seat you were given. */
+  seat?: Seat;
   tokens: Record<string, string>;
   state: GameState;
 };
 
-export const DECK_OPTIONS = [10, 15, 20, 25];
+/** Cards per player. Must match ALLOWED_DECK_SIZES in the backend. */
+export const DECK_OPTIONS = [10, 15, 20];
+
+/** Players per online room. Must match ALLOWED_PLAYER_COUNTS in the backend. */
+export const PLAYER_OPTIONS = [2, 3, 4, 5, 6];
 
 /* ------------------------------------------------------------------ */
 /* Session (kept in localStorage so a refresh does not lose the game)  */
@@ -164,7 +229,14 @@ export type CardsSession = {
   tokens: Partial<Record<Seat, string>>;
 };
 
-const SESSION_KEY = "futgo_cards_session_v1";
+// v2: seats can now go up to 6, so old v1 sessions are ignored.
+const SESSION_KEY = "futgo_cards_session_v2";
+
+function isSeat(value: unknown): value is Seat {
+  return (
+    typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 6
+  );
+}
 
 export function loadSession(): CardsSession | null {
   try {
@@ -176,7 +248,7 @@ export function loadSession(): CardsSession | null {
       typeof parsed.roomCode === "string" &&
       parsed.roomCode &&
       (parsed.mode === "LOCAL" || parsed.mode === "ONLINE") &&
-      (parsed.seat === 1 || parsed.seat === 2) &&
+      isSeat(parsed.seat) &&
       parsed.tokens &&
       typeof parsed.tokens === "object"
     ) {
@@ -214,8 +286,10 @@ export function toTokens(
   raw: Record<string, string>,
 ): Partial<Record<Seat, string>> {
   const tokens: Partial<Record<Seat, string>> = {};
-  if (raw["1"]) tokens[1] = raw["1"];
-  if (raw["2"]) tokens[2] = raw["2"];
+  for (const seat of SEATS) {
+    const value = raw[String(seat)];
+    if (value) tokens[seat] = value;
+  }
   return tokens;
 }
 
@@ -236,7 +310,12 @@ function post<T>(path: string, token: string, body?: unknown): Promise<T> {
 }
 
 export const cardsApi = {
-  pools: () => apiRequest<{ pools: Pool[] }>("/api/cards/pools/"),
+  pools: () =>
+    apiRequest<{
+      pools: Pool[];
+      player_counts?: number[];
+      deck_sizes?: number[];
+    }>("/api/cards/pools/"),
 
   create: (body: {
     mode: "LOCAL" | "ONLINE";
@@ -244,6 +323,7 @@ export const cardsApi = {
     player2_name?: string;
     category: string;
     deck_size: number;
+    max_players?: number;
   }) =>
     apiRequest<CreateResponse>("/api/cards/create/", {
       method: "POST",
@@ -307,14 +387,21 @@ export async function fetchFull(
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
+/** The other seat in a 2-player game (local play). */
 export function otherSeat(seat: Seat): Seat {
   return seat === 1 ? 2 : 1;
 }
 
+/** Display name of a seat, from the players list. */
+export function nameFor(state: GameState, seat: Seat): string {
+  return state.players.find((p) => p.seat === seat)?.name ?? "";
+}
+
 /**
  * Whose view should the screen show? Online: always your own seat.
- * Local (one shared device): the challenger while choosing, the opponent
- * while they reveal, so a hidden card is never fetched for the wrong seat.
+ * Local (one shared device, always 2 players): the challenger while choosing,
+ * the opponent while they reveal, so a hidden card is never fetched for the
+ * wrong seat.
  */
 export function viewSeatFor(state: GameState, session: CardsSession): Seat {
   if (session.mode === "ONLINE") return session.seat;
