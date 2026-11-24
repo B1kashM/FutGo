@@ -10,6 +10,7 @@ import {
   Sparkles,
   Star,
   Swords,
+  Target,
   X,
 } from "lucide-react";
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
@@ -1823,7 +1824,27 @@ export default function Home() {
             <Pitch className="aspect-[133/188] h-full max-w-full" />
           </ModeCard>
         </div>
-
+                <Link
+          href="/penalties"
+          className="relative flex shrink-0 items-center justify-between gap-3 rounded-2xl border border-border bg-surface-2 px-5 py-3 transition hover:-translate-y-0.5 hover:border-accent/70"
+        >
+          <span className="flex items-center gap-3">
+            <span className="shirt flex h-9 w-9 items-center justify-center rounded-xl border-2">
+              <Target size={18} />
+            </span>
+            <span>
+              <span className="block text-base font-black tracking-tight lg:text-lg">
+                Play Penalties
+              </span>
+              <span className="hidden text-xs text-muted sm:block">
+                Shootout tournament · 2 to 6 players
+              </span>
+            </span>
+          </span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-ink">
+            <ArrowRight size={18} />
+          </span>
+        </Link>
         <p className="relative hidden shrink-0 text-center text-xs text-muted md:block">
           Built by Bikash, The PesGoalPoacher. {club.footerCheer}
         </p>

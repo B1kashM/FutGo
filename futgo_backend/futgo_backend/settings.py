@@ -42,7 +42,8 @@ INSTALLED_APPS = [
 
     "players",
     "drafts",
-    "cards"
+    "cards",
+    "penalties"
 ]
 
 
