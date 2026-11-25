@@ -23,6 +23,7 @@ import {
   Zap,
 } from "lucide-react";
 
+import ModeScreen from "../components/ModeScreen";
 import {
   OUTCOME_META,
   PLAYER_OPTIONS,
@@ -239,6 +240,8 @@ export function SetupScreen({
 }) {
   const [tab, setTab] = useState<"create" | "join">(initialCode ? "join" : "create");
   const [mode, setMode] = useState<"LOCAL" | "ONLINE">(initialCode ? "ONLINE" : "LOCAL");
+  // Step 1: pick Local / Online. Step 2: names, rules and start.
+  const [step, setStep] = useState<"mode" | "form">(initialCode ? "form" : "mode");
   const [squadMode, setSquadMode] = useState<"RANDOM" | "DRAFT">("RANDOM");
   const [category, setCategory] = useState("ALL");
   const [maxPlayers, setMaxPlayers] = useState(2);
@@ -299,6 +302,23 @@ export function SetupScreen({
     pool?.label ?? "All players"
   }`;
 
+  if (step === "mode") {
+    return (
+      <ModeScreen
+        title="Play Penalties"
+        modes={[
+          { id: "local", title: "Local", tag: "Same device", icon: "local", variant: "a" },
+          { id: "online", title: "Online", tag: "Room code", icon: "online", variant: "b" },
+        ]}
+        onSelect={(id) => {
+          setMode(id === "local" ? "LOCAL" : "ONLINE");
+          setTab("create");
+          setStep("form");
+        }}
+      />
+    );
+  }
+
   return (
     <section className="mx-auto flex max-h-[calc(100dvh-4rem)] max-w-xl flex-col overflow-y-auto overscroll-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <div className="mb-4 pr-12 pt-4 sm:pt-6">
@@ -329,24 +349,27 @@ export function SetupScreen({
 
       {tab === "create" ? (
         <Panel className="space-y-4">
-          <div>
-            <Label>Choose mode</Label>
-            <div className="grid grid-cols-2 gap-3">
-              <Choice
-                selected={mode === "LOCAL"}
-                onClick={() => setMode("LOCAL")}
-                title="Local"
-                text="Same device"
-                icon={<Smartphone size={20} />}
-              />
-              <Choice
-                selected={mode === "ONLINE"}
-                onClick={() => setMode("ONLINE")}
-                title="Online"
-                text="Private room"
-                icon={<Users size={20} />}
-              />
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface-2 p-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-ink">
+                {mode === "LOCAL" ? <Smartphone size={20} /> : <Users size={20} />}
+              </span>
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-foreground/70">
+                  Mode
+                </p>
+                <p className="text-sm font-black">
+                  {mode === "LOCAL" ? "Local" : "Online"}
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setStep("mode")}
+              className="rounded-lg bg-accent-2 px-3 py-1.5 text-xs font-black text-accent-2-ink transition hover:brightness-110"
+            >
+              Change
+            </button>
           </div>
 
           {mode === "ONLINE" && (
@@ -375,7 +398,7 @@ export function SetupScreen({
 
           <div className={`grid gap-3 ${mode === "LOCAL" ? "sm:grid-cols-2" : ""}`}>
             <div>
-              <Label>{mode === "LOCAL" ? "Player 1 name" : "Your name"}</Label>
+              <Label>{mode === "LOCAL" ? "Player 1" : "Your name"}</Label>
               <input
                 className={inputClass}
                 value={p1}
@@ -386,7 +409,7 @@ export function SetupScreen({
             </div>
             {mode === "LOCAL" && (
               <div>
-                <Label>Player 2 name</Label>
+                <Label>Player 2</Label>
                 <input
                   className={inputClass}
                   value={p2}
