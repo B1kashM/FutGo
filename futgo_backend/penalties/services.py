@@ -35,42 +35,26 @@ DIVE_SECONDS = 5
 DIVE_GRACE_SECONDS = 4
 
 # ------------------------------------------------------------------ tuning
-# Three zones: Left, Center, Right.
+# Only three zones: LEFT, CENTER, RIGHT.
 # miss   = base chance the shot misses the target (post / bar / wide / over)
 # misses = what kind of miss it is (name, weight)
 ZONES = {
     "LEFT": {
-        "label": "Left", "side": "LEFT", "height": "MID",
+        "label": "Left", "side": "LEFT",
         "miss": 0.10, "misses": (("WIDE", 40), ("POST", 35), ("OVER", 25)),
     },
     "CENTER": {
-        "label": "Center", "side": "CENTER", "height": "MID",
+        "label": "Center", "side": "CENTER",
         "miss": 0.06, "misses": (("OVER", 50), ("BAR", 50)),
     },
     "RIGHT": {
-        "label": "Right", "side": "RIGHT", "height": "MID",
+        "label": "Right", "side": "RIGHT",
         "miss": 0.10, "misses": (("WIDE", 40), ("POST", 35), ("OVER", 25)),
     },
 }
 ZONE_LIST = [
-    {"key": key, "label": z["label"], "side": z["side"], "height": z["height"]}
-    for key, z in ZONES.items()
+    {"key": key, "label": z["label"], "side": z["side"]} for key, z in ZONES.items()
 ]
-
-# Games saved before the 3-zone change used six zone names. Map them to the new ones
-# so old kicks and half-played matches keep working.
-_LEGACY_ZONES = {
-    "LEFT_TOP_BINS": "LEFT",
-    "LEFT_GROUNDED": "LEFT",
-    "CENTER_TOP_NOTCH": "CENTER",
-    "CENTER_COLD": "CENTER",
-    "RIGHT_TOP_CORNER": "RIGHT",
-    "RIGHT_LOW_CORNER": "RIGHT",
-}
-
-
-def _norm_zone(zone):
-    return _LEGACY_ZONES.get(zone, zone)
 
 
 PHRASES = {
@@ -584,8 +568,6 @@ def dive(game, seat, zone):
 
 
 def _resolve_kick(game, match, attacker, shot, dive_zone):
-    shot = _norm_zone(shot)
-    dive_zone = _norm_zone(dive_zone)
     keeper_seat = _other(match, attacker)
     taken = _kicks_of(match, attacker)
     shooters = _shooters(game, attacker)
@@ -704,8 +686,8 @@ def _kick_payload(k, names):
         "team_name": names.get(k.seat, ""),
         "shooter": {"player_id": k.shooter_id, "name": k.shooter.name, "image_url": k.shooter.image_url},
         "keeper": {"player_id": k.keeper_id, "name": k.keeper.name, "image_url": k.keeper.image_url},
-        "shot_zone": _norm_zone(k.shot_zone),
-        "dive_zone": _norm_zone(k.dive_zone),
+        "shot_zone": k.shot_zone,
+        "dive_zone": k.dive_zone,
         "outcome": k.outcome,
         "scored": k.outcome == "GOAL",
         "commentary": k.commentary,
