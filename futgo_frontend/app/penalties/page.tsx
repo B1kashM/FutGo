@@ -54,7 +54,6 @@ export default function PenaltiesPage() {
   const [initialCode, setInitialCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [zone, setZone] = useState<ZoneKey | null>(null);
 
   // Local play: which seat is holding the phone right now.
   const [holder, setHolder] = useState<Seat | null>(null);
@@ -92,7 +91,6 @@ export default function PenaltiesPage() {
     setSession(null);
     setState(null);
     setOverlay(null);
-    setZone(null);
     setHolder(null);
     setError("");
     versionRef.current = 0;
@@ -171,7 +169,6 @@ export default function PenaltiesPage() {
     initializedRef.current = false;
     setSession(next);
     setHolder(null);
-    setZone(null);
     applyState(first);
   };
 
@@ -216,7 +213,6 @@ export default function PenaltiesPage() {
     try {
       const next = await call(session.roomCode, token);
       applyState(next);
-      setZone(null);
     } catch (err) {
       setError(errorText(err, "Something went wrong. Try again."));
     } finally {
@@ -317,20 +313,27 @@ export default function PenaltiesPage() {
 
       const waitText =
         state.available_action === "wait_for_keeper"
-          ? `Your shot is locked in. ${current.keeper_name} is choosing a dive...`
-          : `${current.attacker_name} is choosing where to shoot...`;
+          ? `Shot locked. ${current.keeper_name} is diving...`
+          : `${current.attacker_name} is shooting...`;
 
       const needsHandoff = isLocal && !overlay && actingSeat !== null && holder !== actingSeat;
+
+      // Called by the pitch when a player swipes (or when the dive timer runs out).
+      const commit = (zone: ZoneKey) => {
+        if (!actingSeat) return;
+        if (role === "shoot") {
+          act(actingSeat, (code, token) => penaltiesApi.shoot(code, token, zone));
+        } else if (role === "dive") {
+          act(actingSeat, (code, token) => penaltiesApi.dive(code, token, zone));
+        }
+      };
 
       if (needsHandoff && actingSeat) {
         body = (
           <HandoffScreen
             name={nameFor(state, actingSeat)}
             role={match.phase === "SHOOT" ? "shoot" : "dive"}
-            onReady={() => {
-              setHolder(actingSeat);
-              setZone(null);
-            }}
+            onReady={() => setHolder(actingSeat)}
           />
         );
       } else {
@@ -341,18 +344,9 @@ export default function PenaltiesPage() {
               mySeat={mySeat}
               role={role}
               waitText={waitText}
-              selected={zone}
-              onSelect={setZone}
               loading={loading}
               error={error}
-              onConfirm={() => {
-                if (!zone || !actingSeat) return;
-                if (role === "shoot") {
-                  act(actingSeat, (code, token) => penaltiesApi.shoot(code, token, zone));
-                } else if (role === "dive") {
-                  act(actingSeat, (code, token) => penaltiesApi.dive(code, token, zone));
-                }
-              }}
+              onCommit={commit}
               onConcede={() => {
                 if (!actingSeat) return;
                 if (window.confirm("Leave this match? Your opponent will win it.")) {
@@ -361,7 +355,7 @@ export default function PenaltiesPage() {
               }}
             />
 
-            <div className="mt-8">
+            <div className="mx-auto mt-8 max-w-xl">
               <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-accent-text">
                 Tournament
               </p>

@@ -1,7 +1,10 @@
 import random
 import secrets
+from datetime import timedelta
 
+from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 
 from cards.services import (
     ROOM_CODE_ALPHABET,
@@ -24,6 +27,12 @@ POSITION_ORDER = list(POSITIONS.keys())  # GK, RB, RCB, LCB, LB, DMF, CMF, AMF, 
 ALLOWED_PLAYER_COUNTS = (2, 3, 4, 5, 6)
 SQUAD_MODES = ("RANDOM", "DRAFT")
 REGULATION_KICKS = 5
+
+# Online games only: the goalkeeper has DIVE_SECONDS to swipe (the browser shows this timer
+# and dives at random when it hits zero). The server waits a little longer (DIVE_GRACE_SECONDS)
+# and then dives for the keeper, so a closed tab or lost connection can never freeze a match.
+DIVE_SECONDS = 5
+DIVE_GRACE_SECONDS = 4
 
 # ------------------------------------------------------------------ tuning
 # miss  = base chance the shot misses the target (post / bar / wide / over)
@@ -365,6 +374,7 @@ def _finish_match(game, match, winner, reason="SCORE"):
     match.status = "FINISHED"
     match.phase = "DONE"
     match.pending_shot = ""
+    match.dive_deadline = None
     match.winner_seat = winner
     match.end_reason = reason
     match.save()
@@ -466,6 +476,9 @@ def load_game(room_code, token, lock=False):
                 seat = row.seat
     if seat is None:
         raise PenaltyError("Invalid or missing seat token.", 403)
+
+    # Every request (polls included) first dives for any keeper whose time ran out.
+    game = settle_expired(game)
     return game, seat
 
 
@@ -550,6 +563,13 @@ def shoot(game, seat, zone):
         raise PenaltyError("It is not your turn to shoot.", 403)
     match.pending_shot = _check_zone(zone)
     match.phase = "DIVE"
+    # Local games share one phone (there is a hand-over screen), so only online games get a deadline.
+    if game.mode == "ONLINE":
+        match.dive_deadline = timezone.now() + timedelta(
+            seconds=DIVE_SECONDS + DIVE_GRACE_SECONDS
+        )
+    else:
+        match.dive_deadline = None
     match.save()
     _touch(game)
 
@@ -601,12 +621,48 @@ def _resolve_kick(game, match, attacker, shot, dive_zone):
     )
 
     match.pending_shot = ""
+    match.dive_deadline = None
     winner = _decided(match)
     if winner:
         _finish_match(game, match, winner)
     else:
         match.phase = "SHOOT"
         match.save()
+
+
+def settle_expired(game):
+    """Dive at random for any keeper whose time ran out (online games).
+
+    Returns the game to keep using: the same object if nothing changed, or a freshly
+    locked copy if a kick was settled. Safe to call on every request.
+    """
+    if game.status != "ACTIVE" or game.mode != "ONLINE":
+        return game
+
+    now = timezone.now()
+    if not game.matches.filter(
+        status="ACTIVE", phase="DIVE", dive_deadline__lt=now
+    ).exists():
+        return game
+
+    with transaction.atomic():
+        locked = PenaltyGame.objects.select_for_update().get(pk=game.pk)
+        expired = list(
+            locked.matches.select_for_update().filter(
+                status="ACTIVE", phase="DIVE", dive_deadline__lt=now
+            )
+        )
+        for match in expired:
+            _resolve_kick(
+                locked,
+                match,
+                _attacker_seat(match),
+                match.pending_shot,
+                random.choice(list(ZONES)),
+            )
+        if expired:
+            _touch(locked)
+    return locked
 
 
 def concede(game, seat):

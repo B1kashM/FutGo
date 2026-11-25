@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -469,7 +469,7 @@ export function LobbyScreen({ state, onLeave }: { state: GameState; onLeave: () 
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      /* clipboard may be blocked */
+
     }
   };
 
@@ -703,15 +703,19 @@ export function DraftScreen({
 }
 
 /* ================================================================== */
-/* The goal (shooting, diving and replaying a kick)                    */
+/* The goal (swipe to shoot / dive, and replay of a kick)              */
 /* ================================================================== */
 
+const VW = 400;
+const VH = 260;
 const GX = 30;
-const GY = 30;
+const GY = 24;
 const GW = 340;
-const GH = 160;
+const GH = 150;
 const CW = GW / 3;
 const RH = GH / 2;
+const LINE_Y = GY + GH;
+const SPOT = { x: 200, y: 224 };
 
 function zoneRect(zone: ZoneKey) {
   const { col, row } = ZONE_LAYOUT[zone];
@@ -721,6 +725,12 @@ function zoneRect(zone: ZoneKey) {
     cx: GX + (col + 0.5) * CW,
     cy: GY + (row + 0.5) * RH,
   };
+}
+
+function zoneAt(x: number, y: number): ZoneKey | null {
+  const col = Math.min(2, Math.max(0, Math.floor((x - GX) / CW)));
+  const row = Math.min(1, Math.max(0, Math.floor((y - GY) / RH)));
+  return ZONE_KEYS.find((k) => ZONE_LAYOUT[k].col === col && ZONE_LAYOUT[k].row === row) ?? null;
 }
 
 function ballTarget(zone: ZoneKey, outcome: Outcome) {
@@ -741,31 +751,38 @@ function ballTarget(zone: ZoneKey, outcome: Outcome) {
 }
 
 function keeperPose(zone: ZoneKey | null) {
-  if (!zone) return { x: 200, y: 150, rot: 0 };
+  if (!zone) return { x: 200, y: LINE_Y - 22, rot: 0 };
   const { cx, cy } = zoneRect(zone);
   const { col, row } = ZONE_LAYOUT[zone];
-  return { x: cx, y: cy + (row === 0 ? 8 : 18), rot: col === 0 ? -55 : col === 2 ? 55 : 0 };
+  return { x: cx, y: cy + (row === 0 ? 8 : 16), rot: col === 0 ? -55 : col === 2 ? 55 : 0 };
 }
 
 export type GoalResult = { shot: ZoneKey; dive: ZoneKey; outcome: Outcome };
 
+type Drag = { x1: number; y1: number; x2: number; y2: number };
+
 export function GoalScene({
-  interactive = false,
-  selected = null,
-  onSelect,
-  keeperPreview = false,
   result = null,
+  role = null,
+  locked = null,
+  disabled = false,
+  onSwipe,
 }: {
-  interactive?: boolean;
-  selected?: ZoneKey | null;
-  onSelect?: (zone: ZoneKey) => void;
-  /** Dive mode: the keeper leans towards the zone you have picked. */
-  keeperPreview?: boolean;
-  /** Replay mode: the ball and the keeper move to their final places. */
+  /** Replay mode: ball and keeper move to their final places. */
   result?: GoalResult | null;
+  /** Swipe mode: who is playing. Leave null for a view-only goal. */
+  role?: "shoot" | "dive" | null;
+  /** Zone already chosen (locks the pitch and animates the ball / keeper). */
+  locked?: ZoneKey | null;
+  disabled?: boolean;
+  onSwipe?: (zone: ZoneKey) => void;
 }) {
   const [go, setGo] = useState(false);
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
   const resultKey = result ? `${result.shot}|${result.dive}|${result.outcome}` : "";
+  const interactive = !!role && !disabled && !locked && !result;
 
   useEffect(() => {
     if (!result) {
@@ -777,34 +794,120 @@ export function GoalScene({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resultKey]);
 
-  const target = result ? ballTarget(result.shot, result.outcome) : null;
-  const ball = go && target ? { x: target.x, y: target.y, s: 0.7 } : { x: 200, y: 232, s: 1 };
-  const keeper = result
+  const toSvg = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const rect = svgRef.current!.getBoundingClientRect();
+    return {
+      x: ((e.clientX - rect.left) / rect.width) * VW,
+      y: ((e.clientY - rect.top) / rect.height) * VH,
+    };
+  };
+
+  const onDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (!interactive) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const p = toSvg(e);
+    setDrag({ x1: p.x, y1: p.y, x2: p.x, y2: p.y });
+  };
+  const onMove = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (!drag) return;
+    const p = toSvg(e);
+    setDrag({ ...drag, x2: p.x, y2: p.y });
+  };
+  const onUp = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (!drag) return;
+    const p = toSvg(e);
+    const dist = Math.hypot(p.x - drag.x1, p.y - drag.y1);
+    setDrag(null);
+    if (dist < 18) return; // too short, not a swipe
+    const zone = zoneAt(p.x, p.y);
+    if (zone) onSwipe?.(zone);
+  };
+
+  // Ball
+  const aim = result
     ? go
-      ? keeperPose(result.dive)
-      : keeperPose(null)
-    : keeperPreview
-      ? keeperPose(selected)
+      ? ballTarget(result.shot, result.outcome)
+      : null
+    : role === "shoot" && locked
+      ? ballTarget(locked, "GOAL")
+      : null;
+  const ball = aim ? { x: aim.x, y: aim.y, s: 0.7 } : { x: SPOT.x, y: SPOT.y, s: 1 };
+
+  // Keeper
+  const keeper = result
+    ? keeperPose(go ? result.dive : null)
+    : role === "dive" && locked
+      ? keeperPose(locked)
       : keeperPose(null);
 
   const scored = result?.outcome === "GOAL" && go;
-  const verticalNet = Array.from({ length: 21 }, (_, i) => GX + (i * GW) / 20);
-  const horizontalNet = Array.from({ length: 11 }, (_, i) => GY + (i * GH) / 10);
+  const live = drag ? zoneAt(drag.x2, drag.y2) : null;
+  const active = locked ?? live;
+  const accent = role === "dive" ? "#38bdf8" : "#fbbf24";
 
   return (
-    <div className="pitch relative overflow-hidden rounded-2xl border border-border">
-      <svg viewBox="0 0 400 250" className="block h-auto w-full" role="img" aria-label="Goal">
-        {/* Net */}
-        <g stroke="white" strokeOpacity="0.22" strokeWidth="0.8">
-          {verticalNet.map((x) => (
-            <line key={`v${x}`} x1={x} y1={GY} x2={x} y2={GY + GH} />
-          ))}
-          {horizontalNet.map((y) => (
-            <line key={`h${y}`} x1={GX} y1={y} x2={GX + GW} y2={y} />
-          ))}
-        </g>
+    <div className="relative overflow-hidden rounded-3xl border border-border shadow-lg">
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${VW} ${VH}`}
+        className={`block h-auto w-full select-none ${interactive ? "cursor-grab" : ""}`}
+        style={{ touchAction: "none" }}
+        role="img"
+        aria-label="Goal"
+        onPointerDown={onDown}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+        onPointerCancel={() => setDrag(null)}
+      >
+        <defs>
+          <linearGradient id="pg-grass" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#166534" />
+            <stop offset="1" stopColor="#22a04d" />
+          </linearGradient>
+          <radialGradient id="pg-light" cx="50%" cy="0%" r="80%">
+            <stop offset="0" stopColor="#ffffff" stopOpacity="0.22" />
+            <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+          <pattern id="pg-net" width="10" height="10" patternUnits="userSpaceOnUse">
+            <path d="M0 0L10 10M10 0L0 10" stroke="white" strokeOpacity="0.28" strokeWidth="0.8" />
+          </pattern>
+          <radialGradient id="pg-ball" cx="35%" cy="30%" r="75%">
+            <stop offset="0" stopColor="#ffffff" />
+            <stop offset="1" stopColor="#cbd5e1" />
+          </radialGradient>
+        </defs>
 
-        {/* Goal frame */}
+        {/* Grass with mowing stripes */}
+        <rect width={VW} height={VH} fill="url(#pg-grass)" />
+        {Array.from({ length: 9 }, (_, i) => (
+          <rect key={i} x="0" y={i * 32} width={VW} height="16" fill="white" opacity="0.045" />
+        ))}
+        <rect width={VW} height={VH} fill="url(#pg-light)" />
+
+        {/* Pitch markings */}
+        <g stroke="white" strokeOpacity="0.75" strokeWidth="2" fill="none">
+          <line x1="0" y1={LINE_Y} x2={VW} y2={LINE_Y} />
+          <rect x="70" y={LINE_Y} width="260" height="34" />
+          <rect x="8" y={LINE_Y} width="384" height="80" />
+          <path d="M160 254 A44 44 0 0 1 240 254" />
+        </g>
+        <circle cx={SPOT.x} cy={SPOT.y + 3} r="2.6" fill="white" opacity="0.85" />
+
+        {/* Net */}
+        <rect x={GX} y={GY} width={GW} height={GH} fill="rgba(0,0,0,0.28)" />
+        <rect x={GX} y={GY} width={GW} height={GH} fill="url(#pg-net)" />
+
+        {/* Posts */}
+        <rect
+          x={GX}
+          y={GY + 4}
+          width={GW}
+          height={GH}
+          fill="none"
+          stroke="rgba(0,0,0,0.3)"
+          strokeWidth="7"
+          strokeLinejoin="round"
+        />
         <rect
           x={GX}
           y={GY}
@@ -816,19 +919,16 @@ export function GoalScene({
           strokeLinejoin="round"
         />
 
-        {/* Penalty spot */}
-        <ellipse cx="200" cy="236" rx="5" ry="2" fill="white" opacity="0.5" />
-
-        {/* Zone grid */}
+        {/* Faint zone grid while it is your turn */}
         {interactive && (
-          <g stroke="white" strokeOpacity="0.3" strokeDasharray="4 4">
-            <line x1={GX + CW} y1={GY} x2={GX + CW} y2={GY + GH} />
-            <line x1={GX + 2 * CW} y1={GY} x2={GX + 2 * CW} y2={GY + GH} />
+          <g stroke="white" strokeOpacity="0.35" strokeDasharray="4 5">
+            <line x1={GX + CW} y1={GY} x2={GX + CW} y2={LINE_Y} />
+            <line x1={GX + 2 * CW} y1={GY} x2={GX + 2 * CW} y2={LINE_Y} />
             <line x1={GX} y1={GY + RH} x2={GX + GW} y2={GY + RH} />
           </g>
         )}
 
-        {/* Replay: highlight where the shot went (amber) and where the keeper dived (blue) */}
+        {/* Replay markers: shot zone and dive zone */}
         {result && (
           <>
             <rect
@@ -840,23 +940,32 @@ export function GoalScene({
               stroke="#38bdf8"
               strokeWidth="3"
               strokeDasharray="6 4"
-              opacity="0.9"
             />
             <rect
               x={zoneRect(result.shot).x}
               y={zoneRect(result.shot).y}
               width={CW}
               height={RH}
-              className="fill-current"
-              style={{
-                color: scored ? "#10b981" : "#fbbf24",
-                opacity: go ? 0.35 : 0,
-                transition: "opacity .4s ease .6s",
-              }}
+              fill={scored ? "#10b981" : "#fbbf24"}
               stroke="#fbbf24"
               strokeWidth="3"
+              style={{ opacity: go ? 0.4 : 0, transition: "opacity .4s ease .6s" }}
             />
           </>
+        )}
+
+        {/* Zone under the finger / locked zone */}
+        {!result && active && (
+          <rect
+            x={zoneRect(active).x}
+            y={zoneRect(active).y}
+            width={CW}
+            height={RH}
+            fill={accent}
+            fillOpacity={locked ? 0.45 : 0.3}
+            stroke={accent}
+            strokeWidth="3"
+          />
         )}
 
         {/* Keeper */}
@@ -866,77 +975,53 @@ export function GoalScene({
             transition: "transform .55s cubic-bezier(.2,.8,.2,1) .2s",
           }}
         >
-          <rect x="-9" y="-6" width="18" height="28" rx="7" className="fill-current text-accent-2-text" />
+          <rect x="-7" y="10" width="5" height="15" rx="2" fill="#1e293b" />
+          <rect x="2" y="10" width="5" height="15" rx="2" fill="#1e293b" />
+          <rect x="-9" y="-6" width="18" height="20" rx="7" fill="#f97316" />
           <circle cx="0" cy="-13" r="6" fill="#e8b98f" />
-          <line x1="-9" y1="-2" x2="-21" y2="-12" stroke="#e8b98f" strokeWidth="4" strokeLinecap="round" />
-          <line x1="9" y1="-2" x2="21" y2="-12" stroke="#e8b98f" strokeWidth="4" strokeLinecap="round" />
+          <line x1="-9" y1="-2" x2="-21" y2="-12" stroke="#f97316" strokeWidth="4" strokeLinecap="round" />
+          <line x1="9" y1="-2" x2="21" y2="-12" stroke="#f97316" strokeWidth="4" strokeLinecap="round" />
           <circle cx="-22" cy="-13" r="4.5" fill="#fde047" />
           <circle cx="22" cy="-13" r="4.5" fill="#fde047" />
         </g>
 
+        {/* Swipe cue for the shooter */}
+        {interactive && role === "shoot" && !drag && (
+          <g className="animate-pulse" stroke="white" strokeOpacity="0.6" fill="white" fillOpacity="0.6">
+            <path d="M200 204 L200 160" strokeWidth="3" strokeDasharray="4 6" strokeLinecap="round" fill="none" />
+            <polygon points="192,164 200,148 208,164" stroke="none" />
+          </g>
+        )}
+
+        {/* Swipe trail */}
+        {drag && (
+          <g>
+            <line
+              x1={drag.x1}
+              y1={drag.y1}
+              x2={drag.x2}
+              y2={drag.y2}
+              stroke="white"
+              strokeWidth="3"
+              strokeDasharray="2 6"
+              strokeLinecap="round"
+              opacity="0.9"
+            />
+            <circle cx={drag.x2} cy={drag.y2} r="7" fill={accent} stroke="white" strokeWidth="2" />
+          </g>
+        )}
+
         {/* Ball */}
+        <ellipse cx={ball.x} cy={ball.y + 9} rx="8" ry="2.5" fill="black" opacity={aim ? 0 : 0.3} />
         <g
           style={{
             transform: `translate(${ball.x}px, ${ball.y}px) scale(${ball.s})`,
             transition: "transform .75s cubic-bezier(.2,.8,.2,1)",
           }}
         >
-          <circle r="9" fill="white" stroke="#1f2937" strokeWidth="1.5" />
-          <circle r="3.4" fill="#1f2937" />
+          <circle r="9" fill="url(#pg-ball)" stroke="#1f2937" strokeWidth="1.5" />
+          <polygon points="0,-4 3.8,-1.2 2.4,3.2 -2.4,3.2 -3.8,-1.2" fill="#1f2937" />
         </g>
-
-        {/* Clickable zones (drawn last so they sit on top) */}
-        {ZONE_KEYS.map((key) => {
-          const { x, y, cx, cy } = zoneRect(key);
-          const isSelected = selected === key;
-          return (
-            <g
-              key={key}
-              role={interactive ? "button" : undefined}
-              aria-label={ZONE_LAYOUT[key].label}
-              aria-pressed={interactive ? isSelected : undefined}
-              tabIndex={interactive ? 0 : -1}
-              className={interactive ? "cursor-pointer outline-none" : ""}
-              onClick={() => interactive && onSelect?.(key)}
-              onKeyDown={(event) => {
-                if (interactive && (event.key === "Enter" || event.key === " ")) {
-                  event.preventDefault();
-                  onSelect?.(key);
-                }
-              }}
-            >
-              <rect
-                x={x}
-                y={y}
-                width={CW}
-                height={RH}
-                stroke={isSelected ? "currentColor" : "none"}
-                strokeWidth="3"
-                className={`fill-current text-accent-text transition ${
-                  !interactive
-                    ? "opacity-0"
-                    : isSelected
-                      ? "opacity-40"
-                      : "opacity-10 hover:opacity-30"
-                }`}
-              />
-              {interactive && (
-                <text
-                  x={cx}
-                  y={cy + 4}
-                  textAnchor="middle"
-                  fontSize="11"
-                  fontWeight="700"
-                  fill="white"
-                  opacity="0.85"
-                  pointerEvents="none"
-                >
-                  {ZONE_LAYOUT[key].short}
-                </text>
-              )}
-            </g>
-          );
-        })}
       </svg>
     </div>
   );
@@ -1039,17 +1124,123 @@ export function ShootoutTracker({
 }
 
 /* ================================================================== */
-/* The match panel (shoot, dive or wait)                               */
+/* The match panel (swipe to shoot / dive)                             */
 /* ================================================================== */
+
+const DIVE_SECONDS = 5;
+
+function Countdown({ left }: { left: number }) {
+  const R = 18;
+  const C = 2 * Math.PI * R;
+  const urgent = left <= 2;
+  return (
+    <div className="absolute right-3 top-3 flex h-12 w-12 items-center justify-center">
+      <svg viewBox="0 0 44 44" className="absolute inset-0 -rotate-90">
+        <circle cx="22" cy="22" r={R} fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.2)" strokeWidth="4" />
+        <circle
+          cx="22"
+          cy="22"
+          r={R}
+          fill="none"
+          stroke={urgent ? "#ef4444" : "#fbbf24"}
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeDasharray={C}
+          strokeDashoffset={C * (1 - left / DIVE_SECONDS)}
+        />
+      </svg>
+      <span className="relative text-base font-black tabular-nums text-white">{Math.ceil(left)}</span>
+    </div>
+  );
+}
+
+function SwipeArena({
+  role,
+  waitText,
+  loading,
+  error,
+  onCommit,
+}: {
+  role: "shoot" | "dive" | "wait";
+  waitText: string;
+  loading: boolean;
+  error: string;
+  onCommit: (zone: ZoneKey) => void;
+}) {
+  const [locked, setLocked] = useState<ZoneKey | null>(null);
+  const [left, setLeft] = useState(DIVE_SECONDS);
+  const commitRef = useRef(onCommit);
+
+  useEffect(() => {
+    commitRef.current = onCommit;
+  });
+
+  // If the server rejects the move, let the player swipe again.
+  useEffect(() => {
+    if (error) setLocked(null);
+  }, [error]);
+
+  // 5 second timer for the goalkeeper. When it ends, a random dive is sent.
+  useEffect(() => {
+    if (role !== "dive" || locked) return undefined;
+    setLeft(DIVE_SECONDS);
+    const end = Date.now() + DIVE_SECONDS * 1000;
+    const id = window.setInterval(() => {
+      const remaining = Math.max(0, end - Date.now());
+      setLeft(remaining / 1000);
+      if (remaining === 0) {
+        window.clearInterval(id);
+        const zone = ZONE_KEYS[Math.floor(Math.random() * ZONE_KEYS.length)];
+        setLocked(zone);
+        commitRef.current(zone);
+      }
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [role, locked]);
+
+  const swipe = (zone: ZoneKey) => {
+    if (locked) return;
+    setLocked(zone);
+    onCommit(zone);
+  };
+
+  const pill =
+    role === "wait"
+      ? waitText
+      : locked
+        ? role === "shoot"
+          ? "Shot locked"
+          : "Dive locked"
+        : role === "shoot"
+          ? "Swipe to shoot"
+          : "Swipe to dive";
+
+  return (
+    <div className="relative">
+      <GoalScene role={role === "wait" ? null : role} locked={locked} onSwipe={swipe} />
+
+      <span className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-white backdrop-blur">
+        {role === "wait" && <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />}
+        {pill}
+      </span>
+
+      {role === "dive" && !locked && <Countdown left={left} />}
+
+      {loading && (
+        <span className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white">
+          <LoaderCircle size={18} className="animate-spin" />
+        </span>
+      )}
+    </div>
+  );
+}
 
 export function MatchPanel({
   match,
   mySeat,
   role,
   waitText,
-  selected,
-  onSelect,
-  onConfirm,
+  onCommit,
   loading,
   error,
   onConcede,
@@ -1058,9 +1249,8 @@ export function MatchPanel({
   mySeat: Seat | null;
   role: "shoot" | "dive" | "wait";
   waitText: string;
-  selected: ZoneKey | null;
-  onSelect: (zone: ZoneKey) => void;
-  onConfirm: () => void;
+  /** Called once when the player swipes (or when the dive timer runs out). */
+  onCommit: (zone: ZoneKey) => void;
   loading: boolean;
   error: string;
   onConcede: () => void;
@@ -1068,121 +1258,68 @@ export function MatchPanel({
   const current = match.current;
   if (!current) return null;
 
-  const instruction =
-    role === "shoot"
-      ? `${current.attacker_name}, pick your spot`
-      : role === "dive"
-        ? `${current.keeper_name}, guess where it is going`
-        : waitText;
-
   return (
-    <section>
-      <PageTitle
-        eyebrow={`${match.round_name} · Kick ${current.kick_number}`}
-        title={role === "shoot" ? "TAKE THE SHOT." : role === "dive" ? "SAVE IT." : "SHOOTOUT."}
-        text={instruction}
-      />
-
+    <section className="mx-auto max-w-xl space-y-3 pt-12">
       {/* Scoreboard */}
-      <Panel className="mb-4">
+      <div className="rounded-2xl border border-border bg-surface px-4 py-3">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-          <div className="min-w-0 text-center">
-            <p className="truncate text-sm font-black sm:text-xl">
-              {match.name_a}
-              {mySeat === match.seat_a && <span className="text-foreground/60"> (You)</span>}
-            </p>
-          </div>
-          <div className="flex items-center gap-3 text-4xl font-black tabular-nums sm:gap-5 sm:text-6xl">
+          <p className="truncate text-center text-sm font-black sm:text-lg">
+            {match.name_a}
+            {mySeat === match.seat_a && <span className="text-foreground/60"> (You)</span>}
+          </p>
+          <div className="flex items-center gap-3 text-4xl font-black tabular-nums sm:text-5xl">
             <span>{match.score_a}</span>
             <span className="text-foreground/50">–</span>
             <span>{match.score_b}</span>
           </div>
-          <div className="min-w-0 text-center">
-            <p className="truncate text-sm font-black sm:text-xl">
-              {match.name_b}
-              {mySeat === match.seat_b && <span className="text-foreground/60"> (You)</span>}
-            </p>
-          </div>
+          <p className="truncate text-center text-sm font-black sm:text-lg">
+            {match.name_b}
+            {mySeat === match.seat_b && <span className="text-foreground/60"> (You)</span>}
+          </p>
         </div>
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-wider text-foreground/70">
-          <span>Round {current.shootout_round}</span>
-          {current.sudden_death && (
-            <span className="rounded-full bg-accent px-2 py-0.5 text-accent-ink">Sudden death</span>
-          )}
-        </div>
-      </Panel>
+        <p className="mt-1 text-center text-[11px] font-bold uppercase tracking-wider text-foreground/65">
+          {match.round_name} · Kick {current.kick_number}
+          {current.sudden_death && " · Sudden death"}
+        </p>
+      </div>
 
-      <ShootoutTracker match={match} mySeat={mySeat} />
+      {/* Swipe pitch (resets itself on every new kick / role) */}
+      <SwipeArena
+        key={`${match.id}-${current.kick_number}-${role}`}
+        role={role}
+        waitText={waitText}
+        loading={loading}
+        error={error}
+        onCommit={onCommit}
+      />
+
+      {error && <ErrorMessage message={error} />}
 
       {/* Shooter vs keeper */}
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2">
         {[
-          { label: "Shooter", team: current.attacker_name, player: current.shooter, icon: <Footprints size={14} /> },
-          { label: "Goalkeeper", team: current.keeper_name, player: current.keeper, icon: <Shield size={14} /> },
+          { key: "s", player: current.shooter, icon: <Footprints size={13} /> },
+          { key: "k", player: current.keeper, icon: <Shield size={13} /> },
         ].map((item) => (
-          <div key={item.label} className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3">
-            <Avatar name={item.player.name} src={item.player.image_url} className="h-14 w-14 rounded-xl text-lg" />
+          <div key={item.key} className="flex items-center gap-2 rounded-2xl border border-border bg-surface p-2">
+            <Avatar name={item.player.name} src={item.player.image_url} className="h-10 w-10 rounded-lg text-sm" />
             <div className="min-w-0">
-              <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-accent-text">
-                {item.icon}
-                {item.label}
+              <p className="flex items-center gap-1 truncate text-xs font-black">
+                <span className="text-accent-text">{item.icon}</span>
+                {item.player.name}
               </p>
-              <p className="truncate text-sm font-black">{item.player.name}</p>
-              <p className="truncate text-[11px] text-foreground/65">
-                {item.team} · {item.player.ovr_rating} OVR
-              </p>
+              <p className="text-[11px] text-foreground/65">{item.player.ovr_rating} OVR</p>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Goal */}
-      <div className="mt-4">
-        <GoalScene
-          interactive={role !== "wait"}
-          selected={role === "wait" ? null : selected}
-          onSelect={onSelect}
-          keeperPreview={role === "dive"}
-        />
-      </div>
-
-      {role === "wait" ? (
-        <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl border-2 border-foreground/15 bg-surface p-4 text-sm font-bold text-foreground/80">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-accent-text" />
-          {waitText}
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={onConfirm}
-          disabled={!selected || loading}
-          className={`${primaryButton} mt-4`}
-        >
-          {loading ? (
-            <LoaderCircle size={18} className="animate-spin" />
-          ) : selected ? (
-            <>
-              {role === "shoot" ? "Shoot" : "Dive"}: {ZONE_LAYOUT[selected].label}
-              <ArrowRight size={18} />
-            </>
-          ) : role === "shoot" ? (
-            "Tap a spot in the goal"
-          ) : (
-            "Tap where you think it is going"
-          )}
-        </button>
-      )}
-
-      {error && (
-        <div className="mt-4">
-          <ErrorMessage message={error} />
-        </div>
-      )}
+      <ShootoutTracker match={match} mySeat={mySeat} />
 
       <button
         type="button"
         onClick={onConcede}
-        className="mx-auto mt-5 flex items-center gap-2 text-xs font-semibold text-foreground/60 transition hover:text-red-600 dark:hover:text-red-300"
+        className="mx-auto flex items-center gap-2 text-xs font-semibold text-foreground/60 transition hover:text-red-600 dark:hover:text-red-300"
       >
         Leave this match
       </button>

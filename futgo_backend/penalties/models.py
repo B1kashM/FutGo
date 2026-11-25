@@ -118,6 +118,7 @@ class PenaltyKick(models.Model):
 
     shot_zone = models.CharField(max_length=20)
     dive_zone = models.CharField(max_length=20)
+    dive_deadline = models.DateTimeField(null=True, blank=True)
     outcome = models.CharField(max_length=10)  # GOAL SAVED POST BAR WIDE OVER
     commentary = models.CharField(max_length=255, blank=True, default="")
 
