@@ -36,20 +36,30 @@ DIVE_GRACE_SECONDS = 4
 
 # ------------------------------------------------------------------ tuning
 # Only three zones: LEFT, CENTER, RIGHT.
-# miss   = base chance the shot misses the target (post / bar / wide / over)
-# misses = what kind of miss it is (name, weight)
+#
+# Every kick is decided in two steps:
+#   1. Can the shooter miss? (miss chance of the zone) -> WIDE / POST / BAR / OVER
+#   2. If the ball is on target, does the keeper save it?
+#        - keeper dived to the SAME zone  -> saved almost every time (SAVE_SAME_ZONE)
+#        - keeper dived to another zone   -> almost never saved      (SAVE_OTHER_ZONE)
+#
+# miss   = base chance the shot misses the target (shooter rating moves it a little)
+# misses = what kind of miss it is (name, weight); POST and BAR are the woodwork
+SAVE_SAME_ZONE = 0.94   # keeper guessed the zone: a goal is very rare (about 1 in 17)
+SAVE_OTHER_ZONE = 0.01  # keeper guessed wrong: he can hardly ever reach it
+
 ZONES = {
     "LEFT": {
         "label": "Left", "side": "LEFT",
-        "miss": 0.10, "misses": (("WIDE", 40), ("POST", 35), ("OVER", 25)),
+        "miss": 0.18, "misses": (("WIDE", 40), ("POST", 35), ("OVER", 25)),
     },
     "CENTER": {
         "label": "Center", "side": "CENTER",
-        "miss": 0.06, "misses": (("OVER", 50), ("BAR", 50)),
+        "miss": 0.10, "misses": (("OVER", 50), ("BAR", 50)),
     },
     "RIGHT": {
         "label": "Right", "side": "RIGHT",
-        "miss": 0.10, "misses": (("WIDE", 40), ("POST", 35), ("OVER", 25)),
+        "miss": 0.18, "misses": (("WIDE", 40), ("POST", 35), ("OVER", 25)),
     },
 }
 ZONE_LIST = [
@@ -484,25 +494,40 @@ def _attacker_seat(match):
 
 
 def _decided(match):
-    """Winner seat if the shootout is over, otherwise None (same rules as simulation.py)."""
-    ka, kb, sa, sb = match.kicks_a, match.kicks_b, match.score_a, match.score_b
+    """Winner seat if the shootout is over, otherwise None. Real penalty shootout rules.
+
+    1. Each side takes 5 kicks, alternating.
+    2. It stops as soon as one side is ahead by more than the other side can still make up
+       with the kicks it has left, even if not all 10 kicks were taken.
+       (Example: 3-0 after 3 kicks each is over, but 4-3 with kicks left is NOT, because
+       the other side can still draw level.)
+    3. If it is level after 5 kicks each, sudden death: one kick each, and the shootout
+       ends the first time a pair of kicks leaves one side ahead. There is never a draw.
+    """
+    ka, kb = match.kicks_a, match.kicks_b
+    sa, sb = match.score_a, match.score_b
+
     if ka <= REGULATION_KICKS and kb <= REGULATION_KICKS:
-        if sa > sb + max(0, REGULATION_KICKS - kb):
+        left_a = REGULATION_KICKS - ka  # kicks A still has in the first 5
+        left_b = REGULATION_KICKS - kb
+        if sa > sb + left_b:  # B cannot catch up even if it scores every kick left
             return match.seat_a
-        if sb > sa + max(0, REGULATION_KICKS - ka):
+        if sb > sa + left_a:
             return match.seat_b
         return None
-    if ka == kb and sa != sb:  # sudden death: decided after an equal number of kicks
+
+    # Sudden death: only judge when both sides have taken the same number of kicks.
+    if ka == kb and sa != sb:
         return match.seat_a if sa > sb else match.seat_b
     return None
 
 
 def _save_chance(shot, dive, keeper, shooter):
-    # The keeper only has a real chance when he picks the same third as the shot.
-    chance = 0.60 if shot == dive else 0.03
-    chance += (keeper.ovr_rating - 80) / 400
-    chance -= (shooter.ovr_rating - 80) / 500
-    return min(max(chance, 0.02), 0.85)
+    if shot != dive:
+        return SAVE_OTHER_ZONE
+    # Same zone: nearly always saved. Ratings only move it a little (a few percent).
+    chance = SAVE_SAME_ZONE + (keeper.ovr_rating - shooter.ovr_rating) / 1000
+    return min(max(chance, 0.88), 0.98)
 
 
 def _roll_outcome(shooter, keeper, shot, dive):

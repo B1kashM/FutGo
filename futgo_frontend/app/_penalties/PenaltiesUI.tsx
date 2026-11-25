@@ -15,6 +15,7 @@ import {
   RotateCcw,
   Shield,
   Smartphone,
+  SlidersHorizontal,
   Target,
   Trophy,
   Users,
@@ -142,6 +143,7 @@ function Avatar({
   );
 }
 
+/** Option button: filled with the club colour when selected, solid surface otherwise. */
 function Choice({
   selected,
   onClick,
@@ -163,16 +165,16 @@ function Choice({
       aria-pressed={selected}
       disabled={disabled}
       onClick={onClick}
-      className={`relative flex min-h-[72px] items-center gap-3 rounded-2xl border-2 p-3 text-left transition sm:p-4 ${
+      className={`relative flex min-h-[64px] items-center gap-3 rounded-2xl border-2 p-3 text-left transition ${
         selected
-          ? "border-accent-text bg-accent/15 shadow-lg shadow-accent/15"
-          : "border-foreground/15 bg-surface hover:border-foreground/35 hover:bg-surface-2"
+          ? "border-accent bg-accent text-accent-ink shadow-lg shadow-accent/25"
+          : "border-border bg-surface-2 text-foreground hover:border-accent/60"
       } disabled:cursor-not-allowed disabled:opacity-50`}
     >
       {icon && (
         <span
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-            selected ? "bg-accent/25 text-accent-text" : "bg-foreground/10 text-foreground/75"
+            selected ? "bg-accent-ink/15 text-accent-ink" : "bg-accent/15 text-accent-text"
           }`}
         >
           {icon}
@@ -180,9 +182,18 @@ function Choice({
       )}
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-black leading-tight">{title}</span>
+        {text && (
+          <span
+            className={`mt-0.5 block text-[11px] font-semibold ${
+              selected ? "text-accent-ink/75" : "text-foreground/60"
+            }`}
+          >
+            {text}
+          </span>
+        )}
       </span>
       {selected && (
-        <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-accent-ink">
+        <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-accent-ink text-accent">
           <Check size={12} strokeWidth={3} />
         </span>
       )}
@@ -191,7 +202,7 @@ function Choice({
 }
 
 const inputClass =
-  "w-full rounded-xl border-2 border-foreground/25 bg-surface px-4 py-3 text-sm font-semibold text-foreground outline-none transition placeholder:text-foreground/50 focus:border-accent-text focus:ring-2 focus:ring-accent/25";
+  "w-full rounded-xl border-2 border-border bg-surface-2 px-4 py-3 text-sm font-semibold text-foreground outline-none transition placeholder:text-foreground/50 focus:border-accent focus:ring-2 focus:ring-accent/25";
 
 function Label({ children }: { children: ReactNode }) {
   return (
@@ -203,6 +214,9 @@ function Label({ children }: { children: ReactNode }) {
 
 const primaryButton =
   "flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-4 font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50";
+
+const rulesButton =
+  "flex w-full items-center justify-center gap-2 rounded-xl bg-accent-2 px-6 py-3 text-sm font-black text-accent-2-ink transition hover:brightness-110";
 
 /* ================================================================== */
 /* Setup (create or join)                                              */
@@ -232,11 +246,44 @@ export function SetupScreen({
   const [p2, setP2] = useState("");
   const [code, setCode] = useState(initialCode);
   const [joinName, setJoinName] = useState("");
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const players = mode === "LOCAL" ? 2 : maxPlayers;
   const needed = players * 11;
   const pool = pools.find((item) => item.key === category);
   const poolTooSmall = pool ? pool.count < needed : false;
+
+  // The setup page does not scroll (released as soon as the game starts).
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const before = {
+      htmlOverflow: html.style.overflow,
+      bodyOverflow: body.style.overflow,
+      htmlOverscroll: html.style.overscrollBehavior,
+      bodyOverscroll: body.style.overscrollBehavior,
+    };
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    body.style.overscrollBehavior = "none";
+    return () => {
+      html.style.overflow = before.htmlOverflow;
+      body.style.overflow = before.bodyOverflow;
+      html.style.overscrollBehavior = before.htmlOverscroll;
+      body.style.overscrollBehavior = before.bodyOverscroll;
+    };
+  }, []);
+
+  // Close the rules popup with Escape.
+  useEffect(() => {
+    if (!rulesOpen) return undefined;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setRulesOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [rulesOpen]);
 
   const submit = () =>
     onCreate({
@@ -248,14 +295,22 @@ export function SetupScreen({
       max_players: mode === "ONLINE" ? maxPlayers : 2,
     });
 
-  return (
-    <section className="mx-auto max-w-3xl">
-      <PageTitle
-        eyebrow="FutGo shootout"
-        title="PENALTY SHOOTOUT."
-      />
+  const rulesSummary = `${squadMode === "RANDOM" ? "Random squad" : "Build own squad"} · ${
+    pool?.label ?? "All players"
+  }`;
 
-      <div className="mb-5 grid grid-cols-2 gap-2 rounded-2xl border border-border bg-surface p-1.5">
+  return (
+    <section className="mx-auto flex max-h-[calc(100dvh-4rem)] max-w-xl flex-col overflow-y-auto overscroll-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="mb-4 pr-12 pt-4 sm:pt-6">
+        <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-accent-text">
+          <Target size={15} />
+          FutGo shootout
+        </div>
+        <h1 className="text-3xl font-black sm:text-4xl">PENALTY SHOOTOUT.</h1>
+      </div>
+
+      {/* Create Game / Join Room */}
+      <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-border bg-surface p-1.5">
         {(["create", "join"] as const).map((item) => (
           <button
             key={item}
@@ -263,25 +318,25 @@ export function SetupScreen({
             onClick={() => setTab(item)}
             className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${
               tab === item
-                ? "bg-accent text-accent-ink"
-                : "text-foreground/75 hover:bg-foreground/5"
+                ? "bg-accent text-accent-ink shadow-md shadow-accent/25"
+                : "bg-surface-2 text-foreground/80 hover:text-foreground"
             }`}
           >
-            {item === "create" ? "Create game" : "Join with code"}
+            {item === "create" ? "Create Game" : "Join Room"}
           </button>
         ))}
       </div>
 
       {tab === "create" ? (
-        <Panel className="space-y-6">
+        <Panel className="space-y-4">
           <div>
-            <Label>Choose Mode</Label>
+            <Label>Choose mode</Label>
             <div className="grid grid-cols-2 gap-3">
               <Choice
                 selected={mode === "LOCAL"}
                 onClick={() => setMode("LOCAL")}
                 title="Local"
-                text="Same Device"
+                text="Same device"
                 icon={<Smartphone size={20} />}
               />
               <Choice
@@ -296,7 +351,7 @@ export function SetupScreen({
 
           {mode === "ONLINE" && (
             <div>
-              <Label>Players in the room</Label>
+              <Label>No. of players</Label>
               <div className="grid grid-cols-5 gap-2">
                 {PLAYER_OPTIONS.map((count) => (
                   <button
@@ -304,61 +359,19 @@ export function SetupScreen({
                     type="button"
                     aria-pressed={maxPlayers === count}
                     onClick={() => setMaxPlayers(count)}
-                    className={`rounded-xl border-2 py-3 text-lg font-black transition ${
+                    className={`rounded-xl border-2 py-2.5 text-lg font-black transition ${
                       maxPlayers === count
-                        ? "border-accent-text bg-accent/15 text-accent-text"
-                        : "border-foreground/15 bg-surface hover:border-foreground/35"
+                        ? "border-accent bg-accent text-accent-ink shadow-md shadow-accent/25"
+                        : "border-border bg-surface-2 text-foreground hover:border-accent/60"
                     }`}
                   >
                     {count}
                   </button>
                 ))}
               </div>
-              <p className="mt-2 text-xs text-foreground/70">{bracketHint(maxPlayers)}</p>
+              <p className="mt-2 text-xs text-foreground/65">{bracketHint(maxPlayers)}</p>
             </div>
           )}
-
-          <div>
-            <Label>Build your squad</Label>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Choice
-                selected={squadMode === "RANDOM"}
-                onClick={() => setSquadMode("RANDOM")}
-                title="Random squad"
-                icon={<Zap size={20} />}
-              />
-              <Choice
-                selected={squadMode === "DRAFT"}
-                onClick={() => setSquadMode("DRAFT")}
-                title="Build own squad"
-                icon={<Crown size={20} />}
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label>Player pool</Label>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-              {pools.length === 0 && (
-                <p className="col-span-full text-sm text-foreground/70">Loading pools...</p>
-              )}
-              {pools.map((item) => (
-                <Choice
-                  key={item.key}
-                  selected={category === item.key}
-                  onClick={() => setCategory(item.key)}
-                  title={item.label}
-                  text={`${item.count} players`}
-                  disabled={item.count < needed}
-                />
-              ))}
-            </div>
-            {poolTooSmall && (
-              <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-                This pool needs at least {needed} players for {players} players.
-              </p>
-            )}
-          </div>
 
           <div className={`grid gap-3 ${mode === "LOCAL" ? "sm:grid-cols-2" : ""}`}>
             <div>
@@ -385,6 +398,19 @@ export function SetupScreen({
             )}
           </div>
 
+          <div>
+            <button type="button" onClick={() => setRulesOpen(true)} className={rulesButton}>
+              <SlidersHorizontal size={17} />
+              Change game rules
+            </button>
+            <p className="mt-2 text-center text-xs text-foreground/65">{rulesSummary}</p>
+            {poolTooSmall && (
+              <p className="mt-1 text-center text-xs font-semibold text-amber-700 dark:text-amber-300">
+                This pool needs at least {needed} players. Change it in the game rules.
+              </p>
+            )}
+          </div>
+
           {error && <ErrorMessage message={error} />}
 
           <button
@@ -407,7 +433,7 @@ export function SetupScreen({
           </button>
         </Panel>
       ) : (
-        <Panel className="space-y-5">
+        <Panel className="space-y-4">
           <div>
             <Label>Room code</Label>
             <input
@@ -450,6 +476,86 @@ export function SetupScreen({
             )}
           </button>
         </Panel>
+      )}
+
+      {/* Game rules popup: Build your squad + Players pool */}
+      {rulesOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Game rules"
+          style={{ zIndex: 2147483000 }}
+          onClick={() => setRulesOpen(false)}
+          className="fixed inset-0 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="relative flex max-h-[90dvh] w-full max-w-2xl flex-col rounded-3xl border border-border bg-surface shadow-2xl"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-border p-5 sm:px-7">
+              <h2 className="text-xl font-black sm:text-2xl">Game rules</h2>
+              <button
+                type="button"
+                onClick={() => setRulesOpen(false)}
+                aria-label="Close"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-foreground/80 transition hover:text-foreground"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-5 sm:px-7">
+              <div>
+                <Label>Build your squad</Label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Choice
+                    selected={squadMode === "RANDOM"}
+                    onClick={() => setSquadMode("RANDOM")}
+                    title="Random squad"
+                    icon={<Zap size={20} />}
+                  />
+                  <Choice
+                    selected={squadMode === "DRAFT"}
+                    onClick={() => setSquadMode("DRAFT")}
+                    title="Build own squad"
+                    icon={<Crown size={20} />}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>Players pool</Label>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {pools.length === 0 && (
+                    <p className="col-span-full text-sm text-foreground/70">Loading pools...</p>
+                  )}
+                  {pools.map((item) => (
+                    <Choice
+                      key={item.key}
+                      selected={category === item.key}
+                      onClick={() => setCategory(item.key)}
+                      title={item.label}
+                      text={`${item.count} players`}
+                      disabled={item.count < needed}
+                    />
+                  ))}
+                </div>
+                {poolTooSmall && (
+                  <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                    This pool needs at least {needed} players for {players} players.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-border p-5 sm:px-7">
+              <button type="button" onClick={() => setRulesOpen(false)} className={primaryButton}>
+                Done
+                <Check size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );
