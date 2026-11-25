@@ -1572,6 +1572,13 @@ const variants = {
     pill: "border-accent-2/40 bg-accent-2/10 text-accent-2-text",
     arrow: "bg-accent-2 text-accent-2-ink",
   },
+  c: {
+    hover: "hover:border-trim/70",
+    glow: "bg-trim/25",
+    stage: "bg-trim/25",
+    pill: "border-trim/40 bg-trim/10 text-accent-text",
+    arrow: "bg-trim text-accent-ink",
+  },
 };
 
 function ModeCard({
@@ -1594,7 +1601,9 @@ function ModeCard({
   return (
     <Link
       href={href}
-      className={`group relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-border bg-surface-2 p-6 transition duration-300 hover:-translate-y-0.5 lg:p-9 ${v.hover}`}
+      // On PC (lg) the card is a compact portrait shape, a bit taller than a
+      // square (width : height = 100 : 115), instead of filling the screen.
+      className={`group relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface-2 p-3 transition duration-300 hover:-translate-y-0.5 sm:rounded-3xl sm:p-4 lg:h-auto lg:aspect-[100/115] lg:p-3 ${v.hover}`}
     >
       <div className="brand-bar absolute inset-x-0 top-0 h-1" />
       <div
@@ -1615,22 +1624,22 @@ function ModeCard({
       </div>
 
       {/* Label */}
-      <div className="relative mt-2 flex items-center justify-between gap-3 lg:mt-5">
+      <div className="relative mt-1 flex items-center justify-between gap-2 sm:mt-2 lg:mt-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-black tracking-tight lg:text-3xl">
+            <h2 className="text-base font-black tracking-tight sm:text-lg lg:text-xl">
               {title}
             </h2>
             <span
-              className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${v.pill}`}
+              className={`rounded-full border px-2 py-0.5 text-[9px] font-bold sm:text-[10px] ${v.pill}`}
             >
               {pill}
             </span>
           </div>
-          <p className="mt-1 hidden text-sm text-muted sm:block">{tagline}</p>
+          <p className="mt-1 hidden text-xs text-muted sm:block">{tagline}</p>
         </div>
         <span
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition group-hover:translate-x-1 lg:h-11 lg:w-11 ${v.arrow}`}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition group-hover:translate-x-1 sm:h-9 sm:w-9 lg:h-9 lg:w-9 ${v.arrow}`}
         >
           <ArrowRight size={19} />
         </span>
@@ -1764,14 +1773,14 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Content: always fits one screen */}
-      <div className="relative mx-auto flex min-h-0 w-full max-w-5xl flex-1 -translate-y-3 flex-col justify-center gap-5 px-6 pt-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-12 sm:pb-6 lg:translate-y-0 lg:gap-8 lg:px-20 lg:py-10">
+      {/* Content: all three game modes fit on one screen */}
+      <div className="relative mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col justify-center gap-3 px-6 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:gap-4 sm:px-6 sm:pb-4 lg:max-w-5xl lg:gap-4 lg:px-8 lg:py-4">
         <div className="pointer-events-none absolute left-1/4 top-0 h-[300px] w-[420px] -translate-x-1/2 rounded-full bg-accent/15 blur-[120px]" />
         <div className="pointer-events-none absolute right-0 top-10 h-[260px] w-[360px] rounded-full bg-accent-2/15 blur-[120px]" />
 
         {/* Club slogan */}
         <div className="relative flex shrink-0 items-end justify-between gap-4">
-          <h1 className="text-[clamp(1.6rem,7.5vw,2.25rem)] font-black leading-[0.98] tracking-[-0.05em] sm:text-4xl lg:text-5xl">
+          <h1 className="text-[clamp(1.45rem,5.8vw,2.1rem)] font-black leading-[0.98] tracking-[-0.05em] sm:text-3xl lg:text-4xl">
             {club.headline[0]} {club.headline[1]}{" "}
             <span className="bg-gradient-to-r from-accent-text to-accent-2-text bg-clip-text text-transparent">
               {club.headline[2]}
@@ -1783,8 +1792,10 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Two modes: stacked on mobile, side by side on desktop */}
-        <div className="relative grid min-h-0 flex-1 grid-rows-2 gap-5 lg:h-[clamp(320px,54vh,420px)] lg:flex-none lg:grid-cols-2 lg:grid-rows-1 lg:gap-10">
+        {/* Three game modes: stacked on phones, one row on larger screens.
+            On PC (lg) the grid no longer stretches to fill the screen; each
+            card sizes itself from its own width (see ModeCard). */}
+        <div className="relative grid min-h-0 flex-1 grid-cols-1 grid-rows-3 gap-3 sm:grid-cols-3 sm:grid-rows-1 sm:gap-4 lg:flex-none lg:grid-rows-none lg:items-start lg:gap-5">
           <ModeCard
             href={CARDS_HREF}
             title="Play Cards"
@@ -1821,30 +1832,167 @@ export default function Home() {
             pill={club.formation}
             variant="a"
           >
-            <Pitch className="aspect-[133/188] h-full max-w-full" />
+            {/* A horizontal preview keeps the full pitch visible inside the narrower card. */}
+            <Pitch className="aspect-[133/188] h-[92%] max-w-full" />
+          </ModeCard>
+
+          <ModeCard
+            href="/penalties"
+            title="Play Penalties"
+            tagline="Shootout tournament · 2 to 6 players."
+            pill="Shootout"
+            variant="c"
+          >
+            <div className="relative flex h-full w-full max-w-[280px] items-center justify-center">
+              {/* Goal (posts, crossbar, net with depth) + goalkeeper */}
+              <svg
+                viewBox="0 0 300 160"
+                className="absolute left-1/2 top-[3%] h-[70%] w-full -translate-x-1/2"
+                role="img"
+                aria-label="Goal with goalkeeper"
+              >
+                <defs>
+                  <pattern
+                    id="goal-net"
+                    width="7"
+                    height="7"
+                    patternUnits="userSpaceOnUse"
+                  >
+                    <path
+                      d="M0 0H7M0 0V7"
+                      stroke="#fff"
+                      strokeOpacity=".4"
+                      strokeWidth=".7"
+                      fill="none"
+                    />
+                  </pattern>
+                  <linearGradient id="keeper-kit" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopColor="#fb923c" />
+                    <stop offset="1" stopColor="#ea580c" />
+                  </linearGradient>
+                </defs>
+
+                {/* Net: dark backing, top, sides and back panel for depth */}
+                <polygon points="26,30 274,30 274,152 26,152" fill="#000" opacity=".18" />
+                <polygon points="26,30 274,30 240,54 60,54" fill="url(#goal-net)" />
+                <polygon points="26,30 60,54 60,140 26,152" fill="url(#goal-net)" opacity=".75" />
+                <polygon points="274,30 240,54 240,140 274,152" fill="url(#goal-net)" opacity=".75" />
+                <rect x="60" y="54" width="180" height="86" fill="url(#goal-net)" />
+                <path
+                  d="M60 54H240V140H60Z"
+                  fill="none"
+                  stroke="#fff"
+                  strokeOpacity=".5"
+                  strokeWidth="1.5"
+                />
+
+                {/* Posts + crossbar */}
+                <rect x="22" y="26" width="7" height="128" rx="2" fill="#fff" />
+                <rect x="271" y="26" width="7" height="128" rx="2" fill="#fff" />
+                <rect x="22" y="26" width="256" height="7" rx="2" fill="#fff" />
+                <line
+                  x1="0"
+                  y1="154"
+                  x2="300"
+                  y2="154"
+                  stroke="#fff"
+                  strokeOpacity=".5"
+                  strokeWidth="2"
+                />
+
+                {/* Goalkeeper: long-sleeve kit, gloves, shorts, socks, boots, ready stance */}
+                <g>
+                  <ellipse cx="150" cy="152" rx="34" ry="4" fill="#000" opacity=".3" />
+                  {/* legs */}
+                  <path d="M134 124 L147 124 L144 146 L133 146Z" fill="#c58b68" />
+                  <path d="M153 124 L166 124 L167 146 L156 146Z" fill="#c58b68" />
+                  <path d="M133.5 136 L144 136 L143.5 148 L132 148Z" fill="#111827" />
+                  <path d="M156 136 L166.5 136 L168 148 L156.5 148Z" fill="#111827" />
+                  <path d="M130 147 H146 L147 152 H128Z" fill="#0b0f19" />
+                  <path d="M154 147 H170 L172 152 H153Z" fill="#0b0f19" />
+                  {/* shorts + torso */}
+                  <path d="M131 106 H169 L171 130 H151 L150 120 L149 130 H129Z" fill="#111827" />
+                  <path d="M133 80 Q150 74 167 80 L171 110 H129Z" fill="url(#keeper-kit)" />
+                  <path d="M144 78 Q150 84 156 78" fill="none" stroke="#7c2d12" strokeWidth="2" />
+                  <text x="150" y="100" textAnchor="middle" fill="#fff" fontSize="16" fontWeight="900">
+                    1
+                  </text>
+                  {/* arms: bent, hands up and ready */}
+                  <path
+                    d="M134 84 L114 98 L108 78"
+                    fill="none"
+                    stroke="#ea580c"
+                    strokeWidth="9"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M166 84 L186 98 L192 78"
+                    fill="none"
+                    stroke="#ea580c"
+                    strokeWidth="9"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  {/* gloves */}
+                  <rect
+                    x="99"
+                    y="62"
+                    width="16"
+                    height="20"
+                    rx="6"
+                    fill="#a3e635"
+                    stroke="#365314"
+                    strokeWidth="1.5"
+                    transform="rotate(-14 107 72)"
+                  />
+                  <rect
+                    x="185"
+                    y="62"
+                    width="16"
+                    height="20"
+                    rx="6"
+                    fill="#a3e635"
+                    stroke="#365314"
+                    strokeWidth="1.5"
+                    transform="rotate(14 193 72)"
+                  />
+                  {/* head */}
+                  <rect x="145" y="72" width="10" height="8" fill="#b77958" />
+                  <ellipse cx="150" cy="64" rx="10" ry="12" fill="#c58b68" />
+                  <path
+                    d="M140 62 Q140 50 150 50 Q160 50 160 62 Q155 56 150 57 Q145 56 140 62Z"
+                    fill="#1f2937"
+                  />
+                  <path
+                    d="M145.5 65 h2 M152.5 65 h2"
+                    stroke="#1f2937"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M147 71 Q150 72.5 153 71"
+                    fill="none"
+                    stroke="#7c3f32"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                </g>
+              </svg>
+
+              {/* Penalty spot and ball */}
+              <div className="absolute bottom-[6%] left-1/2 flex -translate-x-1/2 flex-col items-center">
+                <div className="h-2 w-2 rounded-full bg-white/80" />
+                <div className="mt-2 flex h-9 w-9 items-center justify-center rounded-full border-2 border-slate-300 bg-white text-slate-900 shadow-xl sm:h-11 sm:w-11">
+                  <span className="text-lg font-black">⚽</span>
+                </div>
+              </div>
+              <div className="absolute right-[1%] top-[2%] flex h-10 w-10 items-center justify-center rounded-full border border-trim/50 bg-trim/20 text-accent-text shadow-lg sm:h-12 sm:w-12">
+                <Target size={22} />
+              </div>
+            </div>
           </ModeCard>
         </div>
-                <Link
-          href="/penalties"
-          className="relative flex shrink-0 items-center justify-between gap-3 rounded-2xl border border-border bg-surface-2 px-5 py-3 transition hover:-translate-y-0.5 hover:border-accent/70"
-        >
-          <span className="flex items-center gap-3">
-            <span className="shirt flex h-9 w-9 items-center justify-center rounded-xl border-2">
-              <Target size={18} />
-            </span>
-            <span>
-              <span className="block text-base font-black tracking-tight lg:text-lg">
-                Play Penalties
-              </span>
-              <span className="hidden text-xs text-muted sm:block">
-                Shootout tournament · 2 to 6 players
-              </span>
-            </span>
-          </span>
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-ink">
-            <ArrowRight size={18} />
-          </span>
-        </Link>
         <p className="relative hidden shrink-0 text-center text-xs text-muted md:block">
           Built by Bikash, The PesGoalPoacher. {club.footerCheer}
         </p>

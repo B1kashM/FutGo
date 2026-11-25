@@ -713,24 +713,20 @@ const GY = 24;
 const GW = 340;
 const GH = 150;
 const CW = GW / 3;
-const RH = GH / 2;
 const LINE_Y = GY + GH;
 const SPOT = { x: 200, y: 224 };
+// The ball and the keeper use the same duration and no delay, so they move at the same moment.
+const MOVE = "0.6s cubic-bezier(.2,.8,.2,1)";
 
+// Three zones: Left, Center, Right. Each one is a full-height third of the goal.
 function zoneRect(zone: ZoneKey) {
-  const { col, row } = ZONE_LAYOUT[zone];
-  return {
-    x: GX + col * CW,
-    y: GY + row * RH,
-    cx: GX + (col + 0.5) * CW,
-    cy: GY + (row + 0.5) * RH,
-  };
+  const { col } = ZONE_LAYOUT[zone];
+  return { x: GX + col * CW, y: GY, cx: GX + (col + 0.5) * CW, cy: GY + GH / 2 };
 }
 
-function zoneAt(x: number, y: number): ZoneKey | null {
+function zoneAt(x: number): ZoneKey | null {
   const col = Math.min(2, Math.max(0, Math.floor((x - GX) / CW)));
-  const row = Math.min(1, Math.max(0, Math.floor((y - GY) / RH)));
-  return ZONE_KEYS.find((k) => ZONE_LAYOUT[k].col === col && ZONE_LAYOUT[k].row === row) ?? null;
+  return ZONE_KEYS.find((k) => ZONE_LAYOUT[k].col === col) ?? null;
 }
 
 function ballTarget(zone: ZoneKey, outcome: Outcome) {
@@ -752,9 +748,10 @@ function ballTarget(zone: ZoneKey, outcome: Outcome) {
 
 function keeperPose(zone: ZoneKey | null) {
   if (!zone) return { x: 200, y: LINE_Y - 22, rot: 0 };
-  const { cx, cy } = zoneRect(zone);
-  const { col, row } = ZONE_LAYOUT[zone];
-  return { x: cx, y: cy + (row === 0 ? 8 : 16), rot: col === 0 ? -55 : col === 2 ? 55 : 0 };
+  const { cx } = zoneRect(zone);
+  const { col } = ZONE_LAYOUT[zone];
+  if (col === 1) return { x: cx, y: LINE_Y - 34, rot: 0 };
+  return { x: cx, y: LINE_Y - 40, rot: col === 0 ? -60 : 60 };
 }
 
 export type GoalResult = { shot: ZoneKey; dive: ZoneKey; outcome: Outcome };
@@ -768,11 +765,11 @@ export function GoalScene({
   disabled = false,
   onSwipe,
 }: {
-  /** Replay mode: ball and keeper move to their final places. */
+  /** Replay mode: the ball and the keeper move together to their final places. */
   result?: GoalResult | null;
   /** Swipe mode: who is playing. Leave null for a view-only goal. */
   role?: "shoot" | "dive" | null;
-  /** Zone already chosen (locks the pitch and animates the ball / keeper). */
+  /** Zone already chosen (marks the zone, nothing moves until the kick is played). */
   locked?: ZoneKey | null;
   disabled?: boolean;
   onSwipe?: (zone: ZoneKey) => void;
@@ -789,7 +786,7 @@ export function GoalScene({
       setGo(false);
       return undefined;
     }
-    const timer = window.setTimeout(() => setGo(true), 150);
+    const timer = window.setTimeout(() => setGo(true), 120);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resultKey]);
@@ -819,29 +816,17 @@ export function GoalScene({
     const dist = Math.hypot(p.x - drag.x1, p.y - drag.y1);
     setDrag(null);
     if (dist < 18) return; // too short, not a swipe
-    const zone = zoneAt(p.x, p.y);
+    const zone = zoneAt(p.x);
     if (zone) onSwipe?.(zone);
   };
 
-  // Ball
-  const aim = result
-    ? go
-      ? ballTarget(result.shot, result.outcome)
-      : null
-    : role === "shoot" && locked
-      ? ballTarget(locked, "GOAL")
-      : null;
+  // The ball and the keeper only move in the replay, both at once.
+  const aim = result && go ? ballTarget(result.shot, result.outcome) : null;
   const ball = aim ? { x: aim.x, y: aim.y, s: 0.7 } : { x: SPOT.x, y: SPOT.y, s: 1 };
-
-  // Keeper
-  const keeper = result
-    ? keeperPose(go ? result.dive : null)
-    : role === "dive" && locked
-      ? keeperPose(locked)
-      : keeperPose(null);
+  const keeper = keeperPose(result && go ? result.dive : null);
 
   const scored = result?.outcome === "GOAL" && go;
-  const live = drag ? zoneAt(drag.x2, drag.y2) : null;
+  const live = drag ? zoneAt(drag.x2) : null;
   const active = locked ?? live;
   const accent = role === "dive" ? "#38bdf8" : "#fbbf24";
 
@@ -919,12 +904,11 @@ export function GoalScene({
           strokeLinejoin="round"
         />
 
-        {/* Faint zone grid while it is your turn */}
+        {/* Faint zone lines while it is your turn */}
         {interactive && (
           <g stroke="white" strokeOpacity="0.35" strokeDasharray="4 5">
             <line x1={GX + CW} y1={GY} x2={GX + CW} y2={LINE_Y} />
             <line x1={GX + 2 * CW} y1={GY} x2={GX + 2 * CW} y2={LINE_Y} />
-            <line x1={GX} y1={GY + RH} x2={GX + GW} y2={GY + RH} />
           </g>
         )}
 
@@ -933,9 +917,9 @@ export function GoalScene({
           <>
             <rect
               x={zoneRect(result.dive).x}
-              y={zoneRect(result.dive).y}
+              y={GY}
               width={CW}
-              height={RH}
+              height={GH}
               fill="none"
               stroke="#38bdf8"
               strokeWidth="3"
@@ -943,9 +927,9 @@ export function GoalScene({
             />
             <rect
               x={zoneRect(result.shot).x}
-              y={zoneRect(result.shot).y}
+              y={GY}
               width={CW}
-              height={RH}
+              height={GH}
               fill={scored ? "#10b981" : "#fbbf24"}
               stroke="#fbbf24"
               strokeWidth="3"
@@ -958,9 +942,9 @@ export function GoalScene({
         {!result && active && (
           <rect
             x={zoneRect(active).x}
-            y={zoneRect(active).y}
+            y={GY}
             width={CW}
-            height={RH}
+            height={GH}
             fill={accent}
             fillOpacity={locked ? 0.45 : 0.3}
             stroke={accent}
@@ -972,7 +956,7 @@ export function GoalScene({
         <g
           style={{
             transform: `translate(${keeper.x}px, ${keeper.y}px) rotate(${keeper.rot}deg)`,
-            transition: "transform .55s cubic-bezier(.2,.8,.2,1) .2s",
+            transition: `transform ${MOVE}`,
           }}
         >
           <rect x="-7" y="10" width="5" height="15" rx="2" fill="#1e293b" />
@@ -985,11 +969,20 @@ export function GoalScene({
           <circle cx="22" cy="-13" r="4.5" fill="#fde047" />
         </g>
 
-        {/* Swipe cue for the shooter */}
+        {/* Swipe cue for the shooter: left, up or right */}
         {interactive && role === "shoot" && !drag && (
-          <g className="animate-pulse" stroke="white" strokeOpacity="0.6" fill="white" fillOpacity="0.6">
-            <path d="M200 204 L200 160" strokeWidth="3" strokeDasharray="4 6" strokeLinecap="round" fill="none" />
-            <polygon points="192,164 200,148 208,164" stroke="none" />
+          <g
+            className="animate-pulse"
+            stroke="white"
+            strokeOpacity="0.6"
+            strokeWidth="3"
+            strokeDasharray="4 6"
+            strokeLinecap="round"
+            fill="none"
+          >
+            <path d="M200 204 L128 150" />
+            <path d="M200 204 L200 150" />
+            <path d="M200 204 L272 150" />
           </g>
         )}
 
@@ -1016,7 +1009,7 @@ export function GoalScene({
         <g
           style={{
             transform: `translate(${ball.x}px, ${ball.y}px) scale(${ball.s})`,
-            transition: "transform .75s cubic-bezier(.2,.8,.2,1)",
+            transition: `transform ${MOVE}`,
           }}
         >
           <circle r="9" fill="url(#pg-ball)" stroke="#1f2937" strokeWidth="1.5" />

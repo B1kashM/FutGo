@@ -35,38 +35,43 @@ DIVE_SECONDS = 5
 DIVE_GRACE_SECONDS = 4
 
 # ------------------------------------------------------------------ tuning
-# miss  = base chance the shot misses the target (post / bar / wide / over)
+# Three zones: Left, Center, Right.
+# miss   = base chance the shot misses the target (post / bar / wide / over)
 # misses = what kind of miss it is (name, weight)
 ZONES = {
-    "LEFT_TOP_BINS": {
-        "label": "Left - top bins", "side": "LEFT", "height": "TOP",
-        "miss": 0.16, "misses": (("OVER", 40), ("WIDE", 30), ("POST", 30)),
+    "LEFT": {
+        "label": "Left", "side": "LEFT", "height": "MID",
+        "miss": 0.10, "misses": (("WIDE", 40), ("POST", 35), ("OVER", 25)),
     },
-    "LEFT_GROUNDED": {
-        "label": "Left - grounded", "side": "LEFT", "height": "LOW",
-        "miss": 0.07, "misses": (("WIDE", 55), ("POST", 45)),
+    "CENTER": {
+        "label": "Center", "side": "CENTER", "height": "MID",
+        "miss": 0.06, "misses": (("OVER", 50), ("BAR", 50)),
     },
-    "CENTER_TOP_NOTCH": {
-        "label": "Centre - top notch", "side": "CENTER", "height": "TOP",
-        "miss": 0.10, "misses": (("OVER", 55), ("BAR", 45)),
-    },
-    "CENTER_COLD": {
-        "label": "Centre - cold", "side": "CENTER", "height": "LOW",
-        "miss": 0.05, "misses": (("OVER", 60), ("BAR", 40)),
-    },
-    "RIGHT_TOP_CORNER": {
-        "label": "Right - top corner", "side": "RIGHT", "height": "TOP",
-        "miss": 0.16, "misses": (("OVER", 40), ("WIDE", 30), ("POST", 30)),
-    },
-    "RIGHT_LOW_CORNER": {
-        "label": "Right - low corner", "side": "RIGHT", "height": "LOW",
-        "miss": 0.07, "misses": (("WIDE", 55), ("POST", 45)),
+    "RIGHT": {
+        "label": "Right", "side": "RIGHT", "height": "MID",
+        "miss": 0.10, "misses": (("WIDE", 40), ("POST", 35), ("OVER", 25)),
     },
 }
 ZONE_LIST = [
     {"key": key, "label": z["label"], "side": z["side"], "height": z["height"]}
     for key, z in ZONES.items()
 ]
+
+# Games saved before the 3-zone change used six zone names. Map them to the new ones
+# so old kicks and half-played matches keep working.
+_LEGACY_ZONES = {
+    "LEFT_TOP_BINS": "LEFT",
+    "LEFT_GROUNDED": "LEFT",
+    "CENTER_TOP_NOTCH": "CENTER",
+    "CENTER_COLD": "CENTER",
+    "RIGHT_TOP_CORNER": "RIGHT",
+    "RIGHT_LOW_CORNER": "RIGHT",
+}
+
+
+def _norm_zone(zone):
+    return _LEGACY_ZONES.get(zone, zone)
+
 
 PHRASES = {
     "GOAL": [
@@ -509,15 +514,8 @@ def _decided(match):
 
 
 def _save_chance(shot, dive, keeper, shooter):
-    s, d = ZONES[shot], ZONES[dive]
-    if shot == dive:
-        chance = 0.60
-    elif s["side"] == d["side"]:
-        chance = 0.14  # right side, wrong height
-    else:
-        chance = 0.03
-    if s["height"] == "TOP":
-        chance *= 0.8  # top corners are harder to reach
+    # The keeper only has a real chance when he picks the same third as the shot.
+    chance = 0.60 if shot == dive else 0.03
     chance += (keeper.ovr_rating - 80) / 400
     chance -= (shooter.ovr_rating - 80) / 500
     return min(max(chance, 0.02), 0.85)
@@ -586,6 +584,8 @@ def dive(game, seat, zone):
 
 
 def _resolve_kick(game, match, attacker, shot, dive_zone):
+    shot = _norm_zone(shot)
+    dive_zone = _norm_zone(dive_zone)
     keeper_seat = _other(match, attacker)
     taken = _kicks_of(match, attacker)
     shooters = _shooters(game, attacker)
@@ -704,8 +704,8 @@ def _kick_payload(k, names):
         "team_name": names.get(k.seat, ""),
         "shooter": {"player_id": k.shooter_id, "name": k.shooter.name, "image_url": k.shooter.image_url},
         "keeper": {"player_id": k.keeper_id, "name": k.keeper.name, "image_url": k.keeper.image_url},
-        "shot_zone": k.shot_zone,
-        "dive_zone": k.dive_zone,
+        "shot_zone": _norm_zone(k.shot_zone),
+        "dive_zone": _norm_zone(k.dive_zone),
         "outcome": k.outcome,
         "scored": k.outcome == "GOAL",
         "commentary": k.commentary,
