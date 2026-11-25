@@ -89,6 +89,7 @@ class PenaltyMatch(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="ACTIVE")
     phase = models.CharField(max_length=10, default="SHOOT")  # SHOOT / DIVE / DONE
     pending_shot = models.CharField(max_length=20, blank=True, default="")
+    dive_deadline = models.DateTimeField(null=True, blank=True)
 
     score_a = models.PositiveSmallIntegerField(default=0)
     score_b = models.PositiveSmallIntegerField(default=0)
@@ -118,7 +119,6 @@ class PenaltyKick(models.Model):
 
     shot_zone = models.CharField(max_length=20)
     dive_zone = models.CharField(max_length=20)
-    dive_deadline = models.DateTimeField(null=True, blank=True)
     outcome = models.CharField(max_length=10)  # GOAL SAVED POST BAR WIDE OVER
     commentary = models.CharField(max_length=255, blank=True, default="")
 
