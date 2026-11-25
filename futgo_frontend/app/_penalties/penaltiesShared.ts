@@ -6,34 +6,17 @@ export { ApiError } from "../_draft/draftShared";
 /* Zones (the six places a penalty can go)                             */
 /* ------------------------------------------------------------------ */
 
-export type ZoneKey =
-  | "LEFT_TOP_BINS"
-  | "LEFT_GROUNDED"
-  | "CENTER_TOP_NOTCH"
-  | "CENTER_COLD"
-  | "RIGHT_TOP_CORNER"
-  | "RIGHT_LOW_CORNER";
+export type ZoneKey = "LEFT" | "CENTER" | "RIGHT";
 
-export const ZONE_KEYS: ZoneKey[] = [
-  "LEFT_TOP_BINS",
-  "CENTER_TOP_NOTCH",
-  "RIGHT_TOP_CORNER",
-  "LEFT_GROUNDED",
-  "CENTER_COLD",
-  "RIGHT_LOW_CORNER",
-];
+export const ZONE_KEYS: ZoneKey[] = ["LEFT", "CENTER", "RIGHT"];
 
-/** Where each zone sits on the goal: 3 columns x 2 rows. */
 export const ZONE_LAYOUT: Record<
   ZoneKey,
-  { col: 0 | 1 | 2; row: 0 | 1; short: string; label: string }
+  { col: number; row: number; label: string; short: string }
 > = {
-  LEFT_TOP_BINS: { col: 0, row: 0, short: "Top bins", label: "Left · top bins" },
-  LEFT_GROUNDED: { col: 0, row: 1, short: "Grounded", label: "Left · grounded" },
-  CENTER_TOP_NOTCH: { col: 1, row: 0, short: "Top notch", label: "Centre · top notch" },
-  CENTER_COLD: { col: 1, row: 1, short: "Cold", label: "Centre · cold" },
-  RIGHT_TOP_CORNER: { col: 2, row: 0, short: "Top corner", label: "Right · top corner" },
-  RIGHT_LOW_CORNER: { col: 2, row: 1, short: "Low corner", label: "Right · low corner" },
+  LEFT: { col: 0, row: 0, label: "Left", short: "L" },
+  CENTER: { col: 1, row: 0, label: "Center", short: "C" },
+  RIGHT: { col: 2, row: 0, label: "Right", short: "R" },
 };
 
 export type Outcome = "GOAL" | "SAVED" | "POST" | "BAR" | "WIDE" | "OVER";
