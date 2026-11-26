@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Orbitron, Russo_One } from "next/font/google";
 import {
-  ArrowRight,
   Crown,
   Goal,
   Info,
@@ -1571,7 +1570,6 @@ const variants = {
     glow: "bg-accent/25",
     stage: "bg-accent/30",
     pill: "border-trim/40 bg-trim/10 text-accent-text",
-    arrow: "bg-accent text-accent-ink",
     word: "to-accent-text",
     bar: "bg-accent",
   },
@@ -1580,7 +1578,6 @@ const variants = {
     glow: "bg-accent-2/25",
     stage: "bg-accent-2/30",
     pill: "border-accent-2/40 bg-accent-2/10 text-accent-2-text",
-    arrow: "bg-accent-2 text-accent-2-ink",
     word: "to-accent-2-text",
     bar: "bg-accent-2",
   },
@@ -1589,7 +1586,6 @@ const variants = {
     glow: "bg-trim/25",
     stage: "bg-trim/25",
     pill: "border-trim/40 bg-trim/10 text-accent-text",
-    arrow: "bg-trim text-accent-ink",
     word: "to-accent-text",
     bar: "bg-trim",
   },
@@ -1676,18 +1672,11 @@ function ModeCard({
             </span>
           </h2>
 
-          <div className={`mt-2 flex items-center gap-2 ${place.row}`}>
-            <span
-              className={`${eyebrowFont.className} rounded-md border px-2 py-1 text-[8px] uppercase tracking-wider sm:text-[9px] ${v.pill}`}
-            >
-              {pill}
-            </span>
-            <span
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition group-hover:scale-110 sm:h-8 sm:w-8 ${v.arrow}`}
-            >
-              <ArrowRight size={17} />
-            </span>
-          </div>
+          <span
+            className={`${eyebrowFont.className} mt-2 rounded-md border px-2 py-1 text-[8px] uppercase tracking-wider sm:text-[9px] ${v.pill}`}
+          >
+            {pill}
+          </span>
           <p className="mt-2 hidden text-xs text-muted sm:block">{tagline}</p>
         </div>
       </div>
