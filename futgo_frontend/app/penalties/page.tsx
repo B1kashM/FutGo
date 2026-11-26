@@ -45,6 +45,7 @@ const POLL_MS = 1500;
 const RESULT_AUTO_CLOSE_MS = 5000;
 
 type SquadSet = { name: string; players: SquadPlayer[] };
+type SquadMap = Record<string, SquadPlayer[]>;
 
 export default function PenaltiesPage() {
   const [ready, setReady] = useState(false);
@@ -60,6 +61,8 @@ export default function PenaltiesPage() {
 
   const [overlay, setOverlay] = useState<{ kick: Kick; matchId: number } | null>(null);
   const [squadSets, setSquadSets] = useState<SquadSet[] | null>(null);
+  // Local play: both squads, used to draw the line-up pitch before every kick.
+  const [localSquads, setLocalSquads] = useState<SquadMap | null>(null);
 
   const versionRef = useRef(0);
   const seenKickRef = useRef("");
@@ -92,6 +95,7 @@ export default function PenaltiesPage() {
     setState(null);
     setOverlay(null);
     setHolder(null);
+    setLocalSquads(null);
     setError("");
     versionRef.current = 0;
     seenKickRef.current = "";
@@ -162,6 +166,25 @@ export default function PenaltiesPage() {
     };
   }, [session, gameOver, applyState, resetGame, online]);
 
+  /* ----------------------- squads for the line-up pitch ------------------- */
+
+  // Local play holds both squads on one device: load them once the match phase starts.
+  const status = state?.status;
+  useEffect(() => {
+    if (!session || session.mode !== "LOCAL" || localSquads || status !== "ACTIVE") {
+      return undefined;
+    }
+    let cancelled = false;
+    Promise.all([fetchFull(session, 1), fetchFull(session, 2)])
+      .then(([a, b]) => {
+        if (!cancelled) setLocalSquads({ "1": a.squad, "2": b.squad });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [session, status, localSquads]);
+
   /* ------------------------------- actions ------------------------------- */
 
   const startSession = (next: PenaltySession, first: GameState) => {
@@ -169,6 +192,7 @@ export default function PenaltiesPage() {
     initializedRef.current = false;
     setSession(next);
     setHolder(null);
+    setLocalSquads(null);
     applyState(first);
   };
 
@@ -270,6 +294,15 @@ export default function PenaltiesPage() {
   const mySeat: Seat | null = isLocal ? null : session.seat;
   const actingSeat: Seat | null = isLocal ? actingSeatOf(state) : session.seat;
 
+  // Squads by seat. Online: whatever the server sends plus your own squad.
+  // The pitch falls back to the shooter and keeper cards when a squad is missing.
+  const panelSquads: SquadMap | null = isLocal
+    ? localSquads
+    : {
+        ...(state.squads ?? {}),
+        ...(mySeat && state.squad?.length ? { [String(mySeat)]: state.squad } : {}),
+      };
+
   const closeOverlay = () => setOverlay(null);
 
   let body: React.ReactNode = null;
@@ -347,6 +380,7 @@ export default function PenaltiesPage() {
               loading={loading}
               error={error}
               onCommit={commit}
+              squads={panelSquads}
               onConcede={() => {
                 if (!actingSeat) return;
                 if (window.confirm("Leave this match? Your opponent will win it.")) {
