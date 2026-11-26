@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Orbitron, Russo_One } from "next/font/google";
 import {
   ArrowRight,
   Crown,
@@ -17,6 +18,13 @@ import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import ClubPicker from "./components/ClubPicker";
 import ThemeToggle from "./components/ThemeToggle";
 import { useClub } from "./_theme/useClub";
+
+/* ------------------------------------------------------------------ */
+/* Gaming fonts for the game names                                     */
+/* ------------------------------------------------------------------ */
+
+const titleFont = Russo_One({ subsets: ["latin"], weight: "400" });
+const eyebrowFont = Orbitron({ subsets: ["latin"], weight: "800" });
 
 /* ------------------------------------------------------------------ */
 /* Config                                                              */
@@ -1564,6 +1572,8 @@ const variants = {
     stage: "bg-accent/30",
     pill: "border-trim/40 bg-trim/10 text-accent-text",
     arrow: "bg-accent text-accent-ink",
+    word: "to-accent-text",
+    bar: "bg-accent",
   },
   b: {
     hover: "hover:border-accent-2/70",
@@ -1571,6 +1581,8 @@ const variants = {
     stage: "bg-accent-2/30",
     pill: "border-accent-2/40 bg-accent-2/10 text-accent-2-text",
     arrow: "bg-accent-2 text-accent-2-ink",
+    word: "to-accent-2-text",
+    bar: "bg-accent-2",
   },
   c: {
     hover: "hover:border-trim/70",
@@ -1578,40 +1590,110 @@ const variants = {
     stage: "bg-trim/25",
     pill: "border-trim/40 bg-trim/10 text-accent-text",
     arrow: "bg-trim text-accent-ink",
+    word: "to-accent-text",
+    bar: "bg-trim",
+  },
+};
+
+// Where the game name sits inside its card. The name and the artwork never overlap:
+// they sit side by side on phones and one above the other on larger screens.
+const placements = {
+  // Cards: name on the left (phones), top left (larger screens).
+  topLeft: {
+    card: "flex-row sm:flex-col",
+    label: "items-start text-left",
+    row: "flex-row",
+  },
+  // Draft: name on the right (phones), bottom right (larger screens).
+  bottomRight: {
+    card: "flex-row-reverse sm:flex-col-reverse",
+    label: "items-end text-right",
+    row: "flex-row-reverse",
+  },
+  // Penalties: name on the left (phones), top centre (larger screens).
+  topCenter: {
+    card: "flex-row sm:flex-col",
+    label: "items-start text-left sm:items-center sm:text-center",
+    row: "flex-row",
   },
 };
 
 function ModeCard({
   href,
-  title,
+  name,
   tagline,
   pill,
   variant,
+  placement,
   children,
 }: {
   href: string;
-  title: string;
+  /** The big word of the game name; "Play" is written above it. */
+  name: string;
   tagline: string;
   pill: string;
   variant: keyof typeof variants;
+  placement: keyof typeof placements;
   children: ReactNode;
 }) {
   const v = variants[variant];
+  const place = placements[placement];
 
   return (
     <Link
       href={href}
       // On PC (lg) the card is a compact portrait shape, a bit taller than a
-      // square (width : height = 100 : 115), instead of filling the screen.
-      className={`group relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface-2 p-3 transition duration-300 hover:-translate-y-0.5 sm:rounded-3xl sm:p-4 lg:h-auto lg:aspect-[100/115] lg:p-3 ${v.hover}`}
+      // square (width : height = 100 : 126), instead of filling the screen.
+      className={`group relative flex h-full min-h-0 gap-2 overflow-hidden rounded-2xl border border-border bg-surface-2 p-3 transition duration-300 hover:-translate-y-0.5 sm:rounded-3xl sm:p-4 lg:h-auto lg:aspect-[100/126] ${place.card} ${v.hover}`}
     >
       <div className="brand-bar absolute inset-x-0 top-0 h-1" />
       <div
         className={`pointer-events-none absolute -top-12 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full blur-3xl ${v.glow}`}
       />
 
+      {/* Game name */}
+      <div
+        className="relative z-10 flex w-[46%] shrink-0 flex-col justify-center sm:w-full"
+        style={{ containerType: "inline-size" }}
+      >
+        <div className={`flex w-full flex-col ${place.label}`}>
+          <h2 className={`flex flex-col leading-none ${place.label}`}>
+            <span
+              className={`${eyebrowFont.className} flex items-center gap-1.5 text-[10px] uppercase tracking-[0.42em] text-muted sm:text-[11px] ${place.row}`}
+            >
+              <span className={`h-[3px] w-5 -skew-x-[30deg] ${v.bar}`} />
+              Play
+            </span>{" "}
+            {/* Slanted two-tone lettering with a hard drop shadow */}
+            <span className="mt-1 block -skew-x-6 drop-shadow-[0_3px_0_rgba(0,0,0,0.3)] transition-transform duration-300 group-hover:scale-105">
+              <span
+                className={`${titleFont.className} block bg-gradient-to-b from-foreground from-40% bg-clip-text px-1 uppercase tracking-wide text-transparent ${v.word}`}
+                // Sized from the column width, so the longest name always fits.
+                style={{ fontSize: "min(13.5cqw, 2.4rem)", lineHeight: 1.05 }}
+              >
+                {name}
+              </span>
+            </span>
+          </h2>
+
+          <div className={`mt-2 flex items-center gap-2 ${place.row}`}>
+            <span
+              className={`${eyebrowFont.className} rounded-md border px-2 py-1 text-[8px] uppercase tracking-wider sm:text-[9px] ${v.pill}`}
+            >
+              {pill}
+            </span>
+            <span
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition group-hover:scale-110 sm:h-8 sm:w-8 ${v.arrow}`}
+            >
+              <ArrowRight size={17} />
+            </span>
+          </div>
+          <p className="mt-2 hidden text-xs text-muted sm:block">{tagline}</p>
+        </div>
+      </div>
+
       {/* Visual */}
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 min-w-0 flex-1">
         <div
           className={`pointer-events-none absolute left-1/2 top-1/2 h-[70%] w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl ${v.stage}`}
         />
@@ -1621,28 +1703,6 @@ function ModeCard({
         >
           {children}
         </div>
-      </div>
-
-      {/* Label */}
-      <div className="relative mt-1 flex items-center justify-between gap-2 sm:mt-2 lg:mt-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-black tracking-tight sm:text-lg lg:text-xl">
-              {title}
-            </h2>
-            <span
-              className={`rounded-full border px-2 py-0.5 text-[9px] font-bold sm:text-[10px] ${v.pill}`}
-            >
-              {pill}
-            </span>
-          </div>
-          <p className="mt-1 hidden text-xs text-muted sm:block">{tagline}</p>
-        </div>
-        <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition group-hover:translate-x-1 sm:h-9 sm:w-9 lg:h-9 lg:w-9 ${v.arrow}`}
-        >
-          <ArrowRight size={19} />
-        </span>
       </div>
     </Link>
   );
@@ -1774,7 +1834,7 @@ export default function Home() {
       </header>
 
       {/* Content: all three game modes fit on one screen */}
-      <div className="relative mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col justify-center gap-3 px-6 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:gap-4 sm:px-6 sm:pb-4 lg:max-w-5xl lg:gap-4 lg:px-8 lg:py-4">
+      <div className="relative mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col justify-center gap-3 px-6 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:gap-4 sm:px-6 sm:pb-[calc(2rem+env(safe-area-inset-bottom))] lg:max-w-5xl lg:gap-4 lg:px-8 lg:pt-4 lg:pb-10">
         <div className="pointer-events-none absolute left-1/4 top-0 h-[300px] w-[420px] -translate-x-1/2 rounded-full bg-accent/15 blur-[120px]" />
         <div className="pointer-events-none absolute right-0 top-10 h-[260px] w-[360px] rounded-full bg-accent-2/15 blur-[120px]" />
 
@@ -1798,7 +1858,8 @@ export default function Home() {
         <div className="relative grid min-h-0 flex-1 grid-cols-1 grid-rows-3 gap-3 sm:grid-cols-3 sm:grid-rows-1 sm:gap-4 lg:flex-none lg:grid-rows-none lg:items-start lg:gap-5">
           <ModeCard
             href={CARDS_HREF}
-            title="Play Cards"
+            name="Cards"
+            placement="topLeft"
             tagline="Lock your best stat. Win their cards."
             pill="1v1 battle"
             variant="b"
@@ -1827,7 +1888,8 @@ export default function Home() {
 
           <ModeCard
             href={DRAFT_HREF}
-            title="Play Draft"
+            name="Draft"
+            placement="bottomRight"
             tagline="Build your dream XI, pick by pick."
             pill={club.formation}
             variant="a"
@@ -1838,7 +1900,8 @@ export default function Home() {
 
           <ModeCard
             href="/penalties"
-            title="Play Penalties"
+            name="Penalties"
+            placement="topCenter"
             tagline="Shootout tournament · 2 to 6 players."
             pill="Shootout"
             variant="c"
