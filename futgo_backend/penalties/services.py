@@ -570,15 +570,37 @@ def _check_zone(zone):
     return zone
 
 
+def _real(zone):
+    """True for an actual LEFT / CENTER / RIGHT choice (not empty and not the READY marker)."""
+    return zone in ZONES
+
+
+def _first_kick(match):
+    return (match.kicks_a + match.kicks_b) == 0
+
+
+def _started(match):
+    """Later kicks always run. The first kick of a match starts when BOTH players pressed Start.
+
+    "Pressed Start" is stored as the marker READY in pending_shot / pending_dive, so no extra
+    database field is needed.
+    """
+    return (not _first_kick(match)) or (bool(match.pending_shot) and bool(match.pending_dive))
+
+
 def _after_online_pick(game, match):
     """Play the kick as soon as both players have chosen. Otherwise start the grace timer."""
-    if match.pending_shot and match.pending_dive:
+    if _real(match.pending_shot) and _real(match.pending_dive):
         _resolve_kick(
             game, match, _attacker_seat(match), match.pending_shot, match.pending_dive
         )
         return
-    # First kick of a match: no deadline (players may still be on the squad screen).
-    if match.dive_deadline is None and (match.kicks_a + match.kicks_b) > 0:
+    # First kick of a match: no deadline (the server waits for both players).
+    if (
+        match.dive_deadline is None
+        and not _first_kick(match)
+        and (_real(match.pending_shot) or _real(match.pending_dive))
+    ):
         match.dive_deadline = timezone.now() + timedelta(
             seconds=PICK_SECONDS + PICK_GRACE_SECONDS
         )
@@ -589,11 +611,21 @@ def shoot(game, seat, zone):
     match = _my_active_match(game, seat)
     if seat != _attacker_seat(match):
         raise PenaltyError("It is not your turn to shoot.", 403)
-    zone = _check_zone(zone)
+    raw = str(zone or "").upper()
 
     if game.mode == "ONLINE":
-        # Shooter and keeper pick at the same time. A second request is ignored.
-        if match.pending_shot:
+        # Online: the "READY" marker is the Start button, then shooter and keeper pick at
+        # the same time. Repeated requests are ignored.
+        if raw == "READY":
+            if _first_kick(match) and not match.pending_shot:
+                match.pending_shot = "READY"
+                match.save()
+                _touch(game)
+            return
+        zone = _check_zone(raw)
+        if not _started(match):
+            raise PenaltyError("Waiting for both players to press Start.", 409)
+        if _real(match.pending_shot):
             return
         match.pending_shot = zone
         _after_online_pick(game, match)
@@ -601,6 +633,7 @@ def shoot(game, seat, zone):
         return
 
     # Local: one phone, so the keeper picks after the shooter (hand-over screen in between).
+    zone = _check_zone(raw)
     if match.phase != "SHOOT":
         raise PenaltyError("The shot is already locked in.", 409)
     match.pending_shot = zone
@@ -615,16 +648,26 @@ def dive(game, seat, zone):
     attacker = _attacker_seat(match)
     if seat == attacker:
         raise PenaltyError("You are the shooter this kick.", 403)
-    zone = _check_zone(zone)
+    raw = str(zone or "").upper()
 
     if game.mode == "ONLINE":
-        if match.pending_dive:
+        if raw == "READY":
+            if _first_kick(match) and not match.pending_dive:
+                match.pending_dive = "READY"
+                match.save()
+                _touch(game)
+            return
+        zone = _check_zone(raw)
+        if not _started(match):
+            raise PenaltyError("Waiting for both players to press Start.", 409)
+        if _real(match.pending_dive):
             return
         match.pending_dive = zone
         _after_online_pick(game, match)
         _touch(game)
         return
 
+    zone = _check_zone(raw)
     if match.phase != "DIVE":
         raise PenaltyError("The shooter has not picked a shot yet.", 409)
     _resolve_kick(game, match, attacker, match.pending_shot, zone)
@@ -702,8 +745,8 @@ def settle_expired(game):
                 locked,
                 match,
                 _attacker_seat(match),
-                match.pending_shot or random.choice(list(ZONES)),
-                match.pending_dive or random.choice(list(ZONES)),
+                match.pending_shot if _real(match.pending_shot) else random.choice(list(ZONES)),
+                match.pending_dive if _real(match.pending_dive) else random.choice(list(ZONES)),
             )
         if expired:
             _touch(locked)
@@ -780,12 +823,20 @@ def _match_brief(m, names):
     }
 
 
-def _current_payload(game, match, names):
+def _current_payload(game, match, names, seat=None):
     attacker = _attacker_seat(match)
     keeper_seat = _other(match, attacker)
     taken = _kicks_of(match, attacker)
     shooters = _shooters(game, attacker)
     slot = shooters[taken % len(shooters)]
+    first = _first_kick(match)
+    ready_count = (int(bool(match.pending_shot)) + int(bool(match.pending_dive))) if first else 2
+    if not first:
+        you_ready = True
+    elif seat == attacker:
+        you_ready = bool(match.pending_shot)
+    else:
+        you_ready = bool(match.pending_dive)
     return {
         "attacker_seat": attacker,
         "attacker_name": names.get(attacker, ""),
@@ -797,8 +848,12 @@ def _current_payload(game, match, names):
         "shootout_round": taken + 1,
         "sudden_death": taken >= REGULATION_KICKS,
         # Only "has this player chosen yet?" is sent. The zones stay secret until the kick is played.
-        "shot_locked": bool(match.pending_shot),
-        "dive_locked": bool(match.pending_dive),
+        "shot_locked": _real(match.pending_shot),
+        "dive_locked": _real(match.pending_dive),
+        # Start button (online): the first kick waits until both players pressed Start.
+        "started": _started(match),
+        "ready_count": ready_count,
+        "you_ready": you_ready,
     }
 
 
@@ -823,7 +878,7 @@ def _match_payload(game, match, names, seat):
                 for k in kicks
             ],
             "last_kick": _kick_payload(kicks[-1], names) if kicks else None,
-            "current": _current_payload(game, match, names) if match.status == "ACTIVE" else None,
+            "current": _current_payload(game, match, names, seat) if match.status == "ACTIVE" else None,
         }
     )
     return payload
@@ -875,8 +930,8 @@ def _available_action(game, seat, match, out):
         if game.mode == "ONLINE":
             # Both players pick at the same time.
             if seat == attacker:
-                return "wait_for_keeper" if match.pending_shot else "shoot"
-            return "wait_for_shot" if match.pending_dive else "dive"
+                return "wait_for_keeper" if _real(match.pending_shot) else "shoot"
+            return "wait_for_shot" if _real(match.pending_dive) else "dive"
         if match.phase == "SHOOT":
             return "shoot" if seat == attacker else "wait_for_shot"
         return "wait_for_keeper" if seat == attacker else "dive"

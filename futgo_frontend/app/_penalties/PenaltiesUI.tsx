@@ -1344,14 +1344,6 @@ export function GoalScene({
           strokeLinejoin="round"
         />
 
-        {/* Soft zone lines while it is your turn */}
-        {interactive && (
-          <g stroke="white" strokeOpacity="0.16" strokeWidth="1.5">
-            <line x1={GX + CW} y1={GY} x2={GX + CW} y2={LINE_Y} />
-            <line x1={GX + 2 * CW} y1={GY} x2={GX + 2 * CW} y2={LINE_Y} />
-          </g>
-        )}
-
         {/* Replay markers: shot zone and dive zone */}
         {result && (
           <>
@@ -1392,6 +1384,20 @@ export function GoalScene({
           />
         )}
 
+        {/* Highlight on the keeper when you are the one diving */}
+        {role === "dive" && !result && (
+          <g
+            pointerEvents="none"
+            style={{
+              transform: `translate(${keeper.x}px, ${keeper.y + 2}px)`,
+              transition: `transform ${MOVE}`,
+            }}
+          >
+            <circle r="27" fill="#38bdf8" fillOpacity="0.17" className="animate-pulse" />
+            <circle r="22" fill="none" stroke="#7dd3fc" strokeOpacity="0.55" strokeWidth="1.5" />
+          </g>
+        )}
+
         {/* Keeper */}
         <g
           style={{
@@ -1421,6 +1427,25 @@ export function GoalScene({
           </g>
         )}
 
+        {/* Swipe hints around the keeper (only for the player who is diving) */}
+        {interactive && role === "dive" && !drag && (
+          <g pointerEvents="none" style={{ transform: `translate(${keeper.x}px, ${keeper.y}px)` }}>
+            <g
+              className="animate-pulse"
+              fill="none"
+              stroke="white"
+              strokeOpacity="0.6"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M-30 -9 L-39 -1 L-30 7" />
+              <path d="M30 -9 L39 -1 L30 7" />
+              <path d="M-6 -39 L0 -46 L6 -39" />
+            </g>
+          </g>
+        )}
+
         {/* Penalty taker standing at the ball, surname above his head */}
         {shooterName && (
           <g
@@ -1429,6 +1454,12 @@ export function GoalScene({
               transition: `transform ${MOVE}`,
             }}
           >
+            {role === "shoot" && !result && (
+              <g pointerEvents="none">
+                <circle cy="6" r="27" fill="#fbbf24" fillOpacity="0.17" className="animate-pulse" />
+                <circle cy="6" r="22" fill="none" stroke="#fde68a" strokeOpacity="0.55" strokeWidth="1.5" />
+              </g>
+            )}
             <ellipse cx="0" cy="26" rx="12" ry="3" fill="black" opacity="0.28" />
             <rect x="-6" y="12" width="5" height="14" rx="2" fill="#f8fafc" />
             <rect x="1" y="12" width="5" height="14" rx="2" fill="#f8fafc" />
@@ -1439,22 +1470,22 @@ export function GoalScene({
             <g transform="translate(0 -25)">
               <NameTag text={lastName(shooterName)} color="#fef3c7" size={tagSize} />
             </g>
-          </g>
-        )}
-
-        {/* Swipe cue for the shooter: soft translucent hints (left, up, right) */}
-        {interactive && role === "shoot" && !drag && (
-          <g
-            className="animate-pulse"
-            stroke="white"
-            strokeOpacity="0.14"
-            strokeWidth="14"
-            strokeLinecap="round"
-            fill="none"
-          >
-            <path d="M200 206 L132 152" />
-            <path d="M200 206 L200 152" />
-            <path d="M200 206 L268 152" />
+            {interactive && role === "shoot" && !drag && (
+              <g
+                className="animate-pulse"
+                pointerEvents="none"
+                fill="none"
+                stroke="white"
+                strokeOpacity="0.6"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M-25 -10 L-34 -2 L-25 6" />
+                <path d="M25 -10 L34 -2 L25 6" />
+                <path d="M-6 -40 L0 -47 L6 -40" />
+              </g>
+            )}
           </g>
         )}
 
@@ -2005,16 +2036,6 @@ function SwipeArena({
 
       {timed && !ended && <Countdown left={left} className={fs ? "right-3 top-16" : "right-3 top-3"} />}
 
-      <StageToggle
-        fs={fs}
-        className={fs ? "" : "bottom-3 right-3"}
-        style={
-          fs
-            ? { right: "max(.75rem, env(safe-area-inset-right))", top: "max(.75rem, env(safe-area-inset-top))" }
-            : undefined
-        }
-      />
-
       {loading && (
         <span
           className={`absolute flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white ${
@@ -2201,10 +2222,70 @@ function rewind(match: MatchDetail, kick: Kick): MatchDetail {
   };
 }
 
+// Local play: matches whose Start button was already pressed on this phone.
+const startedMatches = new Set<number>();
+
+function ReadyPanel({
+  online,
+  count,
+  youReady,
+  onStart,
+}: {
+  online: boolean;
+  count: number;
+  youReady: boolean;
+  onStart: () => void;
+}) {
+  return (
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/55 px-4">
+      <div className="w-full max-w-xs rounded-2xl border border-white/15 bg-black/75 p-4 text-center shadow-2xl backdrop-blur">
+        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-300">
+          Penalty shootout
+        </p>
+        <button type="button" onClick={onStart} disabled={youReady} className={`${primaryButton} mt-3`}>
+          {youReady ? (
+            <>
+              <Check size={18} />
+              Ready
+            </>
+          ) : (
+            <>
+              Start
+              <ArrowRight size={18} />
+            </>
+          )}
+        </button>
+        {online && (
+          <>
+            <p className="mt-3 text-sm font-black tabular-nums text-white">{count}/2 ready</p>
+            {youReady && <p className="mt-1 text-xs text-white/60">Waiting for your opponent...</p>}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The match is only playable in full screen. */
+function FullscreenGate() {
+  return (
+    <section className="mx-auto max-w-sm pt-20 text-center">
+      <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent text-accent-ink">
+        <Maximize2 size={30} />
+      </div>
+      <h2 className="text-2xl font-black">Full screen required</h2>
+      <p className="mt-2 text-sm text-foreground/70">The penalty shootout is played in full screen.</p>
+      <button type="button" onClick={enterStage} className={`${primaryButton} mt-6`}>
+        Enter full screen
+        <ArrowRight size={18} />
+      </button>
+    </section>
+  );
+}
+
 /**
- * One continuous stage:  pick (both players, 5 s)  ->  replay of the kick  ->  next kick.
- * No popups and no Continue buttons: the replay plays on the same pitch (full screen or not)
- * and moves on by itself.
+ * One continuous full screen stage:  Start (both ready)  ->  pick (both players, 10 s)  ->
+ * replay of the kick  ->  next kick. No popups, no Continue buttons.
  */
 export function MatchPanel({
   match,
@@ -2212,10 +2293,9 @@ export function MatchPanel({
   role,
   online,
   onCommit,
+  onReady,
   loading,
   error,
-  onConcede,
-  squads,
   reveal = null,
   revealMatchId = null,
   onRevealDone,
@@ -2227,11 +2307,10 @@ export function MatchPanel({
   online: boolean;
   /** Called once when the player swipes (or when the timer runs out). */
   onCommit: (zone: ZoneKey) => void;
+  /** Online: the player pressed Start. */
+  onReady: () => void;
   loading: boolean;
   error: string;
-  onConcede: () => void;
-  /** Squads by seat. Used to draw the line-up before the first kick of a match. */
-  squads?: Record<string, SquadPlayer[]> | null;
   /** The kick that was just played and still has to be replayed on the stage. */
   reveal?: Kick | null;
   revealMatchId?: number | null;
@@ -2243,6 +2322,7 @@ export function MatchPanel({
   const [arena, setArena] = useState<ArenaSnap | null>(null);
   const [timerDone, setTimerDone] = useState(false);
   const [scoreShown, setScoreShown] = useState(false);
+  const [, setStartTick] = useState(0);
   const doneRef = useRef(onRevealDone);
   useEffect(() => {
     doneRef.current = onRevealDone;
@@ -2258,7 +2338,7 @@ export function MatchPanel({
       kickNumber: current.kick_number,
       shooter: current.shooter as unknown as PenPlayer,
       keeper: current.keeper as unknown as PenPlayer,
-      squad: squads?.[String(current.attacker_seat)] ?? [],
+      squad: [],
       teamName: attackerIsA ? match.name_a : match.name_b,
       keeperTeam: attackerIsA ? match.name_b : match.name_a,
       kickLabel: `Kick ${current.kick_number}${current.sudden_death ? " · Sudden death" : ""}`,
@@ -2280,7 +2360,7 @@ export function MatchPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reveal, liveKey]);
 
-  // Online: the replay starts only after both players' 5 seconds are over.
+  // Online: the replay starts only after both players' timers are over.
   const canReveal = revealing && (!online || timerDone || !arena);
 
   useEffect(() => {
@@ -2307,6 +2387,16 @@ export function MatchPanel({
   }, [fs]);
 
   if (!current && !revealing) return null;
+  // Full screen is mandatory.
+  if (!fs) return <FullscreenGate />;
+
+  const info = current as unknown as { ready_count?: number; you_ready?: boolean; started?: boolean } | null;
+  const firstKick = !!current && current.kick_number === 1;
+  const started = !current
+    ? true
+    : online
+      ? (info?.started ?? true)
+      : !firstKick || startedMatches.has(match.id);
 
   const shown = revealing ? arena : live;
   const sameMatch = revealMatchId === match.id;
@@ -2318,25 +2408,54 @@ export function MatchPanel({
       ? rewind(match, reveal)
       : match;
 
+  const pressStart = () => {
+    if (online) {
+      onReady();
+    } else {
+      startedMatches.add(match.id);
+      setStartTick((tick) => tick + 1);
+    }
+  };
+
   let stage: ReactNode = null;
   if (canReveal && reveal) {
     stage = (
-      <div className={fs ? "absolute inset-0" : "relative"}>
-        <div className={fs ? "relative h-full w-full" : "relative"}>
+      <div className="absolute inset-0">
+        <div className="relative h-full w-full">
           <GoalScene
             key={revealKey}
             result={{ shot: reveal.shot_zone, dive: reveal.dive_zone, outcome: reveal.outcome }}
-            fullscreen={fs}
+            fullscreen
             shooterName={reveal.shooter.name}
             keeperName={reveal.keeper.name}
           />
-          <ResultBanner kick={reveal} fs={fs} />
+          <ResultBanner kick={reveal} fs />
+        </div>
+      </div>
+    );
+  } else if (!revealing && live && !started) {
+    stage = (
+      <div className="absolute inset-0">
+        <div className="relative h-full w-full">
+          <GoalScene
+            role={live.role === "wait" ? null : live.role}
+            disabled
+            fullscreen
+            shooterName={live.shooter.name}
+            keeperName={live.keeper.name}
+          />
+          <ReadyPanel
+            online={online}
+            count={info?.ready_count ?? 0}
+            youReady={!!info?.you_ready}
+            onStart={pressStart}
+          />
         </div>
       </div>
     );
   } else if (shown) {
     stage = (
-      <div className={fs ? "absolute inset-0" : "relative"}>
+      <div className="absolute inset-0">
         <SwipeArena
           key={shown.key}
           role={shown.role}
@@ -2345,7 +2464,7 @@ export function MatchPanel({
           error={error}
           onCommit={onCommit}
           onTimerEnd={() => setTimerDone(true)}
-          fs={fs}
+          fs
           shooterName={shown.shooter.name}
           keeperName={shown.keeper.name}
         />
@@ -2355,82 +2474,17 @@ export function MatchPanel({
 
   return (
     <section
-      className={
-        fs ? "fixed inset-0 overflow-hidden bg-[#03060c] text-white" : "mx-auto max-w-xl space-y-3 pt-12"
-      }
-      style={fs ? { zIndex: 2147482000 } : undefined}
+      className="fixed inset-0 overflow-hidden bg-[#03060c] text-white"
+      style={{ zIndex: 2147482000 }}
     >
-      {/* Scoreboard */}
-      {!fs && hudMatch && (
-        <div className="rounded-2xl border border-border bg-surface px-4 py-3">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-            <p className="truncate text-center text-sm font-black sm:text-lg">
-              {hudMatch.name_a}
-              {mySeat === hudMatch.seat_a && <span className="text-foreground/60"> (You)</span>}
-            </p>
-            <div className="flex items-center gap-3 text-4xl font-black tabular-nums sm:text-5xl">
-              <span>{hudMatch.score_a}</span>
-              <span className="text-foreground/50">–</span>
-              <span>{hudMatch.score_b}</span>
-            </div>
-            <p className="truncate text-center text-sm font-black sm:text-lg">
-              {hudMatch.name_b}
-              {mySeat === hudMatch.seat_b && <span className="text-foreground/60"> (You)</span>}
-            </p>
-          </div>
-          <p className="mt-1 text-center text-[11px] font-bold uppercase tracking-wider text-foreground/65">
-            {hudMatch.round_name}
-            {current && ` · Kick ${current.kick_number}`}
-            {current?.sudden_death && " · Sudden death"}
-          </p>
-        </div>
-      )}
-
       {stage}
-
-      {!fs && error && <ErrorMessage message={error} />}
-
-      {!fs && shown && (
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { key: "s", player: shown.shooter, icon: <Footprints size={13} /> },
-            { key: "k", player: shown.keeper, icon: <Shield size={13} /> },
-          ].map((item) => (
-            <div key={item.key} className="flex items-center gap-2 rounded-2xl border border-border bg-surface p-2">
-              <Avatar name={item.player.name} src={item.player.image_url} className="h-10 w-10 rounded-lg text-sm" />
-              <div className="min-w-0">
-                <p className="flex items-center gap-1 truncate text-xs font-black">
-                  <span className="text-accent-text">{item.icon}</span>
-                  {item.player.name}
-                </p>
-                <p className="text-[11px] text-foreground/65">{item.player.ovr_rating} OVR</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!fs && hudMatch && <ShootoutTracker match={hudMatch} mySeat={mySeat} />}
-
-      {!fs && (
-        <button
-          type="button"
-          onClick={onConcede}
-          className="mx-auto flex items-center gap-2 text-xs font-semibold text-foreground/60 transition hover:text-red-600 dark:hover:text-red-300"
-        >
-          Leave this match
-        </button>
-      )}
-
-      {fs && (
-        <StageHud
-          match={hudMatch}
-          mySeat={mySeat}
-          shooter={shown?.shooter ?? null}
-          keeper={shown?.keeper ?? null}
-          error={error}
-        />
-      )}
+      <StageHud
+        match={hudMatch}
+        mySeat={mySeat}
+        shooter={shown?.shooter ?? null}
+        keeper={shown?.keeper ?? null}
+        error={error}
+      />
     </section>
   );
 }

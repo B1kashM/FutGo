@@ -25,7 +25,6 @@ import type {
   ZoneKey,
 } from "../_penalties/penaltiesShared";
 import {
-  BracketView,
   ChampionScreen,
   DraftScreen,
   ErrorMessage,
@@ -37,6 +36,7 @@ import {
   SquadDrawer,
   SquadRevealScreen,
   WaitingPanel,
+  enterStage,
 } from "../_penalties/PenaltiesUI";
 
 // How often an online player asks the server for news (milliseconds).
@@ -326,6 +326,8 @@ export default function PenaltiesPage() {
   const squadsSeen =
     typeof window === "undefined" ? true : window.sessionStorage.getItem(seenKey) === "1";
   const continueFromSquads = () => {
+    // Full screen is mandatory: open it from this tap (browsers need a user gesture).
+    enterStage();
     try {
       window.sessionStorage.setItem(seenKey, "1");
     } catch {
@@ -412,6 +414,17 @@ export default function PenaltiesPage() {
         }
       };
 
+      // Start button: tells the server this player is ready (online, first kick of a match).
+      const ready = () => {
+        if (!actingSeat) return;
+        const marker = "READY" as ZoneKey;
+        if (role === "shoot") {
+          act(actingSeat, (code, token) => penaltiesApi.shoot(code, token, marker));
+        } else if (role === "dive") {
+          act(actingSeat, (code, token) => penaltiesApi.dive(code, token, marker));
+        }
+      };
+
       if (needsHandoff && actingSeat) {
         body = (
           <HandoffScreen
@@ -422,36 +435,19 @@ export default function PenaltiesPage() {
         );
       } else {
         body = (
-          <>
-            <MatchPanel
-              match={match}
-              mySeat={mySeat}
-              role={role}
-              online={!isLocal}
-              loading={loading}
-              error={error}
-              onCommit={commit}
-              squads={panelSquads}
-              reveal={revealOn && overlay ? overlay.kick : null}
-              revealMatchId={overlay?.matchId ?? null}
-              onRevealDone={() => setOverlay(null)}
-              onConcede={() => {
-                if (!actingSeat) return;
-                if (window.confirm("Leave this match? Your opponent will win it.")) {
-                  act(actingSeat, (code, token) => penaltiesApi.concede(code, token));
-                }
-              }}
-            />
-
-            <div className="mx-auto mt-8 max-w-xl">
-              <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-accent-text">
-                Tournament
-              </p>
-              <div className="rounded-3xl border border-border bg-surface p-4">
-                <BracketView rounds={state.bracket ?? []} mySeat={mySeat} />
-              </div>
-            </div>
-          </>
+          <MatchPanel
+            match={match}
+            mySeat={mySeat}
+            role={role}
+            online={!isLocal}
+            loading={loading}
+            error={error}
+            onCommit={commit}
+            onReady={ready}
+            reveal={revealOn && overlay ? overlay.kick : null}
+            revealMatchId={overlay?.matchId ?? null}
+            onRevealDone={() => setOverlay(null)}
+          />
         );
       }
     } else {
