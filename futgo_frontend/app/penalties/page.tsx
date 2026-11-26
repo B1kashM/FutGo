@@ -30,19 +30,17 @@ import {
   DraftScreen,
   ErrorMessage,
   HandoffScreen,
-  KickResultOverlay,
   LobbyScreen,
   MatchPanel,
   PenaltyShell,
   SetupScreen,
   SquadDrawer,
+  SquadRevealScreen,
   WaitingPanel,
 } from "../_penalties/PenaltiesUI";
 
 // How often an online player asks the server for news (milliseconds).
 const POLL_MS = 1500;
-// How long the kick result popup stays open in online games.
-const RESULT_AUTO_CLOSE_MS = 5000;
 
 type SquadSet = { name: string; players: SquadPlayer[] };
 type SquadMap = Record<string, SquadPlayer[]>;
@@ -59,10 +57,12 @@ export default function PenaltiesPage() {
   // Local play: which seat is holding the phone right now.
   const [holder, setHolder] = useState<Seat | null>(null);
 
+  // The kick that was just played and still has to be replayed on the stage.
   const [overlay, setOverlay] = useState<{ kick: Kick; matchId: number } | null>(null);
   const [squadSets, setSquadSets] = useState<SquadSet[] | null>(null);
-  // Local play: both squads, used to draw the line-up pitch before every kick.
+  // Local play: both squads (online games get them from the server state).
   const [localSquads, setLocalSquads] = useState<SquadMap | null>(null);
+  const [, setSeenTick] = useState(0);
 
   const versionRef = useRef(0);
   const seenKickRef = useRef("");
@@ -166,7 +166,7 @@ export default function PenaltiesPage() {
     };
   }, [session, gameOver, applyState, resetGame, online]);
 
-  /* ----------------------- squads for the line-up pitch ------------------- */
+  /* ----------------------- squads for local play ------------------------- */
 
   // Local play holds both squads on one device: load them once the match phase starts.
   const status = state?.status;
@@ -179,7 +179,9 @@ export default function PenaltiesPage() {
       .then(([a, b]) => {
         if (!cancelled) setLocalSquads({ "1": a.squad, "2": b.squad });
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setLocalSquads({});
+      });
     return () => {
       cancelled = true;
     };
@@ -192,6 +194,7 @@ export default function PenaltiesPage() {
     initializedRef.current = false;
     setSession(next);
     setHolder(null);
+    setOverlay(null);
     setLocalSquads(null);
     applyState(first);
   };
@@ -220,6 +223,21 @@ export default function PenaltiesPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Rematch: same settings, fresh game. Online, you get a new room and share its code again.
+  const handleRematch = async () => {
+    if (!state) return;
+    const isLocalGame = state.mode === "LOCAL";
+    const body: CreateBody = {
+      mode: state.mode as CreateBody["mode"],
+      squad_mode: state.squad_mode as CreateBody["squad_mode"],
+      player1_name: isLocalGame ? (state.players[0]?.name ?? "Player 1") : state.you.name,
+      player2_name: isLocalGame ? (state.players[1]?.name ?? "Player 2") : undefined,
+      category: state.category,
+      max_players: state.max_players,
+    };
+    await handleCreate(body);
   };
 
   const act = async (
@@ -294,16 +312,30 @@ export default function PenaltiesPage() {
   const mySeat: Seat | null = isLocal ? null : session.seat;
   const actingSeat: Seat | null = isLocal ? actingSeatOf(state) : session.seat;
 
-  // Squads by seat. Online: whatever the server sends plus your own squad.
-  // The pitch falls back to the shooter and keeper cards when a squad is missing.
+  // Squads by seat. Online: sent by the server while the tournament runs.
   const panelSquads: SquadMap | null = isLocal
     ? localSquads
     : {
         ...(state.squads ?? {}),
         ...(mySeat && state.squad?.length ? { [String(mySeat)]: state.squad } : {}),
       };
+  const hasSquads = !!panelSquads && Object.values(panelSquads).some((list) => list.length > 0);
 
-  const closeOverlay = () => setOverlay(null);
+  // Every player sees the squads once, after the game is set up and before the first penalty.
+  const seenKey = `penalties-squads-${session.roomCode}`;
+  const squadsSeen =
+    typeof window === "undefined" ? true : window.sessionStorage.getItem(seenKey) === "1";
+  const continueFromSquads = () => {
+    try {
+      window.sessionStorage.setItem(seenKey, "1");
+    } catch {
+      // Private mode: the screen simply shows once per page load.
+    }
+    setSeenTick((tick) => tick + 1);
+  };
+
+  const revealOn =
+    !!overlay && !!state.match && (state.status === "ACTIVE" || state.status === "FINISHED");
 
   let body: React.ReactNode = null;
 
@@ -325,33 +357,52 @@ export default function PenaltiesPage() {
         }}
       />
     );
-  } else if (state.status === "FINISHED") {
-    body = <ChampionScreen state={state} onNewGame={resetGame} />;
+  } else if (state.status === "ACTIVE" && !squadsSeen && isLocal && !localSquads) {
+    body = (
+      <div className="flex items-center justify-center py-32 text-sm text-foreground/70">
+        Loading squads...
+      </div>
+    );
+  } else if (state.status === "ACTIVE" && !squadsSeen && hasSquads && panelSquads) {
+    body = (
+      <SquadRevealScreen
+        players={state.players}
+        squads={panelSquads}
+        mySeat={mySeat}
+        onContinue={continueFromSquads}
+      />
+    );
+  } else if (state.status === "FINISHED" && !revealOn) {
+    body = (
+      <ChampionScreen
+        state={state}
+        loading={loading}
+        onRematch={handleRematch}
+        onLeave={resetGame}
+      />
+    );
   } else {
-    // ACTIVE: the tournament is running
+    // ACTIVE: the tournament is running (or the last kick is still being replayed)
     const match = state.match;
     const live = !!match && match.status === "ACTIVE" && !!match.current;
 
-    if (live && match && match.current) {
+    if (match && (live || revealOn)) {
       const current = match.current;
 
       let role: "shoot" | "dive" | "wait" = "wait";
-      if (isLocal) {
-        role = match.phase === "SHOOT" ? "shoot" : "dive";
-      } else if (state.available_action === "shoot") {
-        role = "shoot";
-      } else if (state.available_action === "dive") {
-        role = "dive";
+      if (current) {
+        if (isLocal) {
+          role = match.phase === "SHOOT" ? "shoot" : "dive";
+        } else {
+          // Online both players pick at the same time: you are the shooter or the keeper.
+          role = current.attacker_seat === session.seat ? "shoot" : "dive";
+        }
       }
 
-      const waitText =
-        state.available_action === "wait_for_keeper"
-          ? `Shot locked. ${current.keeper_name} is diving...`
-          : `${current.attacker_name} is shooting...`;
+      const needsHandoff =
+        isLocal && live && !overlay && actingSeat !== null && holder !== actingSeat;
 
-      const needsHandoff = isLocal && !overlay && actingSeat !== null && holder !== actingSeat;
-
-      // Called by the pitch when a player swipes (or when the dive timer runs out).
+      // Called by the pitch when a player swipes (or when the 5 second timer runs out).
       const commit = (zone: ZoneKey) => {
         if (!actingSeat) return;
         if (role === "shoot") {
@@ -376,11 +427,14 @@ export default function PenaltiesPage() {
               match={match}
               mySeat={mySeat}
               role={role}
-              waitText={waitText}
+              online={!isLocal}
               loading={loading}
               error={error}
               onCommit={commit}
               squads={panelSquads}
+              reveal={revealOn && overlay ? overlay.kick : null}
+              revealMatchId={overlay?.matchId ?? null}
+              onRevealDone={() => setOverlay(null)}
               onConcede={() => {
                 if (!actingSeat) return;
                 if (window.confirm("Leave this match? Your opponent will win it.")) {
@@ -438,16 +492,6 @@ export default function PenaltiesPage() {
       )}
 
       {body}
-
-      {overlay && state.match && (
-        <KickResultOverlay
-          key={`${overlay.matchId}-${overlay.kick.number}`}
-          kick={overlay.kick}
-          match={state.match}
-          autoCloseMs={isLocal ? undefined : RESULT_AUTO_CLOSE_MS}
-          onClose={closeOverlay}
-        />
-      )}
 
       {squadSets && <SquadDrawer sets={squadSets} onClose={() => setSquadSets(null)} />}
     </PenaltyShell>

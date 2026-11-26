@@ -90,6 +90,7 @@ class PenaltyMatch(models.Model):
     phase = models.CharField(max_length=10, default="SHOOT")  # SHOOT / DIVE / DONE
     pending_shot = models.CharField(max_length=20, blank=True, default="")
     dive_deadline = models.DateTimeField(null=True, blank=True)
+    pending_dive = models.CharField(max_length=10, blank=True, default="")
 
     score_a = models.PositiveSmallIntegerField(default=0)
     score_b = models.PositiveSmallIntegerField(default=0)

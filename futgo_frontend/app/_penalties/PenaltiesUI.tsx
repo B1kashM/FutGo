@@ -192,8 +192,29 @@ function StageToggle({
 /* ================================================================== */
 
 export function PenaltyShell({ children }: { children: ReactNode }) {
+  // Stop iOS Safari from zooming when an input is focused or the phone is rotated.
+  useEffect(() => {
+    let meta = document.querySelector('meta[name="viewport"]');
+    const created = !meta;
+    const previous = meta?.getAttribute("content") ?? null;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "viewport");
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute(
+      "content",
+      "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
+    );
+    return () => {
+      if (created) meta?.remove();
+      else if (previous !== null) meta?.setAttribute("content", previous);
+    };
+  }, []);
+
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <style>{`html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; } input, select, textarea { font-size: 16px; }`}</style>
       <div className="brand-bar h-1.5 w-full" />
       <div className="relative mx-auto max-w-5xl px-4 pb-12 pt-4 sm:px-6 lg:px-8">
         <Link
@@ -342,7 +363,7 @@ function Choice({
 }
 
 const inputClass =
-  "w-full rounded-xl border-2 border-border bg-surface-2 px-4 py-3 text-sm font-semibold text-foreground outline-none transition placeholder:text-foreground/50 focus:border-accent focus:ring-2 focus:ring-accent/25";
+  "w-full rounded-xl border-2 border-border bg-surface-2 px-4 py-3 text-base font-semibold text-foreground outline-none transition placeholder:text-foreground/50 focus:border-accent focus:ring-2 focus:ring-accent/25";
 
 function Label({ children }: { children: ReactNode }) {
   return (
@@ -1105,33 +1126,22 @@ function Stadium() {
   );
 }
 
-function NameTag({ text, color, size = 10 }: { text: string; color: string; size?: number }) {
-  const label = text.length > 17 ? `${text.slice(0, 16)}…` : text;
-  const width = Math.max(44, label.length * (size * 0.62) + 16);
-  const height = size + 7;
+/** Small plain label (no box, no border): just a surname with a soft dark outline for contrast. */
+function NameTag({ text, color, size = 8 }: { text: string; color: string; size?: number }) {
   return (
-    <g>
-      <rect
-        x={-width / 2}
-        y={-height / 2}
-        width={width}
-        height={height}
-        rx={height / 2}
-        fill="rgba(2,6,23,0.86)"
-        stroke={color}
-        strokeWidth="1.4"
-      />
-      <text
-        textAnchor="middle"
-        y={size * 0.36}
-        fontSize={size}
-        fontWeight="900"
-        fill="white"
-        style={{ letterSpacing: 0.3 }}
-      >
-        {label}
-      </text>
-    </g>
+    <text
+      textAnchor="middle"
+      fontSize={size}
+      fontWeight={800}
+      fill={color}
+      stroke="rgba(0,0,0,0.7)"
+      strokeWidth={2.2}
+      strokeLinejoin="round"
+      paintOrder="stroke"
+      style={{ letterSpacing: 0.4 }}
+    >
+      {text}
+    </text>
   );
 }
 
@@ -1227,7 +1237,7 @@ export function GoalScene({
   // The taker stands next to the ball and takes a small step in on the replay.
   const taker = { x: SPOT.x - 24, y: SPOT.y - 2 };
   const takerMove = result && go ? { x: taker.x + 14, y: taker.y - 12 } : taker;
-  const tagSize = fullscreen ? 11 : 10;
+  const tagSize = fullscreen ? 9 : 8;
 
   return (
     <div
@@ -1334,9 +1344,9 @@ export function GoalScene({
           strokeLinejoin="round"
         />
 
-        {/* Faint zone lines while it is your turn */}
+        {/* Soft zone lines while it is your turn */}
         {interactive && (
-          <g stroke="white" strokeOpacity="0.35" strokeDasharray="4 5">
+          <g stroke="white" strokeOpacity="0.16" strokeWidth="1.5">
             <line x1={GX + CW} y1={GY} x2={GX + CW} y2={LINE_Y} />
             <line x1={GX + 2 * CW} y1={GY} x2={GX + 2 * CW} y2={LINE_Y} />
           </g>
@@ -1353,7 +1363,7 @@ export function GoalScene({
               fill="none"
               stroke="#38bdf8"
               strokeWidth="3"
-              strokeDasharray="6 4"
+              strokeOpacity="0.75"
             />
             <rect
               x={zoneRect(result.shot).x}
@@ -1399,19 +1409,19 @@ export function GoalScene({
           <circle cx="22" cy="-13" r="4.5" fill="#fde047" />
         </g>
 
-        {/* Goalkeeper name: follows the keeper and always stays above his head */}
+        {/* Goalkeeper surname: small plain text that follows the keeper above his head */}
         {keeperName && (
           <g
             style={{
-              transform: `translate(${keeper.x}px, ${keeper.y - 34}px)`,
+              transform: `translate(${keeper.x}px, ${keeper.y - 24}px)`,
               transition: `transform ${MOVE}`,
             }}
           >
-            <NameTag text={keeperName} color="#38bdf8" size={tagSize} />
+            <NameTag text={lastName(keeperName)} color="#e0f2fe" size={tagSize} />
           </g>
         )}
 
-        {/* Penalty taker standing at the ball, with a name tag and a bobbing marker */}
+        {/* Penalty taker standing at the ball, surname above his head */}
         {shooterName && (
           <g
             style={{
@@ -1426,49 +1436,35 @@ export function GoalScene({
             <circle cx="0" cy="-15" r="6" fill="#e8b98f" />
             <line x1="-9" y1="-3" x2="-15" y2="7" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
             <line x1="9" y1="-3" x2="15" y2="7" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
-            <g transform="translate(0 -36)">
-              <NameTag text={shooterName} color="#fbbf24" size={tagSize} />
-            </g>
-            <g transform="translate(0 -52)">
-              <g className="pg-bob">
-                <polygon points="-5,-3 5,-3 0,4" fill="#fbbf24" stroke="#78350f" strokeWidth="1" strokeLinejoin="round" />
-              </g>
+            <g transform="translate(0 -25)">
+              <NameTag text={lastName(shooterName)} color="#fef3c7" size={tagSize} />
             </g>
           </g>
         )}
 
-        {/* Swipe cue for the shooter: left, up or right */}
+        {/* Swipe cue for the shooter: soft translucent hints (left, up, right) */}
         {interactive && role === "shoot" && !drag && (
           <g
             className="animate-pulse"
             stroke="white"
-            strokeOpacity="0.6"
-            strokeWidth="3"
-            strokeDasharray="4 6"
+            strokeOpacity="0.14"
+            strokeWidth="14"
             strokeLinecap="round"
             fill="none"
           >
-            <path d="M200 204 L128 150" />
-            <path d="M200 204 L200 150" />
-            <path d="M200 204 L272 150" />
+            <path d="M200 206 L132 152" />
+            <path d="M200 206 L200 152" />
+            <path d="M200 206 L268 152" />
           </g>
         )}
 
-        {/* Swipe trail */}
+        {/* Swipe effect: a translucent glowing streak that follows the finger */}
         {drag && (
-          <g>
-            <line
-              x1={drag.x1}
-              y1={drag.y1}
-              x2={drag.x2}
-              y2={drag.y2}
-              stroke="white"
-              strokeWidth="3"
-              strokeDasharray="2 6"
-              strokeLinecap="round"
-              opacity="0.9"
-            />
-            <circle cx={drag.x2} cy={drag.y2} r="7" fill={accent} stroke="white" strokeWidth="2" />
+          <g pointerEvents="none">
+            <line x1={drag.x1} y1={drag.y1} x2={drag.x2} y2={drag.y2} stroke="white" strokeOpacity="0.14" strokeWidth="26" strokeLinecap="round" />
+            <line x1={drag.x1} y1={drag.y1} x2={drag.x2} y2={drag.y2} stroke={accent} strokeOpacity="0.3" strokeWidth="11" strokeLinecap="round" />
+            <circle cx={drag.x2} cy={drag.y2} r="17" fill={accent} fillOpacity="0.28" />
+            <circle cx={drag.x2} cy={drag.y2} r="6" fill="white" fillOpacity="0.55" />
           </g>
         )}
 
@@ -1707,7 +1703,8 @@ function PitchCard({
   );
 }
 
-function LineupIntro({
+/** Line-up preview pitch. No longer shown before a kick; kept for reuse. */
+export function LineupIntro({
   fs,
   shooter,
   keeper,
@@ -1892,7 +1889,9 @@ function LineupIntro({
 /* The match panel (swipe to shoot / dive)                             */
 /* ================================================================== */
 
-const DIVE_SECONDS = 5;
+const DIVE_SECONDS = 10;
+// How long the shot / dive replay plays inside the stage before the next kick.
+const REVEAL_MS = 3400;
 
 function Countdown({ left, className = "right-3 top-3" }: { left: number; className?: string }) {
   const R = 18;
@@ -1919,31 +1918,44 @@ function Countdown({ left, className = "right-3 top-3" }: { left: number; classN
   );
 }
 
+/**
+ * The pitch where a player swipes. Online, shooter and keeper both pick at the same time and
+ * both get 5 seconds; at zero a random zone is sent for anyone who has not chosen.
+ * Local play shares one phone, so only the keeper is timed there.
+ */
 function SwipeArena({
   role,
-  waitText,
+  online,
   loading,
   error,
   onCommit,
+  onTimerEnd,
   fs,
   shooterName,
   keeperName,
 }: {
   role: "shoot" | "dive" | "wait";
-  waitText: string;
+  online: boolean;
   loading: boolean;
   error: string;
   onCommit: (zone: ZoneKey) => void;
+  onTimerEnd: () => void;
   fs: boolean;
   shooterName: string;
   keeperName: string;
 }) {
+  const timed = role !== "wait" && (online || role === "dive");
   const [locked, setLocked] = useState<ZoneKey | null>(null);
+  const [ended, setEnded] = useState(false);
   const [left, setLeft] = useState(DIVE_SECONDS);
+  const lockedRef = useRef<ZoneKey | null>(null);
   const commitRef = useRef(onCommit);
+  const endRef = useRef(onTimerEnd);
 
   useEffect(() => {
     commitRef.current = onCommit;
+    endRef.current = onTimerEnd;
+    lockedRef.current = locked;
   });
 
   // If the server rejects the move, let the player swipe again.
@@ -1951,9 +1963,8 @@ function SwipeArena({
     if (error) setLocked(null);
   }, [error]);
 
-  // 5 second timer for the goalkeeper. When it ends, a random dive is sent.
   useEffect(() => {
-    if (role !== "dive" || locked) return undefined;
+    if (!timed) return undefined;
     setLeft(DIVE_SECONDS);
     const end = Date.now() + DIVE_SECONDS * 1000;
     const id = window.setInterval(() => {
@@ -1961,54 +1972,38 @@ function SwipeArena({
       setLeft(remaining / 1000);
       if (remaining === 0) {
         window.clearInterval(id);
-        const zone = ZONE_KEYS[Math.floor(Math.random() * ZONE_KEYS.length)];
-        setLocked(zone);
-        commitRef.current(zone);
+        if (!lockedRef.current) {
+          const zone = ZONE_KEYS[Math.floor(Math.random() * ZONE_KEYS.length)];
+          lockedRef.current = zone;
+          setLocked(zone);
+          commitRef.current(zone);
+        }
+        setEnded(true);
+        endRef.current();
       }
     }, 100);
     return () => window.clearInterval(id);
-  }, [role, locked]);
+  }, [timed]);
 
   const swipe = (zone: ZoneKey) => {
-    if (locked) return;
+    if (locked || ended) return;
     setLocked(zone);
     onCommit(zone);
   };
-
-  const pill =
-    role === "wait"
-      ? waitText
-      : locked
-        ? role === "shoot"
-          ? "Shot locked"
-          : "Dive locked"
-        : role === "shoot"
-          ? "Swipe to shoot"
-          : "Swipe to dive";
 
   return (
     <div className={fs ? "relative h-full w-full" : "relative"}>
       <GoalScene
         role={role === "wait" ? null : role}
         locked={locked}
+        disabled={ended}
         onSwipe={swipe}
         fullscreen={fs}
         shooterName={shooterName}
         keeperName={keeperName}
       />
 
-      <span
-        className={`absolute flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-white backdrop-blur ${
-          fs ? "bottom-[4.5rem] left-1/2 -translate-x-1/2 border border-white/20 text-xs" : "left-3 top-3"
-        }`}
-      >
-        {role === "wait" && <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />}
-        {pill}
-      </span>
-
-      {role === "dive" && !locked && (
-        <Countdown left={left} className={fs ? "right-3 top-16" : "right-3 top-3"} />
-      )}
+      {timed && !ended && <Countdown left={left} className={fs ? "right-3 top-16" : "right-3 top-3"} />}
 
       <StageToggle
         fs={fs}
@@ -2022,136 +2017,156 @@ function SwipeArena({
 
       {loading && (
         <span
-          className={`absolute flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white ${
+          className={`absolute flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white ${
             fs ? "left-1/2 top-3 -translate-x-1/2" : "bottom-3 left-3"
           }`}
         >
-          <LoaderCircle size={18} className="animate-spin" />
+          <LoaderCircle size={16} className="animate-spin" />
         </span>
       )}
     </div>
   );
 }
 
-/** Broadcast style scoreboard (top left) and player chips for the full screen stage. */
+/** GOAL! / SAVED! banner shown on top of the replay. */
+function ResultBanner({ kick, fs }: { kick: Kick; fs: boolean }) {
+  const meta = OUTCOME_META[kick.outcome];
+  return (
+    <div
+      className="pointer-events-none absolute inset-x-0 flex justify-center"
+      style={{ bottom: fs ? "15%" : "8%" }}
+    >
+      <style>{`
+        @keyframes pen-banner { from { opacity: 0; transform: scale(.8) } to { opacity: 1; transform: scale(1) } }
+        .pen-banner { animation: pen-banner .35s cubic-bezier(.2,.9,.25,1.1) both }
+      `}</style>
+      <span
+        className={`pen-banner rounded-full px-6 py-2 text-2xl font-black uppercase tracking-widest text-white shadow-2xl backdrop-blur sm:text-4xl ${
+          meta.scored ? "bg-emerald-500/80" : "bg-red-500/80"
+        }`}
+        style={{ animationDelay: "0.8s" }}
+      >
+        {meta.title}
+      </span>
+    </div>
+  );
+}
+
+/** Compact broadcast scoreboard (top left) and player chips for the full screen stage. */
 function StageHud({
   match,
   mySeat,
   shooter,
   keeper,
   error,
-  showChips,
 }: {
-  match: MatchDetail;
+  match: MatchDetail | null;
   mySeat: Seat | null;
-  shooter: PenPlayer;
-  keeper: PenPlayer;
+  shooter: PenPlayer | null;
+  keeper: PenPlayer | null;
   error: string;
-  showChips: boolean;
 }) {
-  const current = match.current;
-  const tracker = buildTracker(match);
-  const attacker = match.status === "ACTIVE" ? current?.attacker_seat : null;
+  const current = match?.current ?? null;
+  const tracker = match ? buildTracker(match) : null;
+  const attacker = match && match.status === "ACTIVE" ? current?.attacker_seat : null;
 
-  const rows = [
-    { seat: match.seat_a, name: match.name_a, slots: tracker.a, score: match.score_a },
-    { seat: match.seat_b, name: match.name_b, slots: tracker.b, score: match.score_b },
-  ];
+  const rows = match && tracker
+    ? [
+        { seat: match.seat_a, name: match.name_a, slots: tracker.a, score: match.score_a },
+        { seat: match.seat_b, name: match.name_b, slots: tracker.b, score: match.score_b },
+      ]
+    : [];
 
   const dot = (slot: TrackerSlot) => {
-    if (slot === "goal") return "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.8)]";
-    if (slot === "saved" || slot === "miss") return "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,.7)]";
+    if (slot === "goal") return "bg-emerald-400";
+    if (slot === "saved" || slot === "miss") return "bg-red-500";
     if (slot === "pending") return "animate-pulse bg-amber-300";
     return "bg-white/25";
   };
 
   return (
     <div className="pointer-events-none absolute inset-0 z-20">
+      <style>{`
+        .pen-board { width: min(10rem, 42vw); }
+        .pen-board .pb-name { font-size: 9px; }
+        .pen-board .pb-score { width: 1.35rem; height: 1.35rem; font-size: .9rem; }
+        .pen-board .pb-dot { width: 5px; height: 5px; }
+        .pen-board .pb-foot { font-size: 8px; padding: 2px 6px; }
+        @media (min-width: 768px) and (min-height: 560px) {
+          .pen-board { width: 17rem; }
+          .pen-board .pb-name { font-size: 11px; }
+          .pen-board .pb-score { width: 2rem; height: 2rem; font-size: 1.25rem; }
+          .pen-board .pb-dot { width: 8px; height: 8px; }
+          .pen-board .pb-foot { font-size: 10px; padding: 4px 10px; }
+        }
+      `}</style>
+
       {/* Vignette */}
       <div
         className="absolute inset-0"
         style={{ background: "radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.6) 100%)" }}
       />
 
-      {/* Scoreboard: top left, like a TV broadcast */}
-      <div
-        className="absolute w-[min(19rem,62vw)] overflow-hidden rounded-md border border-white/15 shadow-2xl"
-        style={{ left: "max(.75rem, env(safe-area-inset-left))", top: "max(.75rem, env(safe-area-inset-top))" }}
-      >
-        <div className="bg-black/80 backdrop-blur">
-          {rows.map((row) => (
-            <div
-              key={row.seat}
-              className={`flex items-center gap-2 border-b border-white/10 py-1.5 pl-2 pr-1.5 ${
-                attacker === row.seat ? "bg-amber-400/15" : ""
-              }`}
-            >
-              <span
-                className={`h-5 w-1 shrink-0 rounded-full ${attacker === row.seat ? "bg-amber-300" : "bg-white/20"}`}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-1 truncate text-[11px] font-black uppercase tracking-wide text-white">
-                  <span className="truncate">
+      {match && (
+        <div
+          className="pen-board absolute overflow-hidden rounded border border-white/15 shadow-xl"
+          style={{ left: "max(.5rem, env(safe-area-inset-left))", top: "max(.5rem, env(safe-area-inset-top))" }}
+        >
+          <div className="bg-black/70 backdrop-blur">
+            {rows.map((row) => (
+              <div
+                key={row.seat}
+                className={`flex items-center gap-1.5 border-b border-white/10 py-1 pl-1.5 pr-1 ${
+                  attacker === row.seat ? "bg-amber-400/15" : ""
+                }`}
+              >
+                <span className={`h-4 w-0.5 shrink-0 rounded-full ${attacker === row.seat ? "bg-amber-300" : "bg-white/20"}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="pb-name truncate font-black uppercase leading-tight tracking-wide text-white">
                     {row.name}
                     {mySeat === row.seat && <span className="text-white/55"> (You)</span>}
-                  </span>
-                  {attacker === row.seat && <span className="shrink-0 text-[10px]">⚽</span>}
-                </p>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {row.slots.map((slot, index) => (
-                    <span key={index} className={`h-2 w-2 rounded-full ${dot(slot)}`} />
-                  ))}
+                  </p>
+                  <div className="mt-0.5 flex flex-wrap gap-[3px]">
+                    {row.slots.map((slot, index) => (
+                      <span key={index} className={`pb-dot rounded-full ${dot(slot)}`} />
+                    ))}
+                  </div>
                 </div>
+                <span className="pb-score flex shrink-0 items-center justify-center rounded bg-white font-black tabular-nums text-black">
+                  {row.score}
+                </span>
               </div>
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-white text-xl font-black tabular-nums text-black">
-                {row.score}
-              </span>
-            </div>
-          ))}
+            ))}
+          </div>
+          <div className="pb-foot flex items-center justify-between gap-2 bg-accent font-black uppercase tracking-wider text-accent-ink">
+            <span className="truncate">{match.round_name}</span>
+            {current && <span className="shrink-0">Kick {current.kick_number}</span>}
+          </div>
         </div>
-        <div className="flex items-center justify-between gap-2 bg-accent px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-accent-ink">
-          <span className="truncate">{match.round_name}</span>
-          <span className="shrink-0">
-            Kick {current?.kick_number}
-            {current?.sudden_death && " · Sudden death"}
-          </span>
-        </div>
-      </div>
+      )}
 
       {/* Taker and keeper */}
-      {showChips && (
+      {shooter && keeper && (
         <>
           <div
-            className="absolute flex items-center gap-2 rounded-xl border border-amber-300/40 bg-black/70 p-1.5 pr-3 backdrop-blur"
-            style={{ left: "max(.75rem, env(safe-area-inset-left))", bottom: "max(.75rem, env(safe-area-inset-bottom))" }}
+            className="absolute flex items-center gap-1.5 rounded-lg bg-black/60 p-1 pr-2 backdrop-blur"
+            style={{ left: "max(.5rem, env(safe-area-inset-left))", bottom: "max(.5rem, env(safe-area-inset-bottom))" }}
           >
-            <Avatar name={shooter.name} src={shooter.image_url} className="h-10 w-10 rounded-lg text-sm" />
-            <div className="min-w-0">
-              <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-300">
-                <Footprints size={11} /> Shooter
-              </p>
-              <p className="max-w-[28vw] truncate text-xs font-black text-white sm:max-w-[10rem]">{shooter.name}</p>
-              <p className="text-[10px] text-white/60">{shooter.ovr_rating} OVR</p>
-            </div>
+            <Avatar name={shooter.name} src={shooter.image_url} className="h-8 w-8 rounded-md text-xs" />
+            <p className="max-w-[26vw] truncate text-[11px] font-black text-amber-200 sm:max-w-[10rem]">{shooter.name}</p>
           </div>
           <div
-            className="absolute flex items-center gap-2 rounded-xl border border-sky-300/40 bg-black/70 p-1.5 pl-3 backdrop-blur"
-            style={{ right: "max(.75rem, env(safe-area-inset-right))", bottom: "max(.75rem, env(safe-area-inset-bottom))" }}
+            className="absolute flex items-center gap-1.5 rounded-lg bg-black/60 p-1 pl-2 backdrop-blur"
+            style={{ right: "max(.5rem, env(safe-area-inset-right))", bottom: "max(.5rem, env(safe-area-inset-bottom))" }}
           >
-            <div className="min-w-0 text-right">
-              <p className="flex items-center justify-end gap-1 text-[10px] font-black uppercase tracking-wider text-sky-300">
-                Keeper <Shield size={11} />
-              </p>
-              <p className="max-w-[28vw] truncate text-xs font-black text-white sm:max-w-[10rem]">{keeper.name}</p>
-              <p className="text-[10px] text-white/60">{keeper.ovr_rating} OVR</p>
-            </div>
-            <Avatar name={keeper.name} src={keeper.image_url} className="h-10 w-10 rounded-lg text-sm" />
+            <p className="max-w-[26vw] truncate text-[11px] font-black text-sky-200 sm:max-w-[10rem]">{keeper.name}</p>
+            <Avatar name={keeper.name} src={keeper.image_url} className="h-8 w-8 rounded-md text-xs" />
           </div>
         </>
       )}
 
       {error && (
-        <div className="pointer-events-auto absolute bottom-28 left-1/2 w-[min(28rem,90vw)] -translate-x-1/2">
+        <div className="pointer-events-auto absolute bottom-14 left-1/2 w-[min(28rem,90vw)] -translate-x-1/2">
           <ErrorMessage message={error} />
         </div>
       )}
@@ -2159,33 +2174,126 @@ function StageHud({
   );
 }
 
+type ArenaSnap = {
+  key: string;
+  role: "shoot" | "dive" | "wait";
+  matchId: number;
+  kickNumber: number;
+  shooter: PenPlayer;
+  keeper: PenPlayer;
+  squad: SquadPlayer[];
+  teamName: string;
+  keeperTeam: string;
+  kickLabel: string;
+};
+
+/** The score and tracker as they were before the kick that is about to be replayed. */
+function rewind(match: MatchDetail, kick: Kick): MatchDetail {
+  const goal = kick.outcome === "GOAL" ? 1 : 0;
+  const isA = kick.seat === match.seat_a;
+  return {
+    ...match,
+    score_a: match.score_a - (isA ? goal : 0),
+    score_b: match.score_b - (isA ? 0 : goal),
+    kicks_a: match.kicks_a - (isA ? 1 : 0),
+    kicks_b: match.kicks_b - (isA ? 0 : 1),
+    kicks: match.kicks.filter((item) => item.number < kick.number),
+  };
+}
+
+/**
+ * One continuous stage:  pick (both players, 5 s)  ->  replay of the kick  ->  next kick.
+ * No popups and no Continue buttons: the replay plays on the same pitch (full screen or not)
+ * and moves on by itself.
+ */
 export function MatchPanel({
   match,
   mySeat,
   role,
-  waitText,
+  online,
   onCommit,
   loading,
   error,
   onConcede,
   squads,
+  reveal = null,
+  revealMatchId = null,
+  onRevealDone,
 }: {
   match: MatchDetail;
   mySeat: Seat | null;
   role: "shoot" | "dive" | "wait";
-  waitText: string;
-  /** Called once when the player swipes (or when the dive timer runs out). */
+  /** Online games: both players pick at the same time. */
+  online: boolean;
+  /** Called once when the player swipes (or when the timer runs out). */
   onCommit: (zone: ZoneKey) => void;
   loading: boolean;
   error: string;
   onConcede: () => void;
-  /** Squads by seat (state.squads). Used to draw the line-up before every kick. */
+  /** Squads by seat. Used to draw the line-up before the first kick of a match. */
   squads?: Record<string, SquadPlayer[]> | null;
+  /** The kick that was just played and still has to be replayed on the stage. */
+  reveal?: Kick | null;
+  revealMatchId?: number | null;
+  onRevealDone?: () => void;
 }) {
   const fs = useStage();
   const current = match.current;
-  const kickKey = current ? `${match.id}-${current.kick_number}` : "";
-  const [introSeen, setIntroSeen] = useState("");
+
+  const [arena, setArena] = useState<ArenaSnap | null>(null);
+  const [timerDone, setTimerDone] = useState(false);
+  const [scoreShown, setScoreShown] = useState(false);
+  const doneRef = useRef(onRevealDone);
+  useEffect(() => {
+    doneRef.current = onRevealDone;
+  });
+
+  let live: ArenaSnap | null = null;
+  if (current) {
+    const attackerIsA = current.attacker_seat === match.seat_a;
+    live = {
+      key: `${match.id}-${current.kick_number}-${role}`,
+      role,
+      matchId: match.id,
+      kickNumber: current.kick_number,
+      shooter: current.shooter as unknown as PenPlayer,
+      keeper: current.keeper as unknown as PenPlayer,
+      squad: squads?.[String(current.attacker_seat)] ?? [],
+      teamName: attackerIsA ? match.name_a : match.name_b,
+      keeperTeam: attackerIsA ? match.name_b : match.name_a,
+      kickLabel: `Kick ${current.kick_number}${current.sudden_death ? " · Sudden death" : ""}`,
+    };
+  }
+  const liveKey = live?.key ?? "";
+  const revealing = !!reveal;
+  const revealKey = reveal ? `${revealMatchId}-${reveal.number}` : "";
+
+  // Remember the kick being played, so its pitch stays on screen while the result comes in.
+  useEffect(() => {
+    if (reveal) return;
+    if (live && arena?.key !== live.key) {
+      setArena(live);
+      setTimerDone(false);
+    } else if (!live && arena) {
+      setArena(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reveal, liveKey]);
+
+  // Online: the replay starts only after both players' 5 seconds are over.
+  const canReveal = revealing && (!online || timerDone || !arena);
+
+  useEffect(() => {
+    setScoreShown(false);
+    if (!reveal || !canReveal) return undefined;
+    const scoreTimer = window.setTimeout(() => setScoreShown(true), 900);
+    const doneTimer = window.setTimeout(() => doneRef.current?.(), REVEAL_MS);
+    return () => {
+      window.clearTimeout(scoreTimer);
+      window.clearTimeout(doneTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealKey, canReveal]);
 
   // Lock page scrolling while the stage is open.
   useEffect(() => {
@@ -2198,16 +2306,52 @@ export function MatchPanel({
     };
   }, [fs]);
 
-  if (!current) return null;
+  if (!current && !revealing) return null;
 
-  const shooter = current.shooter as unknown as PenPlayer;
-  const keeper = current.keeper as unknown as PenPlayer;
-  const attackerIsA = current.attacker_seat === match.seat_a;
-  const teamName = attackerIsA ? match.name_a : match.name_b;
-  const keeperTeam = attackerIsA ? match.name_b : match.name_a;
-  const squad = squads?.[String(current.attacker_seat)] ?? [];
-  const showIntro = introSeen !== kickKey;
-  const kickLabel = `Kick ${current.kick_number}${current.sudden_death ? " · Sudden death" : ""}`;
+  const shown = revealing ? arena : live;
+  const sameMatch = revealMatchId === match.id;
+  const hideBoard = revealing && !sameMatch;
+  // Hold back the new score until the ball has reached the net.
+  const hudMatch: MatchDetail | null = hideBoard
+    ? null
+    : revealing && reveal && !scoreShown
+      ? rewind(match, reveal)
+      : match;
+
+  let stage: ReactNode = null;
+  if (canReveal && reveal) {
+    stage = (
+      <div className={fs ? "absolute inset-0" : "relative"}>
+        <div className={fs ? "relative h-full w-full" : "relative"}>
+          <GoalScene
+            key={revealKey}
+            result={{ shot: reveal.shot_zone, dive: reveal.dive_zone, outcome: reveal.outcome }}
+            fullscreen={fs}
+            shooterName={reveal.shooter.name}
+            keeperName={reveal.keeper.name}
+          />
+          <ResultBanner kick={reveal} fs={fs} />
+        </div>
+      </div>
+    );
+  } else if (shown) {
+    stage = (
+      <div className={fs ? "absolute inset-0" : "relative"}>
+        <SwipeArena
+          key={shown.key}
+          role={shown.role}
+          online={online}
+          loading={loading}
+          error={error}
+          onCommit={onCommit}
+          onTimerEnd={() => setTimerDone(true)}
+          fs={fs}
+          shooterName={shown.shooter.name}
+          keeperName={shown.keeper.name}
+        />
+      </div>
+    );
+  }
 
   return (
     <section
@@ -2217,69 +2361,40 @@ export function MatchPanel({
       style={fs ? { zIndex: 2147482000 } : undefined}
     >
       {/* Scoreboard */}
-      {!fs && (
+      {!fs && hudMatch && (
         <div className="rounded-2xl border border-border bg-surface px-4 py-3">
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
             <p className="truncate text-center text-sm font-black sm:text-lg">
-              {match.name_a}
-              {mySeat === match.seat_a && <span className="text-foreground/60"> (You)</span>}
+              {hudMatch.name_a}
+              {mySeat === hudMatch.seat_a && <span className="text-foreground/60"> (You)</span>}
             </p>
             <div className="flex items-center gap-3 text-4xl font-black tabular-nums sm:text-5xl">
-              <span>{match.score_a}</span>
+              <span>{hudMatch.score_a}</span>
               <span className="text-foreground/50">–</span>
-              <span>{match.score_b}</span>
+              <span>{hudMatch.score_b}</span>
             </div>
             <p className="truncate text-center text-sm font-black sm:text-lg">
-              {match.name_b}
-              {mySeat === match.seat_b && <span className="text-foreground/60"> (You)</span>}
+              {hudMatch.name_b}
+              {mySeat === hudMatch.seat_b && <span className="text-foreground/60"> (You)</span>}
             </p>
           </div>
           <p className="mt-1 text-center text-[11px] font-bold uppercase tracking-wider text-foreground/65">
-            {match.round_name} · Kick {current.kick_number}
-            {current.sudden_death && " · Sudden death"}
+            {hudMatch.round_name}
+            {current && ` · Kick ${current.kick_number}`}
+            {current?.sudden_death && " · Sudden death"}
           </p>
         </div>
       )}
 
-      {/* Line-up pitch first, then the swipe goal */}
-      {showIntro ? (
-        <LineupIntro
-          key={kickKey}
-          fs={fs}
-          shooter={shooter}
-          keeper={keeper}
-          squad={squad}
-          teamName={teamName}
-          keeperTeam={keeperTeam}
-          kickLabel={kickLabel}
-          role={role}
-          onDone={() => setIntroSeen(kickKey)}
-        />
-      ) : (
-        <div className={fs ? "absolute inset-0" : "relative"}>
-          {/* Swipe pitch (resets itself on every new kick / role) */}
-          <SwipeArena
-            key={`${match.id}-${current.kick_number}-${role}`}
-            role={role}
-            waitText={waitText}
-            loading={loading}
-            error={error}
-            onCommit={onCommit}
-            fs={fs}
-            shooterName={shooter.name}
-            keeperName={keeper.name}
-          />
-        </div>
-      )}
+      {stage}
 
       {!fs && error && <ErrorMessage message={error} />}
 
-      {/* Shooter vs keeper */}
-      {!fs && (
+      {!fs && shown && (
         <div className="grid grid-cols-2 gap-2">
           {[
-            { key: "s", player: current.shooter, icon: <Footprints size={13} /> },
-            { key: "k", player: current.keeper, icon: <Shield size={13} /> },
+            { key: "s", player: shown.shooter, icon: <Footprints size={13} /> },
+            { key: "k", player: shown.keeper, icon: <Shield size={13} /> },
           ].map((item) => (
             <div key={item.key} className="flex items-center gap-2 rounded-2xl border border-border bg-surface p-2">
               <Avatar name={item.player.name} src={item.player.image_url} className="h-10 w-10 rounded-lg text-sm" />
@@ -2295,7 +2410,7 @@ export function MatchPanel({
         </div>
       )}
 
-      {!fs && <ShootoutTracker match={match} mySeat={mySeat} />}
+      {!fs && hudMatch && <ShootoutTracker match={hudMatch} mySeat={mySeat} />}
 
       {!fs && (
         <button
@@ -2307,15 +2422,13 @@ export function MatchPanel({
         </button>
       )}
 
-      {/* Broadcast overlay of the full screen stage */}
       {fs && (
         <StageHud
-          match={match}
+          match={hudMatch}
           mySeat={mySeat}
-          shooter={shooter}
-          keeper={keeper}
+          shooter={shown?.shooter ?? null}
+          keeper={shown?.keeper ?? null}
           error={error}
-          showChips={!showIntro}
         />
       )}
     </section>
@@ -2594,6 +2707,80 @@ export function SquadDrawer({
 }
 
 /* ================================================================== */
+/* Squad reveal (shown to every player before the penalties start)     */
+/* ================================================================== */
+
+function MiniPitch({ squad }: { squad: SquadPlayer[] }) {
+  return (
+    <div
+      className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl border-2 border-white/70 shadow-xl"
+      style={{
+        containerType: "inline-size",
+        background: "repeating-linear-gradient(180deg,#15803d 0 12.5%,#16a34a 12.5% 25%)",
+      }}
+    >
+      <div className="pointer-events-none absolute inset-x-[20%] bottom-0 h-[18%] border-2 border-b-0 border-white/45" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[10%] bg-gradient-to-b from-black/25 to-transparent" />
+      {squad.map((player, index) => {
+        const spot = FORMATION[player.slot] ?? { x: 20 + (index % 5) * 15, y: 55 };
+        const y = 11 + ((spot.y - 31) * 78) / 61;
+        return <PitchCard key={`${player.slot}-${player.player_id}`} player={player} x={spot.x} y={y} />;
+      })}
+    </div>
+  );
+}
+
+export function SquadRevealScreen({
+  players,
+  squads,
+  mySeat,
+  onContinue,
+}: {
+  players: { seat: number; name: string }[];
+  squads: Record<string, SquadPlayer[]>;
+  mySeat: Seat | null;
+  onContinue: () => void;
+}) {
+  const teams = players
+    .filter((player) => (squads[String(player.seat)] ?? []).length > 0)
+    .sort((a, b) => Number(b.seat === mySeat) - Number(a.seat === mySeat));
+
+  return (
+    <section className="mx-auto max-w-4xl pb-24">
+      <PageTitle eyebrow="Squads are set" title="YOUR LINE-UPS." text="Take a look, then head to the penalty spot." />
+      <div className={`grid gap-5 ${teams.length > 1 ? "sm:grid-cols-2" : "mx-auto max-w-sm"} ${teams.length > 2 ? "lg:grid-cols-3" : ""}`}>
+        {teams.map((team) => (
+          <div key={team.seat}>
+            <p className="mb-2 flex items-center justify-between text-sm font-black">
+              <span className="truncate">
+                {team.name}
+                {mySeat === team.seat && <span className="text-foreground/60"> (You)</span>}
+              </span>
+              <span className="text-xs text-foreground/60">
+                {Math.round(
+                  (squads[String(team.seat)] ?? []).reduce((sum, p) => sum + p.ovr_rating, 0) /
+                    Math.max(1, (squads[String(team.seat)] ?? []).length),
+                )}{" "}
+                avg
+              </span>
+            </p>
+            <MiniPitch squad={squads[String(team.seat)] ?? []} />
+          </div>
+        ))}
+      </div>
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/90 p-3 backdrop-blur">
+        <div className="mx-auto max-w-sm">
+          <button type="button" onClick={onContinue} className={primaryButton}>
+            Continue
+            <ArrowRight size={18} />
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ================================================================== */
 /* Champion                                                            */
 /* ================================================================== */
 
@@ -2602,10 +2789,14 @@ const GOLD_LIGHT = "#f1dc8f";
 
 export function ChampionScreen({
   state,
-  onNewGame,
+  loading = false,
+  onRematch,
+  onLeave,
 }: {
   state: GameState;
-  onNewGame: () => void;
+  loading?: boolean;
+  onRematch: () => void;
+  onLeave: () => void;
 }) {
   const youWon = state.you_are_champion === true && state.mode === "ONLINE";
 
@@ -2615,68 +2806,59 @@ export function ChampionScreen({
   }, []);
 
   return (
-    <section className="mx-auto max-w-3xl pt-6">
-      <style>{`
-        @keyframes pen-halo { 0%,100% { transform: scale(1); opacity: .55 } 50% { transform: scale(1.18); opacity: 0 } }
-        @keyframes pen-rise { from { transform: translateY(16px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-        .pen-halo { animation: pen-halo 2.6s ease-out infinite }
-        .pen-rise { animation: pen-rise .7s ease-out both }
-      `}</style>
-
-      <div className="relative overflow-hidden rounded-[28px] border-2 border-border bg-surface p-6 text-center sm:p-10" style={{ borderColor: "rgba(212,175,55,0.6)" }}>
-        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(212,175,55,0.22), transparent 70%)" }} />
-
+    <section className="mx-auto max-w-sm pt-10">
+      <div
+        className="relative overflow-hidden rounded-2xl border-2 bg-surface p-4 text-center"
+        style={{ borderColor: "rgba(212,175,55,0.6)" }}
+      >
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(212,175,55,0.2), transparent 70%)" }}
+        />
         <div className="relative">
-          <p className="pen-rise text-[11px] font-semibold uppercase tracking-[0.4em] text-foreground/70">
-            Tournament complete
-          </p>
-
-          <div className="relative mx-auto mt-6 h-28 w-28">
-            <span className="pen-halo absolute inset-0 rounded-full" style={{ border: `2px solid ${GOLD}` }} />
-            <span
-              className="absolute inset-[8px] flex items-center justify-center rounded-full"
-              style={{ background: "linear-gradient(135deg, #f1dc8f, #d4af37)", boxShadow: "0 0 40px rgba(212,175,55,0.45)" }}
-            >
-              <Trophy size={46} strokeWidth={1.8} style={{ color: "#3a2c04" }} />
-            </span>
+          <div
+            className="mx-auto flex h-12 w-12 items-center justify-center rounded-full"
+            style={{ background: "linear-gradient(135deg, #f1dc8f, #d4af37)", boxShadow: "0 0 24px rgba(212,175,55,0.4)" }}
+          >
+            <Trophy size={24} strokeWidth={1.8} style={{ color: "#3a2c04" }} />
           </div>
-
-          <h1
-            className="pen-rise mt-6 bg-clip-text text-4xl font-black uppercase tracking-[0.14em] text-transparent sm:text-6xl"
+          <p
+            className="mt-2 bg-clip-text text-xl font-black uppercase tracking-[0.2em] text-transparent"
             style={{ backgroundImage: `linear-gradient(180deg, ${GOLD_LIGHT}, ${GOLD})` }}
           >
             {youWon ? "Victory" : "Champion"}
-          </h1>
-          <p className="pen-rise mt-3 flex items-center justify-center gap-2 break-words text-2xl font-black sm:text-3xl">
-            <Crown size={24} style={{ color: GOLD }} className="shrink-0" />
+          </p>
+          <p className="mt-1 flex items-center justify-center gap-1.5 break-words text-lg font-black">
+            <Crown size={16} style={{ color: GOLD }} className="shrink-0" />
             {state.champion_name ?? "Winner"}
           </p>
-          <p className="pen-rise mt-2 text-sm text-foreground/70">
-            {youWon
-              ? "You won the shootout tournament. Well played!"
-              : "Won the penalty shootout tournament."}
-          </p>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={onRematch}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-black text-accent-ink transition hover:brightness-110 disabled:opacity-50"
+            >
+              {loading ? <LoaderCircle size={15} className="animate-spin" /> : <RotateCcw size={15} />}
+              Rematch
+            </button>
+            <button
+              type="button"
+              onClick={onLeave}
+              className="rounded-xl border border-foreground/25 bg-surface-2 px-4 py-3 text-sm font-bold text-foreground/80 transition hover:bg-foreground/5"
+            >
+              Leave
+            </button>
+          </div>
         </div>
       </div>
 
-      {state.bracket && state.bracket.length > 0 && (
-        <Panel className="mt-5">
-          <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-accent-text">
-            Final bracket
-          </p>
+      {state.bracket && state.bracket.length > 1 && (
+        <Panel className="mt-4 p-3 sm:p-4">
           <BracketView rounds={state.bracket} mySeat={state.mode === "ONLINE" ? state.you.seat : null} />
         </Panel>
       )}
-
-      <div className="mt-6 flex flex-wrap justify-center gap-3">
-        <button type="button" onClick={onNewGame} className="flex items-center gap-2 rounded-xl bg-accent px-6 py-4 font-black text-accent-ink transition hover:brightness-110">
-          <RotateCcw size={17} />
-          New shootout
-        </button>
-        <Link href="/" className="rounded-xl border border-foreground/25 bg-surface px-6 py-4 font-semibold text-foreground/80 transition hover:bg-foreground/5">
-          Back home
-        </Link>
-      </div>
     </section>
   );
 }

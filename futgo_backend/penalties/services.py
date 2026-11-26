@@ -28,11 +28,18 @@ ALLOWED_PLAYER_COUNTS = (2, 3, 4, 5, 6)
 SQUAD_MODES = ("RANDOM", "DRAFT")
 REGULATION_KICKS = 5
 
-# Online games only: the goalkeeper has DIVE_SECONDS to swipe (the browser shows this timer
-# and dives at random when it hits zero). The server waits a little longer (DIVE_GRACE_SECONDS)
-# and then dives for the keeper, so a closed tab or lost connection can never freeze a match.
-DIVE_SECONDS = 5
-DIVE_GRACE_SECONDS = 4
+# Online games: the shooter AND the goalkeeper choose a zone at the same time. Both get
+# PICK_SECONDS in the browser (a random zone is sent for anyone who has not chosen when it
+# hits zero). The kick is played as soon as both choices are in. If one player's tab closes,
+# the server waits PICK_GRACE_SECONDS after the first choice and then picks at random for the
+# missing player, so a lost connection can never freeze a match.
+# (The very first kick of a match has no server deadline: players may still be reading the
+# squad screen, so the server simply waits for both choices.)
+PICK_SECONDS = 10
+PICK_GRACE_SECONDS = 4
+# Old names, kept in case other modules import them.
+DIVE_SECONDS = PICK_SECONDS
+DIVE_GRACE_SECONDS = PICK_GRACE_SECONDS
 
 # ------------------------------------------------------------------ tuning
 # Only three zones: LEFT, CENTER, RIGHT.
@@ -373,6 +380,7 @@ def _finish_match(game, match, winner, reason="SCORE"):
     match.status = "FINISHED"
     match.phase = "DONE"
     match.pending_shot = ""
+    match.pending_dive = ""
     match.dive_deadline = None
     match.winner_seat = winner
     match.end_reason = reason
@@ -476,7 +484,7 @@ def load_game(room_code, token, lock=False):
     if seat is None:
         raise PenaltyError("Invalid or missing seat token.", 403)
 
-    # Every request (polls included) first dives for any keeper whose time ran out.
+    # Every request (polls included) first plays the kick for any player whose time ran out.
     game = settle_expired(game)
     return game, seat
 
@@ -562,33 +570,64 @@ def _check_zone(zone):
     return zone
 
 
+def _after_online_pick(game, match):
+    """Play the kick as soon as both players have chosen. Otherwise start the grace timer."""
+    if match.pending_shot and match.pending_dive:
+        _resolve_kick(
+            game, match, _attacker_seat(match), match.pending_shot, match.pending_dive
+        )
+        return
+    # First kick of a match: no deadline (players may still be on the squad screen).
+    if match.dive_deadline is None and (match.kicks_a + match.kicks_b) > 0:
+        match.dive_deadline = timezone.now() + timedelta(
+            seconds=PICK_SECONDS + PICK_GRACE_SECONDS
+        )
+    match.save()
+
+
 def shoot(game, seat, zone):
     match = _my_active_match(game, seat)
-    if match.phase != "SHOOT":
-        raise PenaltyError("The shot is already locked in.", 409)
     if seat != _attacker_seat(match):
         raise PenaltyError("It is not your turn to shoot.", 403)
-    match.pending_shot = _check_zone(zone)
-    match.phase = "DIVE"
-    # Local games share one phone (there is a hand-over screen), so only online games get a deadline.
+    zone = _check_zone(zone)
+
     if game.mode == "ONLINE":
-        match.dive_deadline = timezone.now() + timedelta(
-            seconds=DIVE_SECONDS + DIVE_GRACE_SECONDS
-        )
-    else:
-        match.dive_deadline = None
+        # Shooter and keeper pick at the same time. A second request is ignored.
+        if match.pending_shot:
+            return
+        match.pending_shot = zone
+        _after_online_pick(game, match)
+        _touch(game)
+        return
+
+    # Local: one phone, so the keeper picks after the shooter (hand-over screen in between).
+    if match.phase != "SHOOT":
+        raise PenaltyError("The shot is already locked in.", 409)
+    match.pending_shot = zone
+    match.phase = "DIVE"
+    match.dive_deadline = None
     match.save()
     _touch(game)
 
 
 def dive(game, seat, zone):
     match = _my_active_match(game, seat)
-    if match.phase != "DIVE":
-        raise PenaltyError("The shooter has not picked a shot yet.", 409)
     attacker = _attacker_seat(match)
     if seat == attacker:
         raise PenaltyError("You are the shooter this kick.", 403)
-    _resolve_kick(game, match, attacker, match.pending_shot, _check_zone(zone))
+    zone = _check_zone(zone)
+
+    if game.mode == "ONLINE":
+        if match.pending_dive:
+            return
+        match.pending_dive = zone
+        _after_online_pick(game, match)
+        _touch(game)
+        return
+
+    if match.phase != "DIVE":
+        raise PenaltyError("The shooter has not picked a shot yet.", 409)
+    _resolve_kick(game, match, attacker, match.pending_shot, zone)
     _touch(game)
 
 
@@ -628,6 +667,7 @@ def _resolve_kick(game, match, attacker, shot, dive_zone):
     )
 
     match.pending_shot = ""
+    match.pending_dive = ""
     match.dive_deadline = None
     winner = _decided(match)
     if winner:
@@ -638,7 +678,7 @@ def _resolve_kick(game, match, attacker, shot, dive_zone):
 
 
 def settle_expired(game):
-    """Dive at random for any keeper whose time ran out (online games).
+    """Online: play the kick with a random zone for anyone who did not choose in time.
 
     Returns the game to keep using: the same object if nothing changed, or a freshly
     locked copy if a kick was settled. Safe to call on every request.
@@ -647,16 +687,14 @@ def settle_expired(game):
         return game
 
     now = timezone.now()
-    if not game.matches.filter(
-        status="ACTIVE", phase="DIVE", dive_deadline__lt=now
-    ).exists():
+    if not game.matches.filter(status="ACTIVE", dive_deadline__lt=now).exists():
         return game
 
     with transaction.atomic():
         locked = PenaltyGame.objects.select_for_update().get(pk=game.pk)
         expired = list(
             locked.matches.select_for_update().filter(
-                status="ACTIVE", phase="DIVE", dive_deadline__lt=now
+                status="ACTIVE", dive_deadline__lt=now
             )
         )
         for match in expired:
@@ -664,8 +702,8 @@ def settle_expired(game):
                 locked,
                 match,
                 _attacker_seat(match),
-                match.pending_shot,
-                random.choice(list(ZONES)),
+                match.pending_shot or random.choice(list(ZONES)),
+                match.pending_dive or random.choice(list(ZONES)),
             )
         if expired:
             _touch(locked)
@@ -758,8 +796,9 @@ def _current_payload(game, match, names):
         "kick_number": match.kicks_a + match.kicks_b + 1,
         "shootout_round": taken + 1,
         "sudden_death": taken >= REGULATION_KICKS,
-        # Only "has the shooter chosen?" is sent. The zone stays secret until the kick is taken.
-        "shot_locked": match.phase == "DIVE",
+        # Only "has this player chosen yet?" is sent. The zones stay secret until the kick is played.
+        "shot_locked": bool(match.pending_shot),
+        "dive_locked": bool(match.pending_dive),
     }
 
 
@@ -833,6 +872,11 @@ def _available_action(game, seat, match, out):
         return "pick_player" if _current_picker(game) == seat else "wait_for_pick"
     if match is not None and match.status == "ACTIVE":
         attacker = _attacker_seat(match)
+        if game.mode == "ONLINE":
+            # Both players pick at the same time.
+            if seat == attacker:
+                return "wait_for_keeper" if match.pending_shot else "shoot"
+            return "wait_for_shot" if match.pending_dive else "dive"
         if match.phase == "SHOOT":
             return "shoot" if seat == attacker else "wait_for_shot"
         return "wait_for_keeper" if seat == attacker else "dive"
@@ -881,5 +925,7 @@ def build_state(game, seat):
 
     if game.status == "SQUAD":
         state["draft"] = _draft_payload(game, seat, names)
+    if game.status in ("SQUAD", "ACTIVE"):
+        # Every player sees every squad: used by the squad reveal and the line-up pitch.
         state["squads"] = {r.seat: _squad_payload(game, r.seat) for r in rows}
     return state
