@@ -37,6 +37,9 @@ REGULATION_KICKS = 5
 # squad screen, so the server simply waits for both choices.)
 PICK_SECONDS = 10
 PICK_GRACE_SECONDS = 4
+# Pause (online): stored in match.phase as "P" + one ready flag per side ("P00", "P10",
+# "P01"), so no new database field or migration is needed. The kick resumes when both players
+# are ready. Local games share one phone, so their pause is handled entirely in the browser.
 # Old names, kept in case other modules import them.
 DIVE_SECONDS = PICK_SECONDS
 DIVE_GRACE_SECONDS = PICK_GRACE_SECONDS
@@ -607,13 +610,66 @@ def _after_online_pick(game, match):
     match.save()
 
 
+def _paused(match):
+    return match.phase.startswith("P")
+
+
+def _is_command(raw):
+    """PAUSE / RESUME / LEAVE (local games send LEAVE1 or LEAVE2) arrive in the zone field."""
+    return raw in ("PAUSE", "RESUME", "LEAVE") or (
+        raw.startswith("LEAVE") and raw[5:].isdigit()
+    )
+
+
+def _run_command(game, seat, match, command):
+    if command.startswith("LEAVE"):
+        # On a shared phone the browser says which of the two players is leaving.
+        if game.mode == "LOCAL" and command[5:].isdigit():
+            chosen = int(command[5:])
+            if chosen not in (match.seat_a, match.seat_b):
+                raise PenaltyError("That player is not in this match.")
+            seat = chosen
+        concede(game, seat)
+        return
+
+    if game.mode != "ONLINE":
+        return
+
+    if command == "PAUSE":
+        if _paused(match) or not _started(match):
+            return
+        match.phase = "P00"
+        # The kick starts over after the pause: both players choose again.
+        # (On the first kick the READY marker keeps the match "started".)
+        marker = "READY" if _first_kick(match) else ""
+        match.pending_shot = marker
+        match.pending_dive = marker
+        match.dive_deadline = None
+    else:  # RESUME
+        if not _paused(match):
+            return
+        flags = list(match.phase[1:])
+        index = 0 if seat == match.seat_a else 1
+        if flags[index] == "1":
+            return
+        flags[index] = "1"
+        match.phase = "SHOOT" if flags == ["1", "1"] else "P" + "".join(flags)
+    match.save()
+    _touch(game)
+
+
 def shoot(game, seat, zone):
     match = _my_active_match(game, seat)
+    raw = str(zone or "").upper()
+    if _is_command(raw):
+        _run_command(game, seat, match, raw)
+        return
     if seat != _attacker_seat(match):
         raise PenaltyError("It is not your turn to shoot.", 403)
-    raw = str(zone or "").upper()
 
     if game.mode == "ONLINE":
+        if _paused(match):
+            return  # a pick that arrives during a pause is ignored
         # Online: the "READY" marker is the Start button, then shooter and keeper pick at
         # the same time. Repeated requests are ignored.
         if raw == "READY":
@@ -645,12 +701,17 @@ def shoot(game, seat, zone):
 
 def dive(game, seat, zone):
     match = _my_active_match(game, seat)
+    raw = str(zone or "").upper()
+    if _is_command(raw):
+        _run_command(game, seat, match, raw)
+        return
     attacker = _attacker_seat(match)
     if seat == attacker:
         raise PenaltyError("You are the shooter this kick.", 403)
-    raw = str(zone or "").upper()
 
     if game.mode == "ONLINE":
+        if _paused(match):
+            return  # a pick that arrives during a pause is ignored
         if raw == "READY":
             if _first_kick(match) and not match.pending_dive:
                 match.pending_dive = "READY"
@@ -837,6 +898,9 @@ def _current_payload(game, match, names, seat=None):
         you_ready = bool(match.pending_shot)
     else:
         you_ready = bool(match.pending_dive)
+    paused = _paused(match)
+    flags = match.phase[1:] if paused else "00"
+    your_index = 0 if seat == match.seat_a else 1
     return {
         "attacker_seat": attacker,
         "attacker_name": names.get(attacker, ""),
@@ -854,6 +918,10 @@ def _current_payload(game, match, names, seat=None):
         "started": _started(match),
         "ready_count": ready_count,
         "you_ready": you_ready,
+        # Pause: the match continues once both players pressed Ready.
+        "paused": paused,
+        "resume_count": flags.count("1"),
+        "you_resume_ready": seat in (match.seat_a, match.seat_b) and flags[your_index] == "1",
     }
 
 
@@ -863,7 +931,8 @@ def _match_payload(game, match, names, seat):
     opponent = _other(match, seat) if seat in (match.seat_a, match.seat_b) else None
     payload.update(
         {
-            "phase": match.phase,
+            # The client only knows SHOOT / DIVE / DONE; a pause is sent in "current".
+            "phase": "SHOOT" if _paused(match) else match.phase,
             "first_seat": match.first_seat,
             "opponent_seat": opponent,
             "opponent_name": names.get(opponent, "") if opponent else None,

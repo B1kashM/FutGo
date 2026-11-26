@@ -12,8 +12,10 @@ import {
   Crown,
   Footprints,
   LoaderCircle,
+  LogOut,
   Maximize2,
   Minimize2,
+  Pause,
   RotateCcw,
   Shield,
   Smartphone,
@@ -1145,6 +1147,51 @@ function NameTag({ text, color, size = 8 }: { text: string; color: string; size?
   );
 }
 
+/** Goalkeeper swipe hints: long, straight, semi-transparent arrows to the left, right and up. */
+function KeeperArrows() {
+  // Points to the right, starting at (0, 0); moved and rotated into place.
+  const arrow = "M0 -4 H29 V-10 L44 0 L29 10 V4 H0 Z";
+  return (
+    <g className="animate-pulse" pointerEvents="none" fill="white" fillOpacity="0.45">
+      <path d={arrow} transform="translate(-26 -1) rotate(180)" />
+      <path d={arrow} transform="translate(26 -1)" />
+      <path d={arrow} transform="translate(0 -35) rotate(-90)" />
+    </g>
+  );
+}
+
+// Curves from the ball into the three zones: start, bend (control point) and end.
+const SHOT_HINTS = [
+  { from: [190, 212], bend: [170, 150], to: [102, 112] }, // left
+  { from: [200, 209], bend: [216, 145], to: [200, 74] }, // center
+  { from: [210, 212], bend: [230, 150], to: [298, 112] }, // right
+];
+
+/** Shooter swipe hints: faint, slightly curved arrows pointing into the net. */
+function ShotArrows() {
+  return (
+    <g className="animate-pulse" pointerEvents="none">
+      {SHOT_HINTS.map(({ from, bend, to }) => {
+        // The arrow head follows the direction in which the curve ends.
+        const angle = (Math.atan2(to[1] - bend[1], to[0] - bend[0]) * 180) / Math.PI;
+        return (
+          // Group opacity keeps the line and its head one even shade where they overlap.
+          <g key={to.join("-")} opacity="0.32">
+            <path
+              d={`M${from.join(" ")} Q${bend.join(" ")} ${to.join(" ")}`}
+              fill="none"
+              stroke="white"
+              strokeWidth="7"
+              strokeLinecap="round"
+            />
+            <path d="M-2 -10 L14 0 L-2 10 Z" fill="white" transform={`translate(${to.join(" ")}) rotate(${angle})`} />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
 export type GoalResult = { shot: ZoneKey; dive: ZoneKey; outcome: Outcome };
 
 type Drag = { x1: number; y1: number; x2: number; y2: number };
@@ -1290,6 +1337,22 @@ export function GoalScene({
           <pattern id="pg-net" width="10" height="10" patternUnits="userSpaceOnUse">
             <path d="M0 0L10 10M10 0L0 10" stroke="white" strokeOpacity="0.28" strokeWidth="0.8" />
           </pattern>
+          {/* Soft light around the outline of the player you control */}
+          {[
+            { id: "pg-glow-shoot", color: "#fde68a" },
+            { id: "pg-glow-dive", color: "#7dd3fc" },
+          ].map((glow) => (
+            <filter key={glow.id} id={glow.id} x="-50%" y="-50%" width="200%" height="200%">
+              <feMorphology in="SourceAlpha" operator="dilate" radius="1.2" result="spread" />
+              <feGaussianBlur in="spread" stdDeviation="2" result="blur" />
+              <feFlood floodColor={glow.color} floodOpacity="0.85" result="color" />
+              <feComposite in="color" in2="blur" operator="in" result="halo" />
+              <feMerge>
+                <feMergeNode in="halo" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          ))}
           <radialGradient id="pg-ball" cx="35%" cy="30%" r="75%">
             <stop offset="0" stopColor="#ffffff" />
             <stop offset="1" stopColor="#cbd5e1" />
@@ -1384,19 +1447,8 @@ export function GoalScene({
           />
         )}
 
-        {/* Highlight on the keeper when you are the one diving */}
-        {role === "dive" && !result && (
-          <g
-            pointerEvents="none"
-            style={{
-              transform: `translate(${keeper.x}px, ${keeper.y + 2}px)`,
-              transition: `transform ${MOVE}`,
-            }}
-          >
-            <circle r="27" fill="#38bdf8" fillOpacity="0.17" className="animate-pulse" />
-            <circle r="22" fill="none" stroke="#7dd3fc" strokeOpacity="0.55" strokeWidth="1.5" />
-          </g>
-        )}
+        {/* Swipe hints from the ball into the net (only for the player who is shooting) */}
+        {interactive && role === "shoot" && !drag && <ShotArrows />}
 
         {/* Keeper */}
         <g
@@ -1405,14 +1457,16 @@ export function GoalScene({
             transition: `transform ${MOVE}`,
           }}
         >
-          <rect x="-7" y="10" width="5" height="15" rx="2" fill="#1e293b" />
-          <rect x="2" y="10" width="5" height="15" rx="2" fill="#1e293b" />
-          <rect x="-9" y="-6" width="18" height="20" rx="7" fill="#f97316" />
-          <circle cx="0" cy="-13" r="6" fill="#e8b98f" />
-          <line x1="-9" y1="-2" x2="-21" y2="-12" stroke="#f97316" strokeWidth="4" strokeLinecap="round" />
-          <line x1="9" y1="-2" x2="21" y2="-12" stroke="#f97316" strokeWidth="4" strokeLinecap="round" />
-          <circle cx="-22" cy="-13" r="4.5" fill="#fde047" />
-          <circle cx="22" cy="-13" r="4.5" fill="#fde047" />
+          <g filter={role === "dive" && !result ? "url(#pg-glow-dive)" : undefined}>
+            <rect x="-7" y="10" width="5" height="15" rx="2" fill="#1e293b" />
+            <rect x="2" y="10" width="5" height="15" rx="2" fill="#1e293b" />
+            <rect x="-9" y="-6" width="18" height="20" rx="7" fill="#f97316" />
+            <circle cx="0" cy="-13" r="6" fill="#e8b98f" />
+            <line x1="-9" y1="-2" x2="-21" y2="-12" stroke="#f97316" strokeWidth="4" strokeLinecap="round" />
+            <line x1="9" y1="-2" x2="21" y2="-12" stroke="#f97316" strokeWidth="4" strokeLinecap="round" />
+            <circle cx="-22" cy="-13" r="4.5" fill="#fde047" />
+            <circle cx="22" cy="-13" r="4.5" fill="#fde047" />
+          </g>
         </g>
 
         {/* Goalkeeper surname: small plain text that follows the keeper above his head */}
@@ -1430,19 +1484,7 @@ export function GoalScene({
         {/* Swipe hints around the keeper (only for the player who is diving) */}
         {interactive && role === "dive" && !drag && (
           <g pointerEvents="none" style={{ transform: `translate(${keeper.x}px, ${keeper.y}px)` }}>
-            <g
-              className="animate-pulse"
-              fill="none"
-              stroke="white"
-              strokeOpacity="0.6"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M-30 -9 L-39 -1 L-30 7" />
-              <path d="M30 -9 L39 -1 L30 7" />
-              <path d="M-6 -39 L0 -46 L6 -39" />
-            </g>
+            <KeeperArrows />
           </g>
         )}
 
@@ -1454,38 +1496,18 @@ export function GoalScene({
               transition: `transform ${MOVE}`,
             }}
           >
-            {role === "shoot" && !result && (
-              <g pointerEvents="none">
-                <circle cy="6" r="27" fill="#fbbf24" fillOpacity="0.17" className="animate-pulse" />
-                <circle cy="6" r="22" fill="none" stroke="#fde68a" strokeOpacity="0.55" strokeWidth="1.5" />
-              </g>
-            )}
             <ellipse cx="0" cy="26" rx="12" ry="3" fill="black" opacity="0.28" />
-            <rect x="-6" y="12" width="5" height="14" rx="2" fill="#f8fafc" />
-            <rect x="1" y="12" width="5" height="14" rx="2" fill="#f8fafc" />
-            <rect x="-9" y="-8" width="18" height="22" rx="7" fill="#2563eb" />
-            <circle cx="0" cy="-15" r="6" fill="#e8b98f" />
-            <line x1="-9" y1="-3" x2="-15" y2="7" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
-            <line x1="9" y1="-3" x2="15" y2="7" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
+            <g filter={role === "shoot" && !result ? "url(#pg-glow-shoot)" : undefined}>
+              <rect x="-6" y="12" width="5" height="14" rx="2" fill="#f8fafc" />
+              <rect x="1" y="12" width="5" height="14" rx="2" fill="#f8fafc" />
+              <rect x="-9" y="-8" width="18" height="22" rx="7" fill="#2563eb" />
+              <circle cx="0" cy="-15" r="6" fill="#e8b98f" />
+              <line x1="-9" y1="-3" x2="-15" y2="7" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
+              <line x1="9" y1="-3" x2="15" y2="7" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
+            </g>
             <g transform="translate(0 -25)">
               <NameTag text={lastName(shooterName)} color="#fef3c7" size={tagSize} />
             </g>
-            {interactive && role === "shoot" && !drag && (
-              <g
-                className="animate-pulse"
-                pointerEvents="none"
-                fill="none"
-                stroke="white"
-                strokeOpacity="0.6"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M-25 -10 L-34 -2 L-25 6" />
-                <path d="M25 -10 L34 -2 L25 6" />
-                <path d="M-6 -40 L0 -47 L6 -40" />
-              </g>
-            )}
           </g>
         )}
 
@@ -2266,6 +2288,89 @@ function ReadyPanel({
   );
 }
 
+const stageButton =
+  "pointer-events-auto flex h-10 items-center gap-2 rounded-full border border-white/20 bg-black/65 px-3.5 text-[11px] font-black uppercase tracking-wider text-white shadow-lg backdrop-blur transition hover:bg-black/85 disabled:cursor-not-allowed disabled:opacity-40";
+
+const stageSecondaryButton =
+  "w-full rounded-xl border border-white/25 px-4 py-3 text-sm font-bold text-white transition hover:bg-white/10";
+
+function StageDialog({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-black/65 px-4"
+    >
+      <div className="w-full max-w-xs rounded-2xl border border-white/15 bg-black/80 p-4 text-center shadow-2xl backdrop-blur">
+        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-300">{title}</p>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Shown while the match is paused. It resumes when both players are ready. */
+function PausePanel({
+  count,
+  players,
+}: {
+  count: number;
+  /** Online: one button (you). Local: one button for each player on the shared phone. */
+  players: { key: number; label: string; ready: boolean; onReady: () => void }[];
+}) {
+  return (
+    <StageDialog title="Match paused">
+      <p className="mt-3 text-2xl font-black tabular-nums text-white">{count}/2 ready</p>
+      <div className="mt-3 space-y-2">
+        {players.map((player) => (
+          <button
+            key={player.key}
+            type="button"
+            onClick={player.onReady}
+            disabled={player.ready}
+            className={primaryButton}
+          >
+            {player.ready ? <Check size={18} /> : <ArrowRight size={18} />}
+            <span className="truncate">{player.label}</span>
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-white/60">The match resumes when both players are ready.</p>
+    </StageDialog>
+  );
+}
+
+/** Confirmation before leaving: the player who leaves loses the match. */
+function LeavePanel({
+  choices,
+  onCancel,
+}: {
+  choices: { key: number; label: string; onLeave: () => void }[];
+  onCancel: () => void;
+}) {
+  return (
+    <StageDialog title="Leave match?">
+      <p className="mt-2 text-sm text-white/75">The player who leaves forfeits this match.</p>
+      <div className="mt-3 space-y-2">
+        {choices.map((choice) => (
+          <button
+            key={choice.key}
+            type="button"
+            onClick={choice.onLeave}
+            className="w-full truncate rounded-xl bg-red-600 px-4 py-3 text-sm font-black text-white transition hover:bg-red-500"
+          >
+            {choice.label}
+          </button>
+        ))}
+        <button type="button" onClick={onCancel} className={stageSecondaryButton}>
+          Keep playing
+        </button>
+      </div>
+    </StageDialog>
+  );
+}
+
 /** The match is only playable in full screen. */
 function FullscreenGate() {
   return (
@@ -2305,7 +2410,11 @@ export function MatchPanel({
   role: "shoot" | "dive" | "wait";
   /** Online games: both players pick at the same time. */
   online: boolean;
-  /** Called once when the player swipes (or when the timer runs out). */
+  /**
+   * Called once when the player swipes (or when the timer runs out). Pause, resume and
+   * leave are sent through the same call ("PAUSE", "RESUME", "LEAVE"), so the value must
+   * reach the shoot / dive request unchanged.
+   */
   onCommit: (zone: ZoneKey) => void;
   /** Online: the player pressed Start. */
   onReady: () => void;
@@ -2323,6 +2432,9 @@ export function MatchPanel({
   const [timerDone, setTimerDone] = useState(false);
   const [scoreShown, setScoreShown] = useState(false);
   const [, setStartTick] = useState(0);
+  // Local play: the pause lives on this phone. Holds the seats that are ready again.
+  const [localPause, setLocalPause] = useState<{ matchId: number; ready: number[] } | null>(null);
+  const [askLeave, setAskLeave] = useState(false);
   const doneRef = useRef(onRevealDone);
   useEffect(() => {
     doneRef.current = onRevealDone;
@@ -2375,6 +2487,18 @@ export function MatchPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealKey, canReveal]);
 
+  const pauseInfo = current as unknown as {
+    paused?: boolean;
+    resume_count?: number;
+    you_resume_ready?: boolean;
+  } | null;
+  const paused = online ? !!pauseInfo?.paused : localPause?.matchId === match.id;
+
+  // After a pause the kick starts over, with a fresh countdown.
+  useEffect(() => {
+    if (paused && !revealing) setTimerDone(false);
+  }, [paused, revealing]);
+
   // Lock page scrolling while the stage is open.
   useEffect(() => {
     if (!fs) return undefined;
@@ -2417,6 +2541,31 @@ export function MatchPanel({
     }
   };
 
+  // Commands travel the same way as a shot or dive zone.
+  const send = (command: string) => onCommit(command as ZoneKey);
+
+  const pauseMatch = () => {
+    if (online) send("PAUSE");
+    else setLocalPause({ matchId: match.id, ready: [] });
+  };
+
+  const readyLocal = (seat: number) => {
+    if (!localPause) return;
+    const ready = [...localPause.ready.filter((item) => item !== seat), seat];
+    setLocalPause(ready.length >= 2 ? null : { ...localPause, ready });
+  };
+
+  const leaveMatch = (command: string) => {
+    setAskLeave(false);
+    setLocalPause(null);
+    send(command);
+  };
+
+  const sides = [
+    { seat: match.seat_a, name: match.name_a },
+    { seat: match.seat_b, name: match.name_b },
+  ];
+
   let stage: ReactNode = null;
   if (canReveal && reveal) {
     stage = (
@@ -2453,6 +2602,41 @@ export function MatchPanel({
         </div>
       </div>
     );
+  } else if (!revealing && live && paused) {
+    stage = (
+      <div className="absolute inset-0">
+        <div className="relative h-full w-full">
+          <GoalScene
+            fullscreen
+            shooterName={live.shooter.name}
+            keeperName={live.keeper.name}
+          />
+          <PausePanel
+            count={online ? (pauseInfo?.resume_count ?? 0) : (localPause?.ready.length ?? 0)}
+            players={
+              online
+                ? [
+                    {
+                      key: 0,
+                      label: pauseInfo?.you_resume_ready ? "Waiting for opponent" : "Ready",
+                      ready: !!pauseInfo?.you_resume_ready,
+                      onReady: () => send("RESUME"),
+                    },
+                  ]
+                : sides.map((side) => {
+                    const ready = !!localPause?.ready.includes(side.seat);
+                    return {
+                      key: side.seat,
+                      label: `${side.name} ${ready ? "is ready" : "ready"}`,
+                      ready,
+                      onReady: () => readyLocal(side.seat),
+                    };
+                  })
+            }
+          />
+        </div>
+      </div>
+    );
   } else if (shown) {
     stage = (
       <div className="absolute inset-0">
@@ -2485,6 +2669,52 @@ export function MatchPanel({
         keeper={shown?.keeper ?? null}
         error={error}
       />
+
+      {/* Pause and leave */}
+      {current && (
+        <div
+          className="pointer-events-none absolute z-40 flex gap-2"
+          style={{ right: "max(.75rem, env(safe-area-inset-right))", top: "max(.75rem, env(safe-area-inset-top))" }}
+        >
+          <button
+            type="button"
+            onClick={pauseMatch}
+            disabled={paused || revealing || !started}
+            aria-label="Pause match"
+            className={stageButton}
+          >
+            <Pause size={16} />
+            <span className="hidden sm:inline">Pause</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAskLeave(true)}
+            disabled={revealing}
+            aria-label="Leave match"
+            className={stageButton}
+          >
+            <LogOut size={16} />
+            <span className="hidden sm:inline">Leave</span>
+          </button>
+        </div>
+      )}
+
+      {askLeave && current && !revealing && (
+        <div className="absolute inset-0 z-30">
+          <LeavePanel
+            onCancel={() => setAskLeave(false)}
+            choices={
+              online
+                ? [{ key: 0, label: "Leave match", onLeave: () => leaveMatch("LEAVE") }]
+                : sides.map((side) => ({
+                    key: side.seat,
+                    label: `${side.name} leaves`,
+                    onLeave: () => leaveMatch(`LEAVE${side.seat}`),
+                  }))
+            }
+          />
+        </div>
+      )}
     </section>
   );
 }
