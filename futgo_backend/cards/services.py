@@ -10,7 +10,7 @@ from .models import CardGame, CardPlay, CardPlayer, GameCard
 ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O/1/I
 ALLOWED_PLAYER_COUNTS = (2, 3, 4, 5, 6)
 ALLOWED_DECK_SIZES = (10, 15, 20)  # cards PER PLAYER, same for everyone
-DEFAULT_DECK_SIZE = 10
+DEFAULT_DECK_SIZE = 15
 VALID_CATEGORIES = {key for key, _ in Player.CATEGORY_CHOICES}
 
 # Tiers are worked out from the average of a card's stats.
