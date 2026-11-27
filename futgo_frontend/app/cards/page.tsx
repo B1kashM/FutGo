@@ -12,20 +12,22 @@ import {
   Crown,
   Eye,
   Flag,
-  Gamepad2,
-  Globe2,
   Layers,
   LoaderCircle,
   Lock,
-  LogIn,
   Medal,
   RotateCcw,
+  SlidersHorizontal,
+  Smartphone,
   Swords,
   Trophy,
+  Users,
+  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { BackButton, DraftPageShell, ErrorMessage } from "../_draft/DraftUI";
+import ModeScreen from "../components/ModeScreen";
+import { DraftPageShell, ErrorMessage } from "../_draft/DraftUI";
 import {
   ApiError,
   DECK_OPTIONS,
@@ -59,6 +61,11 @@ import { CardBack, MiniCard, PlayerCard } from "../_cards/CardsUI";
 
 type View = "restoring" | "lobby" | "game";
 type LobbyTab = "LOCAL" | "CREATE" | "JOIN";
+/** Which mode the player picked on /game-modes?game=cards (null = opened /cards directly). */
+type Entry = "LOCAL" | "ONLINE" | null;
+
+/** Where "back" goes from the lobby when the player came from the mode screen. */
+const MODE_SCREEN_HREF = "/game-modes?game=cards";
 
 const POLL_MS = 2000;
 const MAX_BACKOFF_MS = 8000;
@@ -108,9 +115,6 @@ type AlbumData = {
 /* ------------------------------------------------------------------ */
 /* Design tokens (all colours come from the selected club theme)       */
 /* ------------------------------------------------------------------ */
-
-const INPUT_CLASS =
-  "w-full rounded-2xl border-2 border-border bg-background px-4 py-3.5 text-sm font-bold text-foreground outline-none transition placeholder:font-semibold placeholder:text-foreground/35 hover:border-accent/50 focus:border-accent focus:ring-4 focus:ring-accent/20 disabled:opacity-60";
 
 const BTN_BASE =
   "flex w-full items-center justify-center gap-2 font-black uppercase tracking-wide transition disabled:cursor-not-allowed disabled:opacity-50";
@@ -192,41 +196,6 @@ function Hint({ children }: { children: ReactNode }) {
       </span>
       <span className="min-w-0 truncate">{children}</span>
     </p>
-  );
-}
-
-function FieldLabel({ children }: { children: ReactNode }) {
-  return (
-    <span className="mb-2.5 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-muted">
-      <span className="h-px flex-1 bg-border" />
-      {children}
-      <span className="h-px flex-1 bg-border" />
-    </span>
-  );
-}
-
-/** Text input with a coloured player badge on the left. */
-function NameField({
-  badge,
-  tone,
-  ...props
-}: {
-  badge: string;
-  tone: "a" | "b";
-} & React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <div className="relative">
-      <span
-        className={`absolute left-2.5 top-1/2 flex h-8 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-[11px] font-black ${
-          tone === "a"
-            ? "bg-accent text-accent-ink"
-            : "bg-accent-2 text-accent-2-ink"
-        }`}
-      >
-        {badge}
-      </span>
-      <input {...props} className={`${INPUT_CLASS} pl-14`} />
-    </div>
   );
 }
 
@@ -994,12 +963,90 @@ function Album({
 }
 
 /* ------------------------------------------------------------------ */
+/* Setup screen pieces (same look as the Penalties setup)              */
+/* ------------------------------------------------------------------ */
+
+const setupInput =
+  "w-full rounded-xl border-2 border-border bg-surface-2 px-4 py-3 text-base font-semibold text-foreground outline-none transition placeholder:text-foreground/50 focus:border-accent focus:ring-2 focus:ring-accent/25";
+
+const setupPrimary =
+  "flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-4 font-black text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50";
+
+const setupRules =
+  "flex w-full items-center justify-center gap-2 rounded-xl bg-accent-2 px-6 py-3 text-sm font-black text-accent-2-ink transition hover:brightness-110";
+
+function SetupPanel({ children }: { children: ReactNode }) {
+  return (
+    <div className="space-y-4 rounded-3xl border border-border bg-surface p-4 sm:p-6">
+      {children}
+    </div>
+  );
+}
+
+function SetupLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="mb-2 text-[11px] font-black uppercase tracking-[0.16em] text-foreground/70">
+      {children}
+    </p>
+  );
+}
+
+/** Option button: filled with the club colour when selected. */
+function SetupChoice({
+  selected,
+  onClick,
+  title,
+  text,
+  disabled = false,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  title: string;
+  text?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      disabled={disabled}
+      onClick={onClick}
+      className={`relative flex min-h-[64px] items-center gap-3 rounded-2xl border-2 p-3 text-left transition ${
+        selected
+          ? "border-accent bg-accent text-accent-ink shadow-lg shadow-accent/25"
+          : "border-border bg-surface-2 text-foreground hover:border-accent/60"
+      } disabled:cursor-not-allowed disabled:opacity-50`}
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-black leading-tight">{title}</span>
+        {text && (
+          <span
+            className={`mt-0.5 block text-[11px] font-semibold ${
+              selected ? "text-accent-ink/75" : "text-foreground/60"
+            }`}
+          >
+            {text}
+          </span>
+        )}
+      </span>
+      {selected && (
+        <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-accent-ink text-accent">
+          <Check size={12} strokeWidth={3} />
+        </span>
+      )}
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
 export default function CardsPage() {
   const [view, setView] = useState<View>("restoring");
   const [tab, setTab] = useState<LobbyTab>("LOCAL");
+  // Set from ?mode=local|online (sent by /game-modes?game=cards).
+  const [entry, setEntry] = useState<Entry>(null);
 
   const [pools, setPools] = useState<Pool[]>([]);
   const [poolsLoading, setPoolsLoading] = useState(true);
@@ -1010,6 +1057,7 @@ export default function CardsPage() {
   const [poolKey, setPoolKey] = useState("ALL");
   const [deckSize, setDeckSize] = useState(20);
   const [maxPlayers, setMaxPlayers] = useState(2);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const [session, setSession] = useState<CardsSession | null>(null);
   const [game, setGame] = useState<GameState | null>(null);
@@ -1144,7 +1192,21 @@ export default function CardsPage() {
       });
 
     const stored = loadSession();
-    const roomParam = new URLSearchParams(window.location.search).get("room");
+    const params = new URLSearchParams(window.location.search);
+    const roomParam = params.get("room");
+    const modeParam = (params.get("mode") || "").toLowerCase();
+
+    // Which lobby to show: a room link always means Online / Join,
+    // otherwise ?mode= from the mode screen decides.
+    if (roomParam) {
+      setEntry("ONLINE");
+    } else if (modeParam === "local") {
+      setEntry("LOCAL");
+      setTab("LOCAL");
+    } else if (modeParam === "online") {
+      setEntry("ONLINE");
+      setTab("CREATE");
+    }
 
     const restore = async () => {
       if (!stored) {
@@ -1581,228 +1643,330 @@ export default function CardsPage() {
 
   /* ----------------------------- render: lobby ---------------------- */
 
-  const tabs: { key: LobbyTab; label: string; sub: string; icon: ReactNode }[] = [
-    { key: "LOCAL", label: "Local", sub: "1 device", icon: <Gamepad2 size={22} /> },
-    { key: "CREATE", label: "Create", sub: "2-6 players", icon: <Globe2 size={22} /> },
-    { key: "JOIN", label: "Join", sub: "Use code", icon: <LogIn size={22} /> },
-  ];
+  // Close the game rules popup with Escape.
+  useEffect(() => {
+    if (!rulesOpen) return undefined;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setRulesOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [rulesOpen]);
+
+  const pickMode = (id: string) => {
+    setError("");
+    if (id === "local") {
+      setEntry("LOCAL");
+      setTab("LOCAL");
+    } else {
+      setEntry("ONLINE");
+      setTab("CREATE");
+    }
+  };
+
+  const poolTooSmall = !poolsLoading && deckChoices.length === 0;
+  const rulesSummary = `${selectedPool?.label ?? "All players"} · ${deckSize} cards each`;
 
   const submitLabel =
-    tab === "JOIN" ? "Join game" : tab === "CREATE" ? "Create room" : "Kick off";
+    tab === "JOIN" ? "Join room" : tab === "CREATE" ? "Create room" : "Start game";
 
-  const lobby = (
-    <section className="relative mx-auto w-full max-w-md pb-8 pt-1 sm:pt-3">
-      <Backdrop />
+  const submitDisabled =
+    busy ||
+    poolsLoading ||
+    (tab === "JOIN"
+      ? joinCode.trim().length < 4 || !joinName.trim()
+      : !name1.trim() || poolTooSmall);
 
-      <div className="relative">
-        <div className="hidden md:flex mb-5 mt-2 flex justify-end">
-          <BackButton />
+  const submitContent = busy ? (
+    <>
+      <LoaderCircle size={18} className="animate-spin" />
+      {tab === "JOIN" ? "Joining..." : "Creating..."}
+    </>
+  ) : (
+    <>
+      {submitLabel}
+      <ArrowRight size={18} />
+    </>
+  );
+
+  const lobby = !entry ? (
+    // Opened /cards directly: same Local / Online picker as /game-modes?game=cards.
+    <ModeScreen
+      title="Play Cards"
+      titleIcon="layers"
+      modes={[
+        { id: "local", title: "Local", tag: "Same device", icon: "local", variant: "a" },
+        { id: "online", title: "Online", tag: "Room code", icon: "online", variant: "b" },
+      ]}
+      onSelect={pickMode}
+    />
+  ) : (
+    <section className="relative mx-auto flex max-h-[calc(100dvh-4rem)] max-w-xl flex-col overflow-y-auto overscroll-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <Link
+        href="/"
+        aria-label="Back home"
+        className="absolute right-0 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-foreground/25 bg-surface text-foreground/80 transition hover:border-accent-text/60 hover:text-foreground"
+      >
+        <ArrowLeft size={18} />
+      </Link>
+
+      <div className="mb-4 pr-12 pt-4 sm:pt-6">
+        <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-accent-text">
+          <Layers size={15} />
+          FutGo cards
         </div>
+        <h1 className="text-3xl font-black sm:text-4xl">CARD BATTLE.</h1>
+      </div>
 
-        <form
-          onSubmit={submitLobby}
-          className="overflow-hidden mt-10 rounded-[28px] border-2 border-border bg-surface shadow-2xl shadow-accent/15"
-        >
+      {/* Create Game / Join Room (online only) */}
+      {entry === "ONLINE" && (
+        <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-border bg-surface p-1.5">
+          {(["CREATE", "JOIN"] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => {
+                setTab(item);
+                setError("");
+              }}
+              className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${
+                tab === item
+                  ? "bg-accent text-accent-ink shadow-md shadow-accent/25"
+                  : "bg-surface-2 text-foreground/80 hover:text-foreground"
+              }`}
+            >
+              {item === "CREATE" ? "Create Game" : "Join Room"}
+            </button>
+          ))}
+        </div>
+      )}
 
-          <div className="grid gap-5 p-5 sm:p-6">
-            {/* Mode tiles */}
-            <div className="grid grid-cols-3 gap-2">
-              {tabs.map((item) => {
-                const active = tab === item.key;
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => {
-                      setTab(item.key);
-                      setError("");
-                    }}
-                    className={`flex flex-col items-center gap-1 rounded-2xl border-2 px-2 py-3 transition ${
-                      active
-                        ? "-translate-y-0.5 border-accent bg-accent text-accent-ink shadow-lg shadow-accent/40"
-                        : "border-border bg-background text-muted hover:border-accent/50 hover:text-foreground"
-                    }`}
-                  >
-                    {item.icon}
-                    <span className="text-sm font-black">{item.label}</span>
-                    <span
-                      className={`text-[10px] font-bold ${
-                        active ? "opacity-75" : "opacity-60"
-                      }`}
-                    >
-                      {item.sub}
-                    </span>
-                  </button>
-                );
-              })}
+      <form onSubmit={submitLobby}>
+        {tab === "JOIN" ? (
+          <SetupPanel>
+            <div>
+              <SetupLabel>Room code</SetupLabel>
+              <input
+                className={`${setupInput} text-center text-2xl font-black uppercase tracking-[0.4em]`}
+                value={joinCode}
+                onChange={(e) =>
+                  setJoinCode(
+                    e.target.value
+                      .toUpperCase()
+                      .replace(/[^A-Z0-9]/g, "")
+                      .slice(0, 6),
+                  )
+                }
+                placeholder="ABC123"
+                aria-label="Room code"
+                maxLength={6}
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
+                disabled={busy}
+              />
+            </div>
+            <div>
+              <SetupLabel>Your name</SetupLabel>
+              <input
+                className={setupInput}
+                value={joinName}
+                onChange={(e) => setJoinName(e.target.value)}
+                placeholder="Enter your name"
+                aria-label="Your name"
+                maxLength={40}
+                disabled={busy}
+              />
             </div>
 
-            {tab === "JOIN" ? (
-              <>
+            {error && <ErrorMessage message={error} />}
+
+            <button type="submit" disabled={submitDisabled} className={setupPrimary}>
+              {submitContent}
+            </button>
+          </SetupPanel>
+        ) : (
+          <SetupPanel>
+            {/* Mode (Change goes back to the Local / Online screen) */}
+            <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface-2 p-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-ink">
+                  {entry === "LOCAL" ? <Smartphone size={20} /> : <Users size={20} />}
+                </span>
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-foreground/70">
+                    Mode
+                  </p>
+                  <p className="text-sm font-black">
+                    {entry === "LOCAL" ? "Local" : "Online"}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href={MODE_SCREEN_HREF}
+                className="rounded-lg bg-accent-2 px-3 py-1.5 text-xs font-black text-accent-2-ink transition hover:brightness-110"
+              >
+                Change
+              </Link>
+            </div>
+
+            {tab === "CREATE" && (
+              <div>
+                <SetupLabel>No. of players</SetupLabel>
+                <div className="grid grid-cols-5 gap-2">
+                  {PLAYER_OPTIONS.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      aria-pressed={maxPlayers === n}
+                      disabled={busy}
+                      onClick={() => setMaxPlayers(n)}
+                      className={`rounded-xl border-2 py-2.5 text-lg font-black transition disabled:opacity-40 ${
+                        maxPlayers === n
+                          ? "border-accent bg-accent text-accent-ink shadow-md shadow-accent/25"
+                          : "border-border bg-surface-2 text-foreground hover:border-accent/60"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className={`grid gap-3 ${tab === "LOCAL" ? "sm:grid-cols-2" : ""}`}>
+              <div>
+                <SetupLabel>{tab === "LOCAL" ? "Player 1" : "Your name"}</SetupLabel>
                 <input
-                  value={joinCode}
-                  onChange={(e) =>
-                    setJoinCode(
-                      e.target.value
-                        .toUpperCase()
-                        .replace(/[^A-Z0-9]/g, "")
-                        .slice(0, 6),
-                    )
-                  }
-                  placeholder="CODE"
-                  aria-label="Room code"
-                  maxLength={6}
-                  autoCapitalize="characters"
-                  autoComplete="off"
-                  spellCheck={false}
-                  disabled={busy}
-                  className={`${INPUT_CLASS} border-accent/40 bg-accent/[0.06] py-4 text-center text-3xl font-black uppercase tracking-[0.35em]`}
-                />
-                <NameField
-                  badge="YOU"
-                  tone="b"
-                  value={joinName}
-                  onChange={(e) => setJoinName(e.target.value)}
-                  placeholder="Your name"
-                  aria-label="Your name"
+                  className={setupInput}
+                  value={name1}
+                  onChange={(e) => setName1(e.target.value)}
+                  placeholder="Enter your name"
+                  aria-label={tab === "LOCAL" ? "Player 1" : "Your name"}
                   maxLength={40}
                   disabled={busy}
                 />
-              </>
-            ) : (
-              <>
-                <div className="grid gap-3">
-                  <NameField
-                    badge={tab === "LOCAL" ? "P1" : "YOU"}
-                    tone="a"
-                    value={name1}
-                    onChange={(e) => setName1(e.target.value)}
-                    placeholder={tab === "LOCAL" ? "Player 1" : "Your name"}
-                    aria-label={tab === "LOCAL" ? "Player 1" : "Your name"}
+              </div>
+              {tab === "LOCAL" && (
+                <div>
+                  <SetupLabel>Player 2</SetupLabel>
+                  <input
+                    className={setupInput}
+                    value={name2}
+                    onChange={(e) => setName2(e.target.value)}
+                    placeholder="Player 2"
+                    aria-label="Player 2"
                     maxLength={40}
                     disabled={busy}
                   />
-                  {tab === "LOCAL" && (
-                    <NameField
-                      badge="P2"
-                      tone="b"
-                      value={name2}
-                      onChange={(e) => setName2(e.target.value)}
-                      placeholder="Player 2"
-                      aria-label="Player 2"
-                      maxLength={40}
-                      disabled={busy}
-                    />
-                  )}
-                </div>
-
-                {tab === "CREATE" && (
-                  <div>
-                    <FieldLabel>Players</FieldLabel>
-                    <div className="flex flex-wrap gap-2">
-                      {PLAYER_OPTIONS.map((n) => {
-                        const active = maxPlayers === n;
-                        return (
-                          <button
-                            key={n}
-                            type="button"
-                            disabled={busy}
-                            onClick={() => setMaxPlayers(n)}
-                            className={`min-w-12 flex-1 rounded-xl border-2 px-3 py-2.5 text-lg font-black tabular-nums transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                              active
-                                ? "border-accent bg-accent text-accent-ink shadow-md shadow-accent/30"
-                                : "border-border bg-background text-foreground/80 hover:border-accent/60"
-                            }`}
-                          >
-                            {n}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <FieldLabel>Pool</FieldLabel>
-                  {poolsLoading ? (
-                    <div className="flex justify-center py-2">
-                      <LoaderCircle size={18} className="animate-spin text-muted" />
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {pools.map((pool) => {
-                        const tooSmall = pool.count < DECK_OPTIONS[0] * needPlayers;
-                        const active = poolKey === pool.key;
-                        return (
-                          <button
-                            key={pool.key}
-                            type="button"
-                            disabled={tooSmall || busy}
-                            onClick={() => setPoolKey(pool.key)}
-                            className={`rounded-xl border-2 px-3.5 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                              active
-                                ? "border-accent bg-accent text-accent-ink shadow-md shadow-accent/30"
-                                : "border-border bg-background text-foreground/80 hover:border-accent/60"
-                            }`}
-                          >
-                            {pool.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <FieldLabel>Cards each</FieldLabel>
-                  <div className="flex flex-wrap gap-2">
-                    {DECK_OPTIONS.map((n) => {
-                      const disabled = !deckChoices.includes(n);
-                      const active = deckSize === n && !disabled;
-                      return (
-                        <button
-                          key={n}
-                          type="button"
-                          disabled={disabled || busy}
-                          onClick={() => setDeckSize(n)}
-                          className={`min-w-16 flex-1 rounded-xl border-2 px-4 py-2.5 text-lg font-black tabular-nums transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                            active
-                              ? "border-accent-2 bg-accent-2 text-accent-2-ink shadow-md shadow-accent-2/30"
-                              : "border-border bg-background text-foreground/80 hover:border-accent-2/60"
-                          }`}
-                        >
-                          {n}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div>
-              <button
-                type="submit"
-                disabled={busy || poolsLoading}
-                className={btn("primary")}
-              >
-                {busy ? (
-                  <LoaderCircle size={20} className="animate-spin" />
-                ) : (
-                  <>
-                    {submitLabel} <ArrowRight size={20} />
-                  </>
-                )}
-              </button>
-              {error && (
-                <div className="mt-4">
-                  <ErrorMessage message={error} />
                 </div>
               )}
             </div>
+
+            <div>
+              <button type="button" onClick={() => setRulesOpen(true)} className={setupRules}>
+                <SlidersHorizontal size={17} />
+                Change game rules
+              </button>
+              <p className="mt-2 text-center text-xs text-foreground/65">{rulesSummary}</p>
+              {poolTooSmall && (
+                <p className="mt-1 text-center text-xs font-semibold text-amber-700 dark:text-amber-300">
+                  This pool is too small for {needPlayers} players. Change it in the game rules.
+                </p>
+              )}
+            </div>
+
+            {error && <ErrorMessage message={error} />}
+
+            <button type="submit" disabled={submitDisabled} className={setupPrimary}>
+              {submitContent}
+            </button>
+          </SetupPanel>
+        )}
+      </form>
+
+      {/* Game rules popup: Players pool + Cards each */}
+      {rulesOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Game rules"
+          style={{ zIndex: 2147483000 }}
+          onClick={() => setRulesOpen(false)}
+          className="fixed inset-0 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="relative flex max-h-[90dvh] w-full max-w-2xl flex-col rounded-3xl border border-border bg-surface shadow-2xl"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-border p-5 sm:px-7">
+              <h2 className="text-xl font-black sm:text-2xl">Game rules</h2>
+              <button
+                type="button"
+                onClick={() => setRulesOpen(false)}
+                aria-label="Close"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-foreground/80 transition hover:text-foreground"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-5 sm:px-7">
+              <div>
+                <SetupLabel>Players pool</SetupLabel>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {poolsLoading && (
+                    <p className="col-span-full text-sm text-foreground/70">Loading pools...</p>
+                  )}
+                  {pools.map((pool) => (
+                    <SetupChoice
+                      key={pool.key}
+                      selected={poolKey === pool.key}
+                      onClick={() => setPoolKey(pool.key)}
+                      title={pool.label}
+                      text={`${pool.count} players`}
+                      disabled={pool.count < DECK_OPTIONS[0] * needPlayers}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <SetupLabel>Cards each</SetupLabel>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  {DECK_OPTIONS.map((n) => {
+                    const disabled = !deckChoices.includes(n);
+                    const active = deckSize === n && !disabled;
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        aria-pressed={active}
+                        disabled={disabled}
+                        onClick={() => setDeckSize(n)}
+                        className={`rounded-xl border-2 py-2.5 text-lg font-black tabular-nums transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                          active
+                            ? "border-accent bg-accent text-accent-ink shadow-md shadow-accent/25"
+                            : "border-border bg-surface-2 text-foreground hover:border-accent/60"
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-border p-5 sm:px-7">
+              <button type="button" onClick={() => setRulesOpen(false)} className={setupPrimary}>
+                Done
+                <Check size={18} />
+              </button>
+            </div>
           </div>
-        </form>
-      </div>
+        </div>
+      )}
     </section>
   );
 

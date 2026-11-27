@@ -6,14 +6,16 @@ import {
   ArrowRight,
   Gamepad2,
   Globe2,
+  Layers,
   Shield,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 
 /**
- * Shared "Local / Online" mode picker. Used by /game-modes (Draft, with links)
- * and by the Penalties setup (with onSelect). Icons are passed as keys so this
- * can be used from server components too.
+ * Shared "Local / Online" mode picker. Used by /game-modes for Draft and Cards
+ * (with links) and by any setup screen that prefers onSelect. Icons are passed
+ * as keys so this can be used from server components too.
  */
 
 export type ModeOption = {
@@ -30,6 +32,15 @@ const ICONS: Record<ModeOption["icon"], LucideIcon> = {
   local: Gamepad2,
   online: Globe2,
 };
+
+/** Little badge next to the page title (one per game). */
+const TITLE_ICONS = {
+  shield: Shield,
+  layers: Layers,
+  target: Target,
+} as const;
+
+export type TitleIcon = keyof typeof TITLE_ICONS;
 
 const styles = {
   a: {
@@ -54,14 +65,19 @@ export default function ModeScreen({
   title,
   modes,
   backHref = "/",
+  titleIcon = "shield",
   onSelect,
 }: {
   title: string;
   modes: ModeOption[];
   backHref?: string;
-  /** ...or call this instead (used by the Penalties setup). */
+  /** Badge shown next to the title. Defaults to the shield used by Draft. */
+  titleIcon?: TitleIcon;
+  /** ...or call this instead of navigating. */
   onSelect?: (id: string) => void;
 }) {
+  const TitleBadge = TITLE_ICONS[titleIcon];
+
   return (
     <main className="fixed inset-0 z-40 flex flex-col overflow-hidden overscroll-none touch-none bg-background text-foreground">
       <div className="brand-bar h-1.5 w-full shrink-0" />
@@ -74,7 +90,7 @@ export default function ModeScreen({
         <div className="relative flex shrink-0 items-center justify-between gap-3">
           <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight sm:text-4xl">
             <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-accent-ink shadow-md">
-              <Shield size={22} />
+              <TitleBadge size={22} />
             </span>
             {title}
           </h1>

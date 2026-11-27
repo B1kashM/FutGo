@@ -413,6 +413,9 @@ export function SetupScreen({
   const [joinName, setJoinName] = useState("");
   const [rulesOpen, setRulesOpen] = useState(false);
 
+  // Create Game / Join Room only exists online. Local play always shows the create form.
+  const activeTab = mode === "ONLINE" ? tab : "create";
+
   const players = mode === "LOCAL" ? 2 : maxPlayers;
   const needed = players * 11;
   const pool = pools.find((item) => item.key === category);
@@ -496,25 +499,27 @@ export function SetupScreen({
         <h1 className="text-3xl font-black sm:text-4xl">PENALTY SHOOTOUT.</h1>
       </div>
 
-      {/* Create Game / Join Room */}
-      <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-border bg-surface p-1.5">
-        {(["create", "join"] as const).map((item) => (
-          <button
-            key={item}
-            type="button"
-            onClick={() => setTab(item)}
-            className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${
-              tab === item
-                ? "bg-accent text-accent-ink shadow-md shadow-accent/25"
-                : "bg-surface-2 text-foreground/80 hover:text-foreground"
-            }`}
-          >
-            {item === "create" ? "Create Game" : "Join Room"}
-          </button>
-        ))}
-      </div>
+      {/* Create Game / Join Room (online only) */}
+      {mode === "ONLINE" && (
+        <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-border bg-surface p-1.5">
+          {(["create", "join"] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setTab(item)}
+              className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${
+                activeTab === item
+                  ? "bg-accent text-accent-ink shadow-md shadow-accent/25"
+                  : "bg-surface-2 text-foreground/80 hover:text-foreground"
+              }`}
+            >
+              {item === "create" ? "Create Game" : "Join Room"}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {tab === "create" ? (
+      {activeTab === "create" ? (
         <Panel className="space-y-4">
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface-2 p-3">
             <div className="flex items-center gap-3">

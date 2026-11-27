@@ -31,7 +31,7 @@ const eyebrowFont = Orbitron({ subsets: ["latin"], weight: "800" });
 
 // "Play Draft" opens the game modes page, where the player picks Local or Online.
 const DRAFT_HREF = "/game-modes";
-const CARDS_HREF = "/cards";
+const CARDS_HREF = "/game-modes?game=cards";
 
 const stepMeta = [
   {
