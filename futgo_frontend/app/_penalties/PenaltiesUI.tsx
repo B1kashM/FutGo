@@ -938,7 +938,7 @@ export function DraftScreen({
         <span className="text-xs text-foreground/70">Pick order: {order}</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
         {draft.offers.map((player) => (
           <button
             key={player.player_id}
